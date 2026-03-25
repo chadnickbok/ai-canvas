@@ -8,7 +8,7 @@ MCP remains a critical feature, but it is not the foundation of the desktop runt
 
 The desktop UI must work fully without MCP.
 
-The MCP server must continue to work when the editor window is closed because the app remains resident in the tray. In v1, that closed-window mode is inspection-only because the renderer and its browser-backed measurement surface are not kept alive after the editor window closes. Only explicitly quitting the tray app should shut down the MCP server.
+The MCP server must continue to work when the editor window is closed because the app remains resident in the tray. In v1, that closed-window mode is inspection-only because the renderer and its browser-backed measurement surface are not kept alive after the editor window closes. A close attempt blocked by a final save or save error is not yet closed-window mode because the renderer remains alive until close actually succeeds or the user explicitly discards unsaved changes. Only explicitly quitting the tray app should shut down the MCP server.
 
 MCP is a local bridge over the same command/query/document core used by the UI.
 
@@ -56,11 +56,14 @@ The MCP runtime should assume:
 
 - the Electron app starts the MCP listener by default
 - closing the editor window keeps the app resident in the tray and leaves MCP running
-- closing the editor window tears down the renderer and its browser-backed measurement surface in v1
+- once the editor window actually closes, the renderer and its browser-backed measurement surface are torn down in v1
+- a blocked close-triggered save attempt keeps the window open and leaves MCP in `read_write` mode until close actually succeeds or the user discards unsaved changes
 - when no measurement surface is available, MCP remains read-only until the editor window is reopened
 - explicitly quitting the tray app shuts down MCP
 - the app supports one active project at a time in v1
+- each active project contains exactly one document in v1
 - the active project is the most recently opened project
+- project targeting implies the active project's sole document in v1
 - mutations against a project are serialized through the same single-threaded command path used by the UI
 
 ## Architecture
@@ -94,6 +97,8 @@ In `read_only` mode:
 - browser-capture workflows such as screenshots must fail fast with `measurement_surface_unavailable`
 - the bridge must not queue writes for later replay
 
+A close request that is still blocked by final-save work or final-save failure is not `read_only` mode because the renderer has not been torn down yet.
+
 ## Project targeting
 
 The MCP layer should work against a clear local project/session model.
@@ -102,6 +107,7 @@ Recommended stance:
 
 - tools can target a project by id
 - when one project is active, tools may default to the active project
+- v1 does not add separate document-targeting or document-switching MCP surface because the targeted project's sole document is implied
 - tools should still allow explicit project targeting to avoid ambiguity
 
 ## Initial MCP surface

@@ -2,6 +2,8 @@
 
 This document defines the canonical persisted document schema for AI Canvas Desktop.
 
+In v1, each project contains exactly one document. This schema describes that single document/workspace.
+
 It is the normative contract for:
 
 - local project persistence

@@ -53,6 +53,8 @@ A command batch always targets exactly one document.
 
 Commands do not span multiple projects or multiple documents.
 
+In v1, product flows usually resolve that document from the selected project's sole document workspace.
+
 ### 3.2 Commands operate on normalized-for-use documents
 
 Commands are applied to the normalized in-memory document shape.

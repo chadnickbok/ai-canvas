@@ -105,6 +105,7 @@ Notes:
 
 * `base_revision` is an optional optimistic concurrency token
 * conflict behavior is defined in `docs/command-semantics.md`
+* in v1, callers usually derive `document_id` from the targeted project's sole document
 
 ## 4. Shared Primitive Types
 

@@ -2,7 +2,7 @@
 
 This directory contains the current product and implementation docs for AI Canvas Desktop.
 
-The current docs settle product vocabulary, runtime boundaries, editor-surface composition, local storage semantics, the MCP stance for v1, the canonical document schema, normalization rules, computed-layout refresh behavior, rendering behavior, command semantics, command payload wire shapes, project snapshot portability, and testing/release expectations. That includes the v1 contract that MCP remains available for inspection after the editor window closes, while write-capable flows still require a live browser-backed measurement surface.
+The current docs settle product vocabulary, including the v1 `project > document > scene` hierarchy, runtime boundaries, editor-surface composition, local storage semantics, the MCP stance for v1, the canonical document schema, normalization rules, computed-layout refresh behavior, rendering behavior, command semantics, command payload wire shapes, project snapshot portability, and testing/release expectations. That includes the v1 contract that every project contains exactly one document, that window close blocks on a final autosave attempt before renderer teardown, and that MCP remains available for inspection after the editor window closes while write-capable flows still require a live browser-backed measurement surface.
 
 ## Current docs
 
@@ -16,7 +16,7 @@ The current docs settle product vocabulary, runtime boundaries, editor-surface c
   Defines the three-layer edit-time workspace composition for renderer, interaction overlay, and editor UI.
 
 - [storage-model.md](storage-model.md)
-  Defines how projects, documents, history, assets, and exports are stored locally.
+  Defines how projects, the sole v1 document, history, assets, and exports are stored locally.
 
 - [local-mcp.md](local-mcp.md)
   Defines the local MCP strategy for the desktop app.

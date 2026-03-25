@@ -36,7 +36,7 @@ The snapshot format must be:
 It should support:
 
 - one project
-- one or more documents
+- one document
 - embedded metadata
 - content-addressed assets
 - optional thumbnails/previews
@@ -51,6 +51,8 @@ The snapshot format is not intended to be:
 - an undo/redo journal
 - a sync protocol
 - a collaborative merge format
+- a multi-document project container in v1
+- a multi-project bundle in v1
 
 Snapshots are point-in-time captures of durable project state.
 
@@ -60,7 +62,7 @@ A project snapshot is a bundle with:
 
 - one manifest
 - one project metadata file
-- one or more document JSON files
+- one document JSON file
 - zero or more asset files
 - optional preview/thumbnail files
 
@@ -104,10 +106,10 @@ Example:
 my-project.aicp
   manifest.json
   project.json
-  documents/
+  document.json
   assets/
   previews/
-````
+```
 
 ## 6. Canonical Directory Layout
 
@@ -115,8 +117,7 @@ my-project.aicp
 snapshot-root/
   manifest.json
   project.json
-  documents/
-    <document-id>.json
+  document.json
   assets/
     sha256/
       ab/
@@ -125,15 +126,14 @@ snapshot-root/
         7f9d3c....
   previews/
     project-thumbnail.png
-    documents/
-      <document-id>.png
+    document-thumbnail.png
 ```
 
 ### Rules
 
 * `manifest.json` is required
 * `project.json` is required
-* `documents/` is required, even if it contains only one document
+* `document.json` is required
 * `assets/` is required if any asset is referenced
 * `previews/` is optional
 
@@ -141,15 +141,14 @@ snapshot-root/
 
 A snapshot contains exactly one project.
 
-A project contains:
+In v1, that project contains exactly one document.
 
-* project metadata
-* one or more documents
-* shared asset payloads referenced by those documents
+V1 export and import do not support:
 
-This allows the format to support future multi-document projects without redesign.
+* multiple projects per bundle
+* multiple documents per project
 
-In v1, most exported projects may contain exactly one document.
+Future snapshot versions may expand beyond that, but snapshot version 1 must not imply those shapes.
 
 ## 8. Manifest
 
@@ -159,7 +158,7 @@ It describes:
 
 * format version
 * project id
-* document ids
+* document id
 * asset inventory
 * checksums
 * entrypoints
@@ -181,17 +180,17 @@ type SnapshotManifest = {
 
   entries: {
     project: "project.json";
-    documents: Record<string, string>;
+    document: "document.json";
     assets: Record<string, SnapshotAssetEntry>;
     previews?: {
       project_thumbnail?: string;
-      document_thumbnails?: Record<string, string>;
+      document_thumbnail?: string;
     };
   };
 
   checksums: {
     project_json_sha256: string;
-    document_sha256: Record<string, string>;
+    document_json_sha256: string;
     asset_sha256: Record<string, string>;
     preview_sha256?: Record<string, string>;
   };
@@ -204,7 +203,7 @@ type SnapshotManifest = {
 * `snapshot_version` is the snapshot-format version, not the document schema version
 * all paths are relative to the snapshot root
 * all checksums are SHA-256 hex digests
-* every referenced document and asset must appear in `checksums`
+* every referenced asset must appear in `checksums`
 
 ## 9. Project Metadata
 
@@ -219,9 +218,7 @@ type ProjectSnapshotMetadata = {
   created_at?: string;
   updated_at?: string;
 
-  default_document_id: string;
-
-  document_ids: string[];
+  document_id: string;
 
   tags?: string[];
   notes?: string;
@@ -237,36 +234,34 @@ type ProjectSnapshotMetadata = {
 ### Rules
 
 * `id` must match `manifest.project_id`
-* `default_document_id` must exist in `document_ids`
-* `document_ids` must match the document entries listed in `manifest.json`
+* `document_id` must match the `document_id` stored inside `document.json`
 
-## 10. Document Files
+## 10. Document File
 
-Each document is stored as its own JSON file under `documents/`.
-
-Path convention:
+The document is stored as:
 
 ```text
-documents/<document-id>.json
+document.json
 ```
 
-Each document file contains the canonical persisted document shape defined in:
+The file contains the canonical persisted document shape defined in:
 
 * `docs/document-schema.md`
 
-That means the snapshot stores normalized documents, not partial or transient UI state.
+That means the snapshot stores a normalized document, not partial or transient UI state.
 
 ### Rules
 
-* document filenames should use the document id directly
+* `document.json` is required
 * the document file contents must already be normalized and materialized
+* `document.json` must contain a `document_id` equal to `project.json.document_id`
 * snapshot import should still re-normalize defensively on load
 
 ## 11. Asset Files
 
-Assets are stored separately from documents.
+Assets are stored separately from the document.
 
-Documents reference assets by asset id. The snapshot manifest maps those asset ids to actual payload files.
+The document references assets by asset id. The snapshot manifest maps those asset ids to actual payload files.
 
 Canonical manifest entry:
 
@@ -310,7 +305,7 @@ Inside the document JSON, assets should still use the canonical document asset m
 
 However, for snapshot portability, the preferred snapshot write policy is:
 
-* documents include asset metadata records
+* the document includes asset metadata records
 * binary content is stored as separate files in the snapshot bundle
 * document asset records should use snapshot-import-friendly source metadata rather than large embedded payloads when possible
 
@@ -346,13 +341,12 @@ They are not authoritative.
 Examples:
 
 * project thumbnail
-* per-document preview PNG
+* document thumbnail
 
 Preview files live under:
 
 ```text
 previews/
-previews/documents/
 ```
 
 ### Rules
@@ -365,16 +359,15 @@ previews/documents/
 
 When writing a snapshot:
 
-1. normalize the project
-2. normalize all included documents
-3. gather the full referenced asset set
-4. write manifest
-5. write project metadata
-6. write document JSON files
-7. write asset files
-8. optionally write previews
-9. compute and write checksums
-10. archive if writing `.aicp`
+1. normalize the project's sole document
+2. gather the full referenced asset set
+3. write manifest
+4. write project metadata
+5. write `document.json`
+6. write asset files
+7. optionally write previews
+8. compute and write checksums
+9. archive if writing `.aicp`
 
 ### Export must not include
 
@@ -395,19 +388,30 @@ When reading a snapshot:
 1. open archive or directory
 2. read `manifest.json`
 3. validate `snapshot_format` and `snapshot_version`
-4. validate referenced paths exist where required
-5. validate checksums when available
-6. read `project.json`
-7. read document files
-8. read asset files
-9. re-normalize imported documents
-10. repair/dismiss broken references according to document normalization rules
+4. validate the bundle declares exactly one project and one document
+5. validate referenced paths exist where required
+6. validate checksums when available
+7. read `project.json`
+8. read `document.json`
+9. read asset files
+10. re-normalize the imported document
+11. repair or dismiss broken references according to document normalization rules
 
-### Import should prefer repair over hard failure
+### Import must reject unsupported bundle identity
 
-If part of a snapshot is damaged:
+For v1, import must fail fast if the bundle attempts to encode:
 
-* preserve readable documents
+* multiple projects
+* multiple documents
+* a multi-document manifest or metadata shape
+
+This is not a recoverable warning because it changes the supported identity model of the import.
+
+### Import should prefer repair over hard failure for damaged content
+
+If part of a supported v1 snapshot is damaged:
+
+* preserve the readable document
 * preserve readable assets
 * drop broken references when necessary
 * surface warnings to the user
@@ -420,10 +424,11 @@ A snapshot is valid when:
 
 * `manifest.json` exists and parses
 * `project.json` exists and parses
-* every listed document exists and parses
+* `document.json` exists and parses
 * every listed asset path exists for referenced assets
 * checksums match when validation is enabled
 * project/document id relationships are coherent
+* the bundle does not attempt to encode multiple projects or multiple documents
 
 ### Recoverable issues
 
@@ -441,9 +446,11 @@ These should fail snapshot import unless the user explicitly chooses partial rec
 
 * missing `manifest.json`
 * missing `project.json`
-* unreadable or invalid default document
-* fatal document parse failure for all documents
+* missing `document.json`
+* unreadable or invalid `document.json`
 * invalid archive structure that prevents traversal
+* any declared multi-project bundle shape
+* any declared multi-document bundle shape
 
 ## 17. Checksums
 
@@ -475,6 +482,8 @@ A reader must reject snapshots with unsupported `snapshot_version` unless it exp
 
 A reader may support importing older snapshot versions by migration.
 
+Future snapshot versions may introduce multi-document project exports or other container changes. Snapshot version 1 must not imply or accept those shapes.
+
 ## 19. Minimal Valid Snapshot Example
 
 Directory form:
@@ -483,8 +492,7 @@ Directory form:
 snapshot-root/
   manifest.json
   project.json
-  documents/
-    doc_home.json
+  document.json
 ```
 
 Example `manifest.json`:
@@ -501,16 +509,12 @@ Example `manifest.json`:
   },
   "entries": {
     "project": "project.json",
-    "documents": {
-      "doc_home": "documents/doc_home.json"
-    },
+    "document": "document.json",
     "assets": {}
   },
   "checksums": {
     "project_json_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
-    "document_sha256": {
-      "doc_home": "2222222222222222222222222222222222222222222222222222222222222222"
-    },
+    "document_json_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
     "asset_sha256": {}
   }
 }
@@ -522,8 +526,7 @@ Example `project.json`:
 {
   "id": "project_001",
   "name": "My Project",
-  "default_document_id": "doc_home",
-  "document_ids": ["doc_home"]
+  "document_id": "doc_home"
 }
 ```
 
@@ -532,6 +535,7 @@ Example `project.json`:
 A writer should:
 
 * emit canonical normalized document JSON
+* emit exactly one document in v1
 * include only referenced assets by default
 * de-duplicate identical asset bytes by content hash
 * emit previews only as optional extras
@@ -544,8 +548,9 @@ A reader should:
 
 * accept both directory and archive form
 * validate conservatively
+* reject multi-document or multi-project v1 bundle shapes
 * import defensively
-* normalize documents after load
+* normalize the document after load
 * preserve recoverable content
 * surface warnings for missing previews, missing assets, and checksum mismatches
 
@@ -559,4 +564,3 @@ This document does not define:
 * sync protocol behavior
 * command transport
 * collaborative merge semantics
-

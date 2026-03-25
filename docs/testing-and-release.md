@@ -281,6 +281,12 @@ At minimum, persistence tests must cover:
 
 - save and reopen of a valid project
 - autosaved document survives app restart
+- dirty close with no autosave in flight starts a final autosave before teardown
+- dirty close with autosave already in flight waits for that save to resolve before teardown
+- successful close-triggered final save allows close-to-tray
+- failed close-triggered final save keeps the window open and leaves the last durable state unchanged
+- timed-out close-triggered final save keeps the window open and surfaces the same failure path
+- discard-and-close after final save failure drops unsaved in-memory state and reopens from the last durable state
 - recovery offered when recovery artifact is newer than durable state
 - recovery decline leaves last durable state intact
 - recovery accept restores newer recoverable state
@@ -336,6 +342,8 @@ At minimum, MCP tests must cover:
 - disable MCP and verify listener is unavailable
 - verify MCP binds only to localhost
 - verify MCP remains available when editor window is closed but app remains resident in tray
+- verify MCP remains `read_write` while a close-triggered final save is still blocking window close
+- verify MCP becomes `read_only` only after the window actually closes
 - verify MCP shuts down on explicit app quit
 
 ## 5.8 Snapshot import/export tests
@@ -357,7 +365,8 @@ At minimum, snapshot tests must cover:
 
 - minimal valid snapshot
 - snapshot with one document
-- multi-document snapshot if reader support exists
+- reject multi-document snapshot as unsupported in v1
+- reject bundle shape that attempts to encode multiple projects
 - export excludes SQLite internals
 - export excludes undo/redo state
 - export de-duplicates identical asset bytes
@@ -554,6 +563,7 @@ At minimum, manual release verification should cover:
 * verify visible rendering is reasonable
 * verify autosave indicator behavior if present
 * close and reopen the project
+* edit a project, close the window, and verify close waits for final save before tray transition
 * export a snapshot
 * import the snapshot as a new project
 * close the editor window and verify tray-resident behavior
@@ -580,7 +590,7 @@ AI Canvas Desktop does not need hyperscale backend-style SLOs, but it does need 
 The app is not releasable if:
 
 * it crashes in normal project create/open/edit flow
-* it hangs indefinitely during normal autosave
+* it hangs indefinitely during normal autosave or during close-triggered final save
 * it cannot reopen a project saved by the same version
 * MCP commonly wedges the active project session
 * snapshot import/export commonly fails on valid fixtures
@@ -670,4 +680,3 @@ This document does not define:
 * analytics-driven rollout strategy
 * auto-update infrastructure
 * team process such as code review ownership or sprint planning
-

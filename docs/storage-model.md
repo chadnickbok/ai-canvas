@@ -61,6 +61,8 @@ The filesystem stores:
 
 A local project is the product-facing unit.
 
+A document is the canvas/workspace inside a project. Future versions may allow multiple documents per project, but v1 stores exactly one document per project.
+
 Recommended project record fields:
 
 - id
@@ -76,7 +78,7 @@ Recommended project record fields:
 
 For v1, the simplest good model is:
 
-- current document state stored directly in the `projects` table
+- the sole current document state stored directly in the `projects` table as `current_document_json`
 - optional history or checkpoints in separate tables
 - deterministic derived state treated as cacheable and rebuildable, not canonical
 
@@ -154,9 +156,10 @@ The desktop app should distinguish between:
 Recommended product behavior:
 
 - the app manages a local project library in SQLite
-- users can export a portable project snapshot
-- users can import a portable project snapshot
+- users can export a portable project snapshot containing exactly one project and one document in v1
+- users can import a portable project snapshot containing exactly one project and one document in v1
 - importing creates a new local project plus asset entries
+- importing rejects multi-document or multi-project bundles in v1
 - exported snapshots exclude local history
 - exported snapshots should avoid leaking app-internal database structure
 

@@ -33,7 +33,7 @@ The main process owns:
 
 The main process should not contain editor business logic directly.
 
-For v1, the app supports one editor window. Closing the window tears down the renderer, leaves the app resident in the tray, and does not exit the process. V1 does not keep a hidden `BrowserWindow`, offscreen renderer, or separate headless browser measurement service alive after the editor window closes.
+For v1, the app supports one editor window. After a successful close-to-tray transition, or an explicit discard of unsaved changes, the window closes, the renderer is torn down, the app remains resident in the tray, and the process does not exit. V1 does not keep a hidden `BrowserWindow`, offscreen renderer, or separate headless browser measurement service alive after the editor window closes.
 
 ### 2. Preload bridge
 
@@ -59,7 +59,7 @@ The renderer owns the React editor UI.
 It should contain:
 
 - project library views
-- editor routes
+- editor routes for the active project's sole document workspace in v1
 - scene list
 - canvas/editor chrome
 - inspector
@@ -153,17 +153,33 @@ The runtime should assume:
 
 - one editor window in v1
 - one active project at a time
+- each active project contains exactly one document in v1
 - the active project is the most recently opened project
+- opening a project opens that sole document workspace
 - MCP tools may default to the active project when no explicit project id is provided
 - command batches for a given project are serialized through one command-application path
 - the tray-resident process can keep the active project session available even when no editor window is visible
 - when no editor window is visible, the active project session remains inspectable but write-capable flows are unavailable
 
+Because v1 has one document per project, project selection and document selection are the same routing choice at the product level.
+
 SQLite is the persistence authority for structured project state. The live project session is the authoritative in-memory representation while the app is running.
 
 The browser renderer is the layout engine. Persisted `render_style` stores layout and style intent; persisted `computed_layout` stores the most recent measured layout snapshot and is refreshed after layout-affecting changes before commit.
 
-Closing the editor window must either finish or fail any in-flight autosave before renderer teardown. The app must not transition into tray-only read-only mode while pretending unsaved writes still have a current measured layout snapshot.
+Closing the editor window is a save-gated flow in v1:
+
+- if an autosave is already in flight, block close until that save resolves
+- if the project is dirty and no autosave is running, start a final autosave immediately
+- while the close-triggered save is running, keep the window and renderer alive and show blocking save UI
+- the close-triggered save uses a fixed 10 second timeout in v1, and timeout is treated as save failure
+- on save success, proceed with close-to-tray and tear down the renderer
+- on save failure or timeout, cancel close, keep the window open, and show blocking error UI with `Retry Save`, `Keep Editing`, and `Discard and Close`
+- `Retry Save` starts another close-triggered save attempt
+- `Keep Editing` abandons the close request and returns to the editor
+- `Discard and Close` abandons unsaved in-memory changes and closes to tray using the last durable persisted state
+
+The app must not transition into tray-only read-only mode before a successful close or an explicit discard.
 
 ## Recommended package boundaries
 

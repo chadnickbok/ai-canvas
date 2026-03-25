@@ -44,11 +44,15 @@ Planned and in-progress core capabilities:
 
 A **project** is the top-level unit of storage, editing, and MCP targeting.
 
-A project contains one document workspace, local design-system data, local history metadata, and references to disk-backed assets and exported artifacts.
+A project contains exactly one document in v1, local design-system data, local history metadata, and references to disk-backed assets and exported artifacts.
+
+A document is the canvas/workspace inside a project. Future versions may allow multiple documents per project, but that is out of scope for v1.
 
 ### Document workspace
 
-A project opens into one **document workspace**.
+Opening a project opens its sole **document workspace** in v1.
+
+There is no document switcher or multi-canvas project workflow in v1.
 
 The workspace is spatial, scene-first, and document-scoped. It owns:
 
@@ -101,7 +105,9 @@ AI Canvas Desktop includes a first-class local MCP bridge.
 
 The MCP bridge is built on the same document schema, command system, and semantic query logic as the UI. It is not a separate model or adapter-only layer. MCP is enabled by default, runs only on localhost on a configurable port, and stays available when the editor window closes because the app remains resident in the tray.
 
-In v1, closing the editor window tears down the renderer and its browser-backed measurement surface. MCP inspection remains available against the active project session, but mutation or browser-capture workflows require the editor window to be reopened.
+At the product surface, MCP targets projects. In v1, each project contains exactly one document, so the active project also implies the active document.
+
+In v1, a window-close request is intercepted before renderer teardown. If the project is dirty or an autosave is already in flight, the window stays open until a final autosave attempt succeeds or fails. A failed or timed-out final save keeps the window open and shows blocking error UI; only a successful save or an explicit discard may continue close into tray. Once the window actually closes, the renderer and its browser-backed measurement surface are torn down. MCP inspection remains available against the active project session, but mutation or browser-capture workflows require the editor window to be reopened.
 
 ## Tech stack
 
@@ -118,6 +124,7 @@ AI Canvas Desktop is:
 - local-first
 - single-user for v1
 - single-window for v1
+- one document per project in v1
 - offline-capable for core editing
 - project-library-driven
 - scene-first
@@ -205,7 +212,7 @@ Typical structure:
   recovery/
 ```
 
-- `app.db` stores project records, current document JSON, preferences, recent projects, and local history metadata
+- `app.db` stores project records, each project's sole `current_document_json` in v1, preferences, recent projects, and local history metadata
 - `assets/` stores binary assets
 - `exports/` stores exported project snapshots
 - `imports/` optionally stages imported project snapshots or other source bundles

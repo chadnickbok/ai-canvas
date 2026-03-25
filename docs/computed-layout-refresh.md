@@ -71,6 +71,8 @@ If no browser-backed measurement surface is available, the write must fail with 
 
 Autosave follows the same requirement as commit.
 
+Window close is one explicit autosave boundary in v1. If the user requests close while the project is dirty or while an autosave is already running, the runtime must start or await a final autosave attempt before renderer teardown.
+
 In v1, if the editor window has been closed and no measurement surface remains, autosave must not persist the document as though a fresh layout snapshot exists.
 
 ### 4.3 Optional explicit refresh
@@ -134,6 +136,8 @@ The last persisted `computed_layout` may still be used for inspection while the 
 If commit or autosave requires computed-layout refresh and the browser-backed measurement path cannot run successfully, the document must not be persisted as though it has a current layout snapshot.
 
 The caller may keep the document in memory, retry refresh, or surface a save failure, but it must not silently write a falsely current `computed_layout`.
+
+If this failure happens during a close-triggered final autosave, the close must be canceled, the window must remain open, and the user must be shown retry, keep-editing, and explicit-discard options. The v1 10 second close-save timeout is treated as this same failure class.
 
 In v1, a closed editor window is one concrete case where refresh is unavailable because no measurement surface remains. The runtime should therefore expose a clear `measurement_surface_unavailable` failure rather than implying that a hidden or headless renderer exists.
 

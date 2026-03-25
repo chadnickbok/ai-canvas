@@ -9,10 +9,12 @@ AI Canvas Desktop is a standalone Electron app for local scene-first mockup auth
 The canonical product story is:
 
 - a **project** is the top-level unit of creation, editing, persistence, and MCP targeting
-- opening a project enters one **document workspace**
-- **scenes** are the primary top-level content unit
+- a **document** is a canvas/workspace inside a project
+- opening a project enters its sole **document workspace** in v1
+- future versions may allow multiple documents per project, but that is out of scope for v1
+- **scenes** are the primary top-level content unit inside a document
 - project state is split between structured data in SQLite and large/binary artifacts on disk
-- export creates a portable **project snapshot** that can be imported later as a new project
+- export creates a portable **project snapshot** that contains exactly one project and one document in v1 and can be imported later as a new project
 - the document owns variables, styles, design brief, assets, semantic authoring fields, and authored document state
 - resolved render state is deterministic derived/cacheable state, not the canonical authored state
 
@@ -24,12 +26,15 @@ The desktop app is:
 
 - single-user for v1
 - single-window for v1
+- one document per project for v1
 - autosave-first rather than manual-save-first
 - library-backed rather than raw-file-backed for v1
 
 The active project is the most recently opened project.
 
-Closing the editor window does not quit the app. In v1, closing the window tears down the editor renderer and its browser-backed measurement surface, then leaves the app resident in the tray. MCP can continue to target the active project session for inspection, but mutation and browser-capture workflows require the editor window to be reopened. Explicit quit from the tray or app menu shuts down the runtime and the MCP server.
+Opening the active project opens its sole document workspace. V1 does not include document switching within a project.
+
+Closing the editor window does not quit the app. In v1, a close request is intercepted before renderer teardown. If an autosave is already in flight, the app blocks close until that save resolves. If the project is dirty and no save is in flight, the app starts a final autosave and blocks close until it succeeds or fails. A failed or timed-out close-triggered save keeps the window open and shows blocking error UI with `Retry Save`, `Keep Editing`, and `Discard and Close`. Only a successful save or an explicit discard may continue the close-to-tray flow. After the window actually closes, the editor renderer and its browser-backed measurement surface are torn down, the app remains resident in the tray, and MCP can continue to target the active project session for inspection. Explicit quit from the tray or app menu shuts down the runtime and the MCP server.
 
 ## Current excluded scope
 
@@ -44,6 +49,7 @@ The desktop app does not include these concepts as part of the core product:
 - remote-change replay
 - browser route handoff from a backend
 - mandatory network connectivity
+- multiple documents per project
 
 ## Offline-first rule
 
@@ -88,6 +94,7 @@ The current product story does not include:
 - network-required sync
 - browser-hosted editing as a canonical surface
 - multi-window editing
+- multi-document project workflows
 
 ## Launch bar
 
