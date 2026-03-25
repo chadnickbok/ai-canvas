@@ -13,7 +13,15 @@ It answers:
 - how ordering, clipping, and visibility work
 - what fallback behavior is allowed
 
-This document is normative for the desktop renderer.
+This document is normative for the desktop renderer layer described in `docs/editor-surface-architecture.md`.
+
+It defines the pure document render only.
+
+It does not define:
+
+- the interaction layer
+- transient editor overlays such as selection outlines, guides, or drag previews
+- editor chrome such as panels, inspectors, or toolbars
 
 ## 1. Authority
 
@@ -21,8 +29,9 @@ For rendering behavior, the order of authority is:
 
 1. this document
 2. the renderer implementation in `packages/editor-ui`
-3. `docs/document-schema.md`
-4. `docs/document-normalization.md`
+3. `docs/editor-surface-architecture.md`
+4. `docs/document-schema.md`
+5. `docs/document-normalization.md`
 
 If these disagree, update the docs and implementation in the same change.
 

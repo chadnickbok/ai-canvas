@@ -2,7 +2,7 @@
 
 This directory contains the current product and implementation docs for AI Canvas Desktop.
 
-The current docs settle product vocabulary, runtime boundaries, local storage semantics, the MCP stance for v1, the canonical document schema, normalization rules, computed-layout refresh behavior, rendering behavior, and command semantics. Command payload wire shapes and the project snapshot format are still pending follow-up docs.
+The current docs settle product vocabulary, runtime boundaries, editor-surface composition, local storage semantics, the MCP stance for v1, the canonical document schema, normalization rules, computed-layout refresh behavior, rendering behavior, command semantics, command payload wire shapes, project snapshot portability, and testing/release expectations. That includes the v1 contract that MCP remains available for inspection after the editor window closes, while write-capable flows still require a live browser-backed measurement surface.
 
 ## Current docs
 
@@ -11,6 +11,9 @@ The current docs settle product vocabulary, runtime boundaries, local storage se
 
 - [desktop-architecture.md](desktop-architecture.md)
   Defines the Electron, renderer, preload, tray, storage, and worker boundaries.
+
+- [editor-surface-architecture.md](editor-surface-architecture.md)
+  Defines the three-layer edit-time workspace composition for renderer, interaction overlay, and editor UI.
 
 - [storage-model.md](storage-model.md)
   Defines how projects, documents, history, assets, and exports are stored locally.
@@ -33,13 +36,11 @@ The current docs settle product vocabulary, runtime boundaries, local storage se
 - [command-semantics.md](command-semantics.md)
   Defines the authoritative mutation semantics shared by the UI and MCP.
 
-## Planned docs
+- [command-payloads.md](command-payloads.md)
+  Defines the command batch envelope, per-command payload shapes, and request/result wrappers.
 
-- `command-payloads.md`
-  Will define exact command payload wire shapes and request wrappers.
+- [project-snapshot-format.md](project-snapshot-format.md)
+  Defines the portable export/import artifact and its compatibility rules.
 
-- `project-snapshot-format.md`
-  Will define the portable export/import artifact and its compatibility rules.
-
-- `testing-and-release.md`
-  Will define the validation gates and release bar for the desktop app.
+- [testing-and-release.md](testing-and-release.md)
+  Defines the validation strategy, release gates, and manual verification bar for the desktop app.

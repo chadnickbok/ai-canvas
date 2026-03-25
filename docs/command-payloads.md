@@ -91,7 +91,7 @@ type CommandBatch = {
 };
 ```
 
-A concrete implementation may wrap this with metadata such as:
+The canonical application envelope is:
 
 ```ts
 type ApplyCommandsInput = {
@@ -100,6 +100,11 @@ type ApplyCommandsInput = {
   base_revision?: number;
 };
 ```
+
+Notes:
+
+* `base_revision` is an optional optimistic concurrency token
+* conflict behavior is defined in `docs/command-semantics.md`
 
 ## 4. Shared Primitive Types
 
@@ -122,9 +127,17 @@ type NodeKind =
   | "svg"
   | "svg-visual-element";
 
-type ComputedStyleValue = string | number;
+type RenderStyleValue = string | number;
 
-type ComputedStylePatch = Record<string, ComputedStyleValue | null>;
+type RenderStylePatch = Record<string, RenderStyleValue | null>;
+
+type OpaqueValue =
+  | null
+  | boolean
+  | number
+  | string
+  | OpaqueValue[]
+  | { [key: string]: OpaqueValue };
 
 type NodeSemanticSlot =
   | "node.layout.gap"
@@ -165,10 +178,10 @@ type CreateSceneCommand = {
   scene: {
     id: SceneId;
     name: string;
-    left: number;
-    top: number;
-    width: number;
-    height: number;
+    left?: RenderStyleValue;
+    top?: RenderStyleValue;
+    width?: RenderStyleValue;
+    height?: RenderStyleValue;
     scene_metadata?: {
       group?: string;
       notes?: string;
@@ -176,7 +189,7 @@ type CreateSceneCommand = {
       summary?: string;
       tags?: string[];
     };
-    computed_style?: Record<string, ComputedStyleValue>;
+    render_style?: Record<string, RenderStyleValue>;
   };
 };
 ```
@@ -185,7 +198,9 @@ Notes:
 
 * `scene.id` is also the backing frame node id
 * omitted `scene_metadata.tags` defaults to `[]`
-* omitted `computed_style.width` / `height` may be synthesized during normalization
+* convenience geometry fields are translated into backing-frame `render_style`
+* callers must not provide the same geometry property in both a convenience field and `render_style`
+* omitted width/height remain omitted authored inputs
 
 ## 5.2 `update_scene`
 
@@ -195,15 +210,23 @@ type UpdateSceneCommand = {
   scene_id: SceneId;
   patch: {
     name?: string;
-    left?: number;
-    top?: number;
-    width?: number;
-    height?: number;
+    left?: RenderStyleValue;
+    top?: RenderStyleValue;
+    width?: RenderStyleValue;
+    height?: RenderStyleValue;
+    render_style?: RenderStylePatch;
   };
 };
 ```
 
-This command does not directly edit `child_count`.
+Rules:
+
+* this command updates scene name and backing-frame render inputs only
+* scene metadata is edited through `update_scene_metadata`
+* convenience geometry fields are translated into backing-frame `render_style`
+* callers must not provide the same geometry property in both a convenience field and `render_style`
+* `render_style[key] = null` means delete that backing-frame render-style property
+* this command does not directly edit `child_count`
 
 ## 5.3 `delete_scene`
 
@@ -249,11 +272,13 @@ type BaseCreateNodePayload = {
   id: NodeId;
   kind: NodeKind;
   name: string;
-  width: number;
-  height: number;
+  left?: RenderStyleValue;
+  top?: RenderStyleValue;
+  width?: RenderStyleValue;
+  height?: RenderStyleValue;
   is_visible?: boolean;
   is_locked?: boolean;
-  computed_style?: Record<string, ComputedStyleValue>;
+  render_style?: Record<string, RenderStyleValue>;
   asset_refs?: AssetId[];
 };
 
@@ -307,6 +332,9 @@ Rules:
 
 * `parent.parent_id = null` creates a loose top-level node
 * callers should use `create_scene` rather than creating a scene backing frame directly
+* convenience geometry fields are translated into `render_style`
+* callers must not provide the same geometry property in both a convenience field and `render_style`
+* omitted width/height remain omitted authored inputs
 
 ## 5.6 `update_node`
 
@@ -318,9 +346,11 @@ type UpdateNodeCommand = {
     name?: string;
     is_visible?: boolean;
     is_locked?: boolean;
-    width?: number;
-    height?: number;
-    computed_style?: ComputedStylePatch;
+    left?: RenderStyleValue;
+    top?: RenderStyleValue;
+    width?: RenderStyleValue;
+    height?: RenderStyleValue;
+    render_style?: RenderStylePatch;
     asset_refs?: AssetId[];
   };
 };
@@ -329,7 +359,9 @@ type UpdateNodeCommand = {
 Patch rules:
 
 * omitted field means unchanged
-* `computed_style[key] = null` means delete that style property
+* convenience geometry fields are translated into `render_style`
+* callers must not provide the same geometry property in both a convenience field and `render_style`
+* `render_style[key] = null` means delete that style property
 * `asset_refs` replaces the entire asset ref array if provided
 
 ## 5.7 `reparent_node`
@@ -361,6 +393,9 @@ Rules:
 
 * `parent_id: null` means reorder `root.child_ids`
 * `child_ids` must be a full replacement ordering for that container
+* `child_ids` must contain exactly the existing children of that container
+* `child_ids` must not contain duplicates
+* reorder does not insert, delete, or reparent children
 
 ## 5.9 `delete_node`
 
@@ -630,6 +665,11 @@ type CreateStyleCommand =
   | CreateTextStyleCommand;
 ```
 
+Rules:
+
+* `type` discriminates the command family
+* `style.family` discriminates the create payload variant
+
 ## 9.2 `update_style`
 
 ```ts
@@ -673,6 +713,7 @@ type UpdateStyleCommand =
 
 Rule:
 
+* `family` discriminates the update payload variant
 * `slots[slot] = null` means remove that slot from the style definition
 
 ## 9.3 `delete_style`
@@ -723,7 +764,7 @@ type AssetRecord = {
   mime_type: string;
   width?: number;
   height?: number;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, OpaqueValue>;
   source:
     | { kind: "data_uri"; data_uri: string }
     | { kind: "base64"; base64: string }
@@ -745,7 +786,7 @@ type UpdateAssetCommand = {
   patch: {
     width?: number | null;
     height?: number | null;
-    metadata?: Record<string, unknown> | null;
+    metadata?: Record<string, OpaqueValue> | null;
     source?:
       | { kind: "data_uri"; data_uri: string }
       | { kind: "base64"; base64: string }
@@ -852,22 +893,13 @@ type Command =
 
 ## 14. Result Envelope
 
-A command application result should return the updated document state and enough metadata for callers to reconcile.
+A command application result should return either the updated document state or a structured failure.
 
-A good canonical shape is:
-
-```ts
-type ApplyCommandsResult = {
-  document_id: string;
-  revision: number;
-  document: RendererDocument;
-};
-```
-
-A richer implementation may also return:
+The canonical success shape is:
 
 ```ts
-type ApplyCommandsResult = {
+type ApplyCommandsSuccess = {
+  ok: true;
   document_id: string;
   revision: number;
   document: RendererDocument;
@@ -881,8 +913,40 @@ type ApplyCommandsResult = {
 };
 ```
 
-Those effect summaries are optional convenience data.
-They are not part of command meaning.
+The canonical error shape is:
+
+```ts
+type ApplyCommandsErrorCode =
+  | "revision_conflict"
+  | "validation_failed"
+  | "unrecoverable_command"
+  | "unknown_command"
+  | "target_not_found"
+  | "measurement_surface_unavailable";
+
+type ApplyCommandsError = {
+  ok: false;
+  document_id: string;
+  revision?: number;
+  error: {
+    code: ApplyCommandsErrorCode;
+    message: string;
+    command_index?: number;
+    details?: Record<string, OpaqueValue>;
+  };
+};
+
+type ApplyCommandsResult =
+  | ApplyCommandsSuccess
+  | ApplyCommandsError;
+```
+
+Rules:
+
+* failures reject the whole batch and leave the document unchanged
+* `revision`, when present on an error, is the current persisted revision known to the command system
+* `command_index` identifies the first failing command when the failure is attributable to one command
+* `effects` are optional convenience data and are not part of command meaning
 
 ## 15. Examples
 
@@ -901,6 +965,9 @@ They are not part of command meaning.
     "scene_metadata": {
       "role": "screen",
       "tags": ["mobile", "home"]
+    },
+    "render_style": {
+      "backgroundColor": "#f6f8fb"
     }
   }
 }
@@ -920,7 +987,7 @@ They are not part of command meaning.
     "text": {
       "content": "Welcome"
     },
-    "computed_style": {
+    "render_style": {
       "fontSize": "32px",
       "fontWeight": 700,
       "color": "#111111"
@@ -951,7 +1018,7 @@ They are not part of command meaning.
   "type": "update_node",
   "node_id": "node_card",
   "patch": {
-    "computed_style": {
+    "render_style": {
       "backgroundColor": "#ffffff"
     }
   }
@@ -970,4 +1037,3 @@ This document does not define:
 * rendering behavior
 * undo/redo storage implementation
 * transport protocol details outside the payload schema itself
-

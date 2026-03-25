@@ -29,7 +29,7 @@ The desktop app is:
 
 The active project is the most recently opened project.
 
-Closing the editor window does not quit the app. The app stays resident in the tray so MCP can continue to target the active project session. Explicit quit from the tray or app menu shuts down the runtime and the MCP server.
+Closing the editor window does not quit the app. In v1, closing the window tears down the editor renderer and its browser-backed measurement surface, then leaves the app resident in the tray. MCP can continue to target the active project session for inspection, but mutation and browser-capture workflows require the editor window to be reopened. Explicit quit from the tray or app menu shuts down the runtime and the MCP server.
 
 ## Current excluded scope
 
@@ -72,7 +72,8 @@ That means:
 - MCP must use the same command/query/document core as the UI
 - MCP must not introduce a second semantic model
 - MCP runs only on localhost on a configurable port
-- closing the editor window must not interrupt active MCP workflows
+- closing the editor window must not interrupt MCP inspection workflows
+- write or browser-capture MCP workflows may be unavailable until the editor window is reopened
 - v1 accepts local-machine trust rather than introducing stronger auth boundaries
 
 ## Product boundaries
@@ -97,5 +98,6 @@ The desktop rewrite is ready when all of the following are true:
 - document-level variables and styles propagate correctly
 - semantic restyle works locally
 - import/export work for the supported project snapshot format
-- the optional local MCP bridge can inspect and mutate the same live project
-- MCP remains available after the window closes until the user explicitly quits the tray app
+- the optional local MCP bridge can inspect the same live project session even after the window closes
+- the optional local MCP bridge can mutate the same live project through the shared command/query core while the editor window is open
+- MCP inspection remains available after the window closes until the user explicitly quits the tray app

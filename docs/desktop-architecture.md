@@ -11,7 +11,7 @@ The app should be:
 - testable
 - TypeScript end-to-end
 - safe across Electron process boundaries
-- headless/tray-capable for MCP
+- tray-capable for MCP without requiring a hidden renderer in v1
 - easy to evolve without turning the renderer into a Node-heavy blob
 
 ## Major runtime pieces
@@ -33,7 +33,7 @@ The main process owns:
 
 The main process should not contain editor business logic directly.
 
-For v1, the app supports one editor window. Closing the window hides the app to the tray and does not exit the process.
+For v1, the app supports one editor window. Closing the window tears down the renderer, leaves the app resident in the tray, and does not exit the process. V1 does not keep a hidden `BrowserWindow`, offscreen renderer, or separate headless browser measurement service alive after the editor window closes.
 
 ### 2. Preload bridge
 
@@ -68,7 +68,25 @@ It should contain:
 - autosave and recovery status presentation
 - DOM-backed rendering and post-render layout measurement used to refresh `computed_layout`
 
+In v1, this renderer is also the only browser measurement surface used for write-capable command commit and browser-capture workflows.
+
 The renderer should not know about SQLite, project storage paths, OS directories, or raw MCP listener details.
+
+### 3.1 Editor surface composition
+
+When a document workspace is open, the renderer process should host three visual layers in this back-to-front order:
+
+- renderer layer
+- interaction layer
+- UI layer
+
+`docs/editor-surface-architecture.md` defines this contract in detail.
+
+At a high level:
+
+- the renderer layer is the pure document render and browser measurement surface
+- the interaction layer is the transparent document-anchored overlay for transient editing affordances
+- the UI layer is editor chrome such as hierarchy, inspector, tools, menus, and panels
 
 ### 4. Document core
 
@@ -127,6 +145,8 @@ Examples:
 
 These can start in-process and later move to worker threads or Electron utility processes.
 
+A future version may introduce a hidden or headless measurement surface here, but v1 should not imply that capability.
+
 ## Runtime session model
 
 The runtime should assume:
@@ -137,10 +157,13 @@ The runtime should assume:
 - MCP tools may default to the active project when no explicit project id is provided
 - command batches for a given project are serialized through one command-application path
 - the tray-resident process can keep the active project session available even when no editor window is visible
+- when no editor window is visible, the active project session remains inspectable but write-capable flows are unavailable
 
 SQLite is the persistence authority for structured project state. The live project session is the authoritative in-memory representation while the app is running.
 
 The browser renderer is the layout engine. Persisted `render_style` stores layout and style intent; persisted `computed_layout` stores the most recent measured layout snapshot and is refreshed after layout-affecting changes before commit.
+
+Closing the editor window must either finish or fail any in-flight autosave before renderer teardown. The app must not transition into tray-only read-only mode while pretending unsaved writes still have a current measured layout snapshot.
 
 ## Recommended package boundaries
 
@@ -207,12 +230,17 @@ Examples of good API calls:
 - `createProject(input)`
 - `openProject(projectId)`
 - `getActiveProject()`
+- `getRuntimeCapabilities()`
 - `applyCommands(projectId, commands)`
 - `inspectDesignSystem(projectId)`
 - `restyleProject(projectId, request)`
 - `importProjectSnapshot(path)`
 - `exportProjectSnapshot(projectId, destination)`
 - `setMcpEnabled(enabled)`
+
+`getRuntimeCapabilities()` should expose whether a browser measurement surface is currently available for write-capable flows.
+
+Write-capable calls such as `applyCommands(projectId, commands)` and `restyleProject(projectId, request)` should fail with `measurement_surface_unavailable` when no renderer-backed measurement surface exists.
 
 That API can be implemented over IPC, but the renderer should experience it as a typed client.
 
@@ -241,6 +269,7 @@ Allowed early compromises:
 - one main window
 - tray-resident lifecycle instead of a separate background daemon
 - no multi-window support
+- no hidden/offscreen measurement surface while the window is closed
 - no auto-updater
 - no plugin system
 - limited import/export formats

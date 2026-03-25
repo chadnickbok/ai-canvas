@@ -53,6 +53,7 @@ That means the input document already has:
 - recomputed derived fields
 - resolved semantic slots
 - materialized render-facing values in `render_style`
+- a live browser-backed measurement surface
 
 If those conditions are not met, the caller must normalize first.
 
@@ -64,9 +65,13 @@ Computed-layout refresh runs at these boundaries:
 
 Every command or edit path that persists an updated document must refresh `computed_layout` for affected nodes before commit.
 
+If no browser-backed measurement surface is available, the write must fail with `measurement_surface_unavailable` before persistence.
+
 ### 4.2 Before autosave
 
 Autosave follows the same requirement as commit.
+
+In v1, if the editor window has been closed and no measurement surface remains, autosave must not persist the document as though a fresh layout snapshot exists.
 
 ### 4.3 Optional explicit refresh
 
@@ -122,11 +127,15 @@ Before commit or autosave, refresh must repair that by re-running the browser-ba
 
 Broken or stale outputs must never override surviving valid inputs.
 
+The last persisted `computed_layout` may still be used for inspection while the app is running without an editor window, but it does not authorize new persisted mutations.
+
 ## 9. Failure Behavior
 
 If commit or autosave requires computed-layout refresh and the browser-backed measurement path cannot run successfully, the document must not be persisted as though it has a current layout snapshot.
 
 The caller may keep the document in memory, retry refresh, or surface a save failure, but it must not silently write a falsely current `computed_layout`.
+
+In v1, a closed editor window is one concrete case where refresh is unavailable because no measurement surface remains. The runtime should therefore expose a clear `measurement_surface_unavailable` failure rather than implying that a hidden or headless renderer exists.
 
 ## 10. Non-Goals of This Document
 

@@ -17,6 +17,8 @@ This document is normative for:
 - undo/redo state transitions
 - any future automation or scripting layer that writes documents through commands
 
+It does **not** define command payload wire shapes. Those live in `docs/command-payloads.md`.
+
 It does **not** define the persisted schema itself. That lives in `docs/document-schema.md`.
 
 ## 1. Authority
@@ -119,6 +121,14 @@ Within a given project session, command batches are serialized through one comma
 
 There is no interleaving of command batches within a project.
 
+### 3.9 Write-capable command application requires a measurement surface
+
+Any command batch that intends to persist document changes must have access to a live browser-backed measurement surface for the commit path.
+
+In v1, if the editor window is closed and the renderer has been torn down, write-capable callers such as MCP mutation tools must fail with `measurement_surface_unavailable`.
+
+The system must not queue writes for later replay, and it must not apply in-memory mutations that cannot proceed to a valid commit path.
+
 ## 4. Command Batch Contract
 
 A command batch has this logical shape:
@@ -129,12 +139,35 @@ type CommandBatch = {
 };
 ```
 
-A concrete implementation may wrap this with additional metadata such as:
+The canonical write-capable application envelope is:
 
-* document id
-* revision
+```ts
+type ApplyCommandsInput = {
+  document_id: string;
+  commands: Command[];
+  base_revision?: number;
+};
+```
+
+### 4.1 `base_revision`
+
+`base_revision` is an optional optimistic concurrency token.
+
+If `base_revision` is provided and does not equal the document's current persisted revision, command application must:
+
+* reject the whole batch before applying any command
+* return `revision_conflict`
+* leave the document unchanged
+
+If `base_revision` is omitted, command application applies against the latest revision.
+
+After a revision conflict, the caller is expected to reload or reconcile and then retry with a fresh revision.
+
+Additional caller metadata may still be wrapped around the batch, such as:
+
 * caller metadata
 * undo grouping hints
+* request correlation ids
 
 Those wrappers do not change mutation semantics.
 
@@ -159,6 +192,12 @@ Normalize into canonical in-memory shape:
 * render-facing semantic values are materialized into render inputs
 * missing or stale `computed_layout` may still remain
 
+### 5.2.1 Verify write capability
+
+If the caller intends to persist mutations, it must verify that a live browser-backed measurement surface is available before applying commands.
+
+If that prerequisite is missing, command application must fail with `measurement_surface_unavailable` and leave the document unchanged.
+
 ### 5.3 Apply
 
 Apply commands one at a time in order.
@@ -180,6 +219,8 @@ After the full batch, normalize again so the document returns to canonical in-me
 Let the browser-backed renderer resolve layout for affected nodes, then refresh computed outputs:
 
 * `node.computed_layout`
+
+This step requires the same live measurement surface verified earlier in the lifecycle.
 
 ### 5.6 Validate
 
@@ -218,6 +259,34 @@ Examples:
 If any command in the batch causes unrecoverable failure, the entire batch fails.
 
 Earlier commands in the batch must not be partially committed.
+
+### 6.4 Fail clearly when measurement is unavailable
+
+If a write-capable caller reaches command application without a live browser-backed measurement surface, the batch must fail with `measurement_surface_unavailable`.
+
+This is a capability-state failure, not a repair case.
+
+In v1, a closed editor window is one expected way to trigger this failure for MCP mutation tools.
+
+### 6.5 Fail with structured error data
+
+Failure results must be machine-readable.
+
+At minimum, failures should report:
+
+* an error code
+* a human-readable message
+* `command_index` when one command is the clear source of failure
+* the current persisted revision when that information is available and useful to the caller
+
+Common error codes include:
+
+* `revision_conflict`
+* `validation_failed`
+* `unrecoverable_command`
+* `unknown_command`
+* `target_not_found`
+* `measurement_surface_unavailable`
 
 ## 7. Identity and Addressing
 
@@ -276,9 +345,11 @@ The created scene record must:
 
 A created scene is a top-level content unit.
 
-### 8.1.1 Position and size
+### 8.1.1 Backing-frame render inputs
 
-Creating a scene may set input geometry on the backing frame node, including:
+Creating a scene may set backing-frame render inputs, either directly through `render_style` or through convenience geometry fields translated into `render_style` before normalization.
+
+This includes:
 
 * `render_style.left`
 * `render_style.top`
@@ -287,17 +358,30 @@ Creating a scene may set input geometry on the backing frame node, including:
 
 The scene record does not duplicate geometry.
 
+If `render_style.width` or `render_style.height` are omitted by the caller, command application must preserve that omission.
+
+It must not synthesize width/height inputs just to mirror resolved output.
+
+If the same property is specified through both a convenience geometry field and `render_style`, the batch must fail with `validation_failed`.
+
 The post-render measurement path must refresh the backing frame node's `computed_layout` before commit.
 
 ## 8.2 `update_scene`
 
 Updates a scene record and, when geometry changes, updates the backing frame node's input geometry.
 
-At minimum, updating a scene may affect:
+Updating a scene may affect:
 
 * `name`
-* backing-frame geometry inputs such as `left`, `top`, `width`, and `height`
-* `scene_metadata`
+* backing-frame render inputs, including geometry fields such as `left`, `top`, `width`, and `height`
+
+`update_scene` does not edit `scene_metadata` directly.
+
+That behavior belongs to `update_scene_metadata`.
+
+Convenience geometry fields exposed by the payload must be translated into backing-frame `render_style` edits before normalization.
+
+If the same property is specified through both a convenience geometry field and `render_style`, the batch must fail with `validation_failed`.
 
 Updating a scene's geometry must write to the backing frame node's `render_style` and refresh that node's `computed_layout` before commit.
 
@@ -343,9 +427,13 @@ Every created node must initialize:
 
 By commit time, every created node must have a valid `computed_layout`.
 
+If the payload exposes convenience geometry fields such as `left`, `top`, `width`, or `height`, command application must translate those into `render_style` before normalization.
+
 If `render_style.width` or `render_style.height` are omitted by the caller, command application must preserve that omission.
 
 The browser-backed layout and measurement path computes `computed_layout`; it must not synthesize width/height inputs just to mirror resolved output.
+
+If the same property is specified through both a convenience geometry field and `render_style`, the batch must fail with `validation_failed`.
 
 ## 8.5 `update_node`
 
@@ -361,6 +449,8 @@ This command may update:
 * `asset_refs`
 
 Callers may expose convenience geometry fields such as `left`, `top`, `width`, or `height`, but command application must translate those into `render_style` edits before normalization.
+
+If the same property is specified through both a convenience geometry field and `render_style`, the batch must fail with `validation_failed`.
 
 It must not directly edit:
 
@@ -413,6 +503,16 @@ A container is either:
 Reorder must not change parentage.
 
 Reorder only changes sibling order.
+
+A valid reorder payload must:
+
+* list exactly the current children of that container
+* contain each child id exactly once
+* contain no ids that are not already children of that container
+
+If those conditions are not met, the batch must fail.
+
+Reorder must not implicitly insert, delete, or reparent nodes.
 
 ### 8.7.1 Scene-aware top-level reorder
 
@@ -567,9 +667,50 @@ This includes raw geometry inputs such as `left`, `top`, `width`, and `height`.
 
 Those edits affect the input layer only. They do not directly mutate `computed_layout`.
 
-## 12. Variable Command Semantics
+## 12. Variable and Variable Collection Command Semantics
 
-## 12.1 Create variable
+## 12.1 Create variable collection
+
+Creates a variable collection in `variables.collections`.
+
+The collection must:
+
+* have a unique id
+* declare at least one mode
+* use a `default_mode_id` that exists in `modes`
+* initialize its variable container as empty
+
+## 12.2 Update variable collection
+
+Updates variable collection metadata.
+
+This command may update:
+
+* `name`
+* `default_mode_id`
+* `description`
+
+Rules:
+
+* `default_mode_id` must continue to reference a mode that exists in the collection
+* collection `modes` are immutable in v1 because no mode-mutation commands exist
+* changing `default_mode_id` may change later variable resolution for callers that omit an explicit mode, so affected bindings must re-resolve before commit
+
+## 12.3 Delete variable collection
+
+Deleting a variable collection deletes the collection and every variable it contains in one atomic operation.
+
+For each contained variable, command application must apply the same detach-and-preserve-visible-appearance behavior defined for `delete_variable`.
+
+This includes repairing:
+
+* direct variable bindings
+* alias chains
+* style slots that reference deleted variables
+
+The collection and all contained variables must disappear together or not at all.
+
+## 12.4 Create variable
 
 Creates a variable under a collection.
 
@@ -579,7 +720,7 @@ The variable must:
 * declare valid slot scopes
 * provide valid mode values
 
-## 12.2 Update variable
+## 12.5 Update variable
 
 Updates variable metadata or mode values.
 
@@ -590,7 +731,7 @@ After a variable update:
 * every style slot that references that variable must re-resolve
 * every affected render-input semantic slot must be materialized before commit
 
-## 12.3 Delete variable
+## 12.6 Delete variable
 
 Deleting a variable must detach all usages safely.
 

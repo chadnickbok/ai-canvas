@@ -20,7 +20,7 @@ The goal is to make a powerful mockup and flow-design tool that feels strong bot
 
 > Experimental and actively under development.
 
-The repository currently contains the documentation set and the product decisions that guide implementation. The document schema, normalization rules, computed-layout refresh behavior, rendering behavior, and command semantics are specified; command payload wire shapes and the project snapshot format are still being finalized.
+The repository currently contains the current product and implementation documentation set that guides implementation. It covers the desktop runtime boundary, editor-surface architecture, storage model, MCP stance, document schema, normalization rules, computed-layout refresh behavior, rendering behavior, command semantics, command payloads, project snapshot format, and testing/release guidance. See `docs/README.md` for the full index.
 
 ## Features
 
@@ -99,7 +99,9 @@ The two are refreshed through separate contracts: normalization materializes can
 
 AI Canvas Desktop includes a first-class local MCP bridge.
 
-The MCP bridge is built on the same document schema, command system, and semantic query logic as the UI. It is not a separate model or adapter-only layer. MCP is enabled by default, runs only on localhost on a configurable port, and can stay available when the editor window closes because the app remains resident in the tray.
+The MCP bridge is built on the same document schema, command system, and semantic query logic as the UI. It is not a separate model or adapter-only layer. MCP is enabled by default, runs only on localhost on a configurable port, and stays available when the editor window closes because the app remains resident in the tray.
+
+In v1, closing the editor window tears down the renderer and its browser-backed measurement surface. MCP inspection remains available against the active project session, but mutation or browser-capture workflows require the editor window to be reopened.
 
 ## Tech stack
 
@@ -229,6 +231,7 @@ Current docs:
 - [docs/README.md](docs/README.md)
 - [docs/product-stance.md](docs/product-stance.md)
 - [docs/desktop-architecture.md](docs/desktop-architecture.md)
+- [docs/editor-surface-architecture.md](docs/editor-surface-architecture.md)
 - [docs/storage-model.md](docs/storage-model.md)
 - [docs/local-mcp.md](docs/local-mcp.md)
 - [docs/document-schema.md](docs/document-schema.md)
@@ -236,12 +239,9 @@ Current docs:
 - [docs/computed-layout-refresh.md](docs/computed-layout-refresh.md)
 - [docs/rendering-behavior.md](docs/rendering-behavior.md)
 - [docs/command-semantics.md](docs/command-semantics.md)
-
-Planned docs:
-
-- `docs/command-payloads.md`
-- `docs/project-snapshot-format.md`
-- `docs/testing-and-release.md`
+- [docs/command-payloads.md](docs/command-payloads.md)
+- [docs/project-snapshot-format.md](docs/project-snapshot-format.md)
+- [docs/testing-and-release.md](docs/testing-and-release.md)
 
 ## Contributing
 
