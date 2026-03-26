@@ -104,6 +104,18 @@ This includes:
 
 Refreshing only the originally edited node is not sufficient.
 
+In v1, the engine does not need to compute the exact minimal affected set.
+
+The required conservative invalidation unit is the containing scene.
+
+That means a layout-affecting change inside a scene should refresh `computed_layout` for the whole scene subtree, even if only part of that scene actually reflowed.
+
+If the affected content is loose top-level content outside any scene, the engine should conservatively refresh that top-level subtree.
+
+Refreshing the whole document is not the intended v1 contract.
+
+This performance and precision tradeoff may be revisited in a future version.
+
 ## 7. Relative and Flexible Inputs
 
 Some layout inputs may be authored in a relative or flexible way, for example:

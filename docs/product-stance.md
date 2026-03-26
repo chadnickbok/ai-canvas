@@ -15,7 +15,7 @@ The canonical product story is:
 - **scenes** are the primary top-level content unit inside a document
 - project state is split between structured data in SQLite and large/binary artifacts on disk
 - export creates a portable **project snapshot** that contains exactly one project and one document in v1 and can be imported later as a new project
-- the document owns variables, styles, design brief, assets, semantic authoring fields, and authored document state
+- the document owns variables, styles, assets, semantic authoring fields, and authored document state
 - resolved render state is deterministic derived/cacheable state, not the canonical authored state
 
 The editor, local persistence layer, and optional local MCP bridge all read and write the same document model.
@@ -62,7 +62,7 @@ The following should work locally:
 - edit document
 - edit scenes
 - edit variables and styles
-- restyle locally
+- apply explicit semantic styling edits locally
 - autosave
 - undo and redo
 - import and export project snapshots
@@ -103,7 +103,7 @@ The desktop rewrite is ready when all of the following are true:
 - the desktop app can create, open, edit, and autosave local projects
 - scene-first authoring feels stable
 - document-level variables and styles propagate correctly
-- semantic restyle works locally
+- explicit semantic styling workflows behave predictably
 - import/export work for the supported project snapshot format
 - the optional local MCP bridge can inspect the same live project session even after the window closes
 - the optional local MCP bridge can mutate the same live project through the shared command/query core while the editor window is open

@@ -106,6 +106,20 @@ For semantic slots, the canonical authoring state lives in:
 
 Commands must not treat mapped `render_style` fields as the authoritative authoring source for semantic slots.
 
+### 3.6.1 Ownership boundary with normalization
+
+If a behavior depends on which command the user issued, command application owns that behavior.
+
+This includes explicit detach and preserve-visible-appearance behavior for commands such as:
+
+- clear variable binding
+- clear style binding
+- delete variable
+- delete variable collection
+- delete style
+
+Normalization may canonicalize the result afterward, but a successful command batch must not depend on normalization to invent those command-specific snapshots or detach semantics.
+
 ### 3.7 Render inputs are materialized during normalization and computed outputs are refreshed before commit
 
 Before the updated document is committed:
@@ -209,12 +223,14 @@ Apply commands one at a time in order.
 After the full batch, normalize again so the document returns to canonical in-memory shape:
 
 * recompute scene child counts
-* drop broken asset refs
+* remove broken asset-backed `backgroundImage` references
 * drop broken variable/style bindings
 * remove invalid root or child references
 * reattach orphaned nodes when repair policy requires it
 * resolve semantic state
 * materialize render-facing values into `render_style`
+
+This second normalization pass is generic canonicalization and damaged-state cleanup only. It may remove residual dangling references, but it must not be the primary implementation of command-specific detach or preserve-visible-appearance behavior.
 
 ### 5.5 Refresh layout snapshot for commit
 
@@ -244,6 +260,8 @@ Examples:
 * recomputing scene child count
 * removing style bindings to deleted styles
 * removing variable bindings to deleted variables
+
+When a repair is part of the explicit meaning of a command, such as delete-style or delete-variable detach behavior, that repair belongs to command application rather than to normalization.
 
 ### 6.2 Fail when structural intent is unrecoverable
 
@@ -337,19 +355,24 @@ The created frame node must:
 * have `parent_id: null`
 * have `scene_id` set to its own scene id
 * appear in `root.child_ids`
+* initialize `is_visible` to `true`
+* initialize `is_locked` to `false`
+* initialize `child_ids` to `[]`
+* initialize `render_style` to `{}` before applying caller-provided render inputs
+* initialize `authoring.local_values`, `authoring.variable_bindings`, and `authoring.style_bindings` to `{}`
 
 The created scene record must:
 
 * use the same id
 * point to the same backing frame id
 * initialize `scene_metadata.tags` to `[]`
-* initialize `child_count` from the backing frame node
+* initialize `child_count` from the backing frame node, which is `0` on creation
 
 A created scene is a top-level content unit.
 
 ### 8.1.1 Backing-frame render inputs
 
-Creating a scene may set backing-frame render inputs, either directly through `render_style` or through convenience geometry fields translated into `render_style` before normalization.
+Creating a scene must provide backing-frame geometry inputs, either directly through `render_style` or through convenience geometry fields translated into `render_style` before normalization.
 
 This includes:
 
@@ -360,11 +383,13 @@ This includes:
 
 The scene record does not duplicate geometry.
 
-If `render_style.width` or `render_style.height` are omitted by the caller, command application must preserve that omission.
+Each of `left`, `top`, `width`, and `height` must be authored exactly once for `create_scene`.
 
-It must not synthesize width/height inputs just to mirror resolved output.
+Command application must not invent default scene placement or default scene size.
 
 If the same property is specified through both a convenience geometry field and `render_style`, the batch must fail with `validation_failed`.
+
+If any of `left`, `top`, `width`, or `height` is missing after convenience-field translation, the batch must fail with `validation_failed`.
 
 The post-render measurement path must refresh the backing frame node's `computed_layout` before commit.
 
@@ -421,13 +446,23 @@ The editor should minimize creation of loose top-level nodes, but the model allo
 
 Every created node must initialize:
 
+* `is_visible = true` if omitted by the caller
+* `is_locked = false` if omitted by the caller
+* `child_ids = []`
+* `render_style = {}` if omitted by the caller
 * `authoring.local_values = {}`
 * `authoring.variable_bindings = {}`
 * `authoring.style_bindings = {}`
 
+For leaf kinds, `child_ids` must remain `[]`.
+
 ### 8.4.2 Default layout state
 
-By commit time, every created node must have a valid `computed_layout`.
+`computed_layout` is derived and not caller-authored.
+
+Before the first browser-backed measurement pass, a newly created node may still carry missing or stale `computed_layout`.
+
+By commit time, every created node must have a valid measured `computed_layout`.
 
 If the payload exposes convenience geometry fields such as `left`, `top`, `width`, or `height`, command application must translate those into `render_style` before normalization.
 
@@ -447,8 +482,14 @@ This command may update:
 * `is_visible`
 * `is_locked`
 * `render_style`
-* node-type-specific payloads such as text or SVG payloads
-* `asset_refs`
+
+Typed payload edits do not go through `update_node`.
+
+Use:
+
+* `update_text_content` for `text.content`
+* `update_svg_root` for `svg` root payload fields
+* `update_svg_primitive` for `svg-visual-element` primitive payload fields
 
 Callers may expose convenience geometry fields such as `left`, `top`, `width`, or `height`, but command application must translate those into `render_style` edits before normalization.
 
@@ -570,7 +611,7 @@ Rules:
 * clearing tags results in `[]`
 * scene metadata changes do not directly affect node structure or render state
 
-They may, however, affect later semantic restyle queries or scene filtering workflows.
+They may, however, affect later scene filtering workflows.
 
 ## 11. Semantic Command Semantics
 
@@ -581,6 +622,15 @@ Semantic commands mutate authoring state first.
 Render-facing properties are then materialized from that authoring state before commit.
 
 For semantic slots, commands must not treat direct `render_style` mutation as the final source of truth.
+
+Semantic legality is strict and uses the node-kind applicability matrix defined in `docs/document-schema.md`.
+
+That means:
+
+* node semantic slot commands must reject slots that are invalid for the target node kind
+* node style-family commands must reject families that are invalid for the target node kind
+* invalid combinations fail with `validation_failed`
+* v1 does not partially apply an invalid style family to a node
 
 ## 11.2 Direct local semantic edit
 
@@ -625,6 +675,8 @@ Clearing a variable binding:
 
 This acts as “detach variable binding to local.”
 
+This snapshotting is part of command application itself, not post-command normalization.
+
 ## 11.6 Assign style binding
 
 Assigning a style binding to a family:
@@ -648,6 +700,8 @@ Clearing a style binding:
 
 This acts as “detach style to local.”
 
+This snapshotting is part of command application itself, not post-command normalization.
+
 ## 11.8 Raw style patch on a semantic property
 
 If a caller updates `render_style` directly for a property that maps to a semantic slot, the command system must treat that as a semantic local edit.
@@ -658,6 +712,8 @@ That means:
 * clear any direct variable binding for that slot
 * keep style bindings intact
 * materialize the final render-input property from semantic state before commit
+
+If the mapped semantic slot is invalid for the target node kind, the command must fail with `validation_failed`.
 
 ## 11.9 Raw style patch on a non-semantic property
 
@@ -712,6 +768,8 @@ This includes repairing:
 
 The collection and all contained variables must disappear together or not at all.
 
+Command application must complete that detach work before the second normalization pass.
+
 ## 12.4 Create variable
 
 Creates a variable under a collection.
@@ -747,6 +805,8 @@ The goal is to preserve visible appearance as much as possible.
 
 Deleting a variable should not silently erase currently visible styling if the effective value can be preserved locally or in style data.
 
+This is command-owned behavior. `delete_variable` must resolve the currently effective values it needs, write the preserved raw/local/style data explicitly, and remove the deleted references before post-command normalization runs.
+
 ## 13. Style Command Semantics
 
 ## 13.1 Create style
@@ -757,6 +817,8 @@ Creates a style in either family:
 * `text`
 
 The style must use only valid slots for that family.
+
+Style creation does not validate node-kind applicability because that applicability is checked when a style is bound to a node.
 
 ## 13.2 Update style
 
@@ -780,29 +842,17 @@ Effects:
 
 The goal is to preserve visible appearance as much as possible.
 
-## 14. Design Brief Command Semantics
+This is command-owned behavior. `delete_style` must snapshot the needed effective style-contributed values into authoring state before post-command normalization runs.
 
-## 14.1 Update design brief
+## 14. Asset Command Semantics
 
-Updates the document-level design brief.
-
-Rules:
-
-* array fields must remain arrays
-* clearing array fields results in `[]`
-* design brief updates do not directly mutate render state
-
-They may affect future restyle planning or MCP reasoning, but not immediate rendering by themselves.
-
-## 15. Asset Command Semantics
-
-## 15.1 Create asset
+## 14.1 Create asset
 
 Creates or registers an asset record in `assets`.
 
 The asset id must be unique.
 
-## 15.2 Update asset metadata
+## 14.2 Update asset metadata
 
 Updates non-identity asset fields such as:
 
@@ -811,28 +861,24 @@ Updates non-identity asset fields such as:
 * height
 * source details where allowed
 
-Changing an asset may affect any node that references it through:
-
-* `asset_refs`
-* `backgroundImage: url(asset://...)`
+Changing an asset may affect any node whose `render_style.backgroundImage` references it through `url(asset://...)`.
 
 Affected nodes should be re-resolved as needed before save, and any geometry change must refresh `computed_layout`.
 
-## 15.3 Delete asset
+## 14.3 Delete asset
 
 Deleting an asset must remove or repair all document references to it.
 
 Effects:
 
 * remove the asset from `assets`
-* remove dangling ids from `asset_refs`
 * remove or clear `backgroundImage` values that reference the deleted asset
 
 The document should remain valid after asset deletion.
 
-## 16. SVG Command Semantics
+## 15. SVG Command Semantics
 
-## 16.1 Update SVG root payload
+## 15.1 Update SVG root payload
 
 Updating an SVG root payload affects only `kind: "svg"` nodes.
 
@@ -843,7 +889,7 @@ This may update:
 * `view_box`
 * `preserve_aspect_ratio`
 
-## 16.2 Update SVG primitive payload
+## 15.2 Update SVG primitive payload
 
 Updating an SVG primitive affects only `kind: "svg-visual-element"` nodes.
 
@@ -858,7 +904,7 @@ Primitive render order inside an SVG is determined by:
 1. `svg_primitive.order`
 2. child order as tiebreaker
 
-## 17. Derived State Recalculation
+## 16. Derived State Recalculation
 
 Before commit, command application must ensure all derived state affected by the batch is current.
 
@@ -868,9 +914,9 @@ This includes at minimum:
 * semantic materialization into render-input properties
 * refreshed `computed_layout` for nodes whose layout changed
 * removal of broken style or variable bindings
-* removal of broken asset refs
+* removal of broken asset-backed `backgroundImage` references
 
-## 18. Undo/Redo Semantics
+## 17. Undo/Redo Semantics
 
 Undo and redo operate by replaying or inverting command batches against the same canonical command system.
 
@@ -884,7 +930,7 @@ The storage shape used for undo/redo is an implementation detail.
 
 The mutation semantics are not.
 
-## 19. Non-Goals of This Document
+## 18. Non-Goals of This Document
 
 This document does not define:
 

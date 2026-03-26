@@ -439,10 +439,11 @@ The goal is to support safe document rendering, not arbitrary embedded behavior.
 
 Assets are resolved from the document’s `assets` map.
 
-Nodes may reference assets through:
+In v1, nodes reference assets through concrete document fields.
 
-1. `asset_refs`
-2. `render_style.backgroundImage` containing `url(asset://<assetId>)`
+The only documented node-level asset reference is:
+
+1. `render_style.backgroundImage` containing `url(asset://<assetId>)`
 
 ## 14.1 Asset-backed background images
 

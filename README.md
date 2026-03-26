@@ -28,7 +28,6 @@ Planned and in-progress core capabilities:
 
 - multi-scene authoring in a single project
 - document-level variables and styles
-- design brief editing
 - semantic bindings and resolved provenance
 - deterministic, cacheable resolved render state
 - local SQLite-backed project persistence
@@ -59,7 +58,6 @@ The workspace is spatial, scene-first, and document-scoped. It owns:
 - scenes
 - variables
 - styles
-- design brief
 - assets
 - semantic authoring fields
 - authored document state
@@ -74,7 +72,6 @@ Scenes are used for:
 - mockup flows
 - grouped screens
 - structured design work
-- semantic restyle targeting
 
 ### Design system
 
@@ -86,7 +83,7 @@ It includes:
 - styles
 - semantic bindings
 - provenance and usage relationships
-- document-level restyle workflows
+- document-level propagation through explicit bindings
 
 ### Resolved render state
 
@@ -263,7 +260,7 @@ Near-term goals:
 - strong local project workflow
 - scene-first editing
 - stable design-system editing
-- semantic restyle flows
+- explicit semantic styling workflows
 - local MCP authoring support
 - reliable packaging for the first target platform
 

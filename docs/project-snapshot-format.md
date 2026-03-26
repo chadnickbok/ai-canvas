@@ -143,6 +143,30 @@ A snapshot contains exactly one project.
 
 In v1, that project contains exactly one document.
 
+The ids stored inside the snapshot identify the contents of the bundle.
+
+They do not become the live local ids of the imported project.
+
+Import always creates a new local project and a new local document identity graph.
+
+That means import must regenerate and remap all persisted ids inside the imported graph, including:
+
+* project id
+* document id
+* asset ids
+* scene ids and their backing frame node ids
+* node ids
+* variable collection ids
+* variable mode ids
+* variable ids
+* style ids
+
+All internal references must be rewritten consistently during import.
+
+Importing the same snapshot multiple times must create distinct local projects with distinct local ids each time.
+
+Original snapshot ids may be preserved only as informational provenance metadata. They must not remain the active local ids after import.
+
 V1 export and import do not support:
 
 * multiple projects per bundle
@@ -396,6 +420,14 @@ When reading a snapshot:
 9. read asset files
 10. re-normalize the imported document
 11. repair or dismiss broken references according to document normalization rules
+
+### Import must remap bundle ids to fresh local ids
+
+Import must allocate fresh local ids for the imported project and for every id-bearing entity in the imported document graph.
+
+The importer must rewrite all internal references to those new ids before the imported project is persisted or exposed for editing.
+
+This remapping is unconditional, so importing the same snapshot twice or importing a snapshot whose ids collide with existing local data must still succeed as two independent local projects.
 
 ### Import must reject unsupported bundle identity
 

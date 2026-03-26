@@ -68,6 +68,10 @@ Normalized documents must be:
 - renderable
 - deterministic
 
+Normalization is command-agnostic. It must not need to know which command, if any, produced the current document state.
+
+That means normalization does not own command-specific detach or preserve-visible-appearance behavior for explicit commands such as clearing bindings or deleting variables/styles. Those behaviors belong to command application. Normalization only repairs malformed or dangling state using generic deterministic rules.
+
 ## 4. When Normalization Runs
 
 Normalization runs at all of the following boundaries:
@@ -122,7 +126,6 @@ Normalization must ensure the following top-level containers always exist:
 - `assets`
 - `variables`
 - `styles`
-- `design_brief`
 
 Normalization must ensure these substructures always exist:
 
@@ -138,15 +141,13 @@ Normalization must ensure these substructures always exist:
 - `variables.collections`
 - `styles.paint`
 - `styles.text`
-- `design_brief.brand_adjectives`
-- `design_brief.preferred_layout_idioms`
 
 ### 6.1 Empty defaults
 
 Canonical empty defaults are:
 
 - empty object maps for collections and container records
-- empty arrays for `tags`, `brand_adjectives`, and `preferred_layout_idioms`
+- empty arrays for `tags`
 - empty authoring maps for local values, variable bindings, and style bindings
 
 Normalization must create these defaults if they are missing.
@@ -283,18 +284,16 @@ Reference repair removes or repairs broken references outside the structural gra
 
 ## 9.1 Asset references
 
-Nodes may reference assets through:
+In v1, nodes reference assets through concrete document fields.
 
-- `asset_refs`
+The only documented node-level asset reference is:
+
 - `render_style.backgroundImage` containing `url(asset://<assetId>)`
 
 Normalization must:
 
-- remove missing ids from `asset_refs`
 - remove or clear `backgroundImage` values that reference missing assets
 - preserve non-asset background images such as literal gradients or external URLs when those are allowed by the product
-
-If `asset_refs` becomes empty, it may remain an empty array or be omitted according to the canonical serializer policy.
 
 ## 9.2 Variable binding repair
 
@@ -306,7 +305,9 @@ This applies to:
 - `node.authoring.variable_bindings`
 - style slot references to missing variables
 
-If a dropped variable binding had a currently materialized visible value, the document should preserve appearance by keeping or re-creating the corresponding local value when possible.
+This is damaged-state repair, not the normative implementation of commands such as `clear_variable_binding` or `delete_variable`.
+
+If a dropped variable binding had a currently materialized visible value, the document may preserve appearance by keeping or re-creating the corresponding local value only when that value is still known deterministically from surviving state.
 
 The normalization rule is:
 
@@ -322,7 +323,9 @@ This applies to:
 - `node.authoring.style_bindings.paint`
 - `node.authoring.style_bindings.text`
 
-If a broken style binding is dropped, normalization should preserve current visible appearance by snapshotting currently known effective values into local values for that family where possible.
+This is damaged-state repair, not the normative implementation of commands such as `clear_style_binding` or `delete_style`.
+
+If a broken style binding is dropped, normalization may preserve current visible appearance by snapshotting currently known effective values into local values for that family only when those values are still known deterministically from surviving state.
 
 ## 9.4 Scene reference repair in external structures
 
@@ -360,7 +363,7 @@ Semantic repair ensures the semantic authoring layer is coherent before resoluti
 
 ## 11.1 Invalid local values
 
-Local semantic values must match supported slot kinds.
+Local semantic values must match supported slot kinds and node-kind applicability.
 
 Normalization must drop any local value whose slot is invalid for the target.
 
@@ -368,9 +371,28 @@ Examples:
 
 * a text-only slot on the canvas
 * a canvas-only slot on a node
+* a typography slot on a `frame`
+* a paint slot on a `text`
+* any node semantic slot on `svg` or `svg-visual-element`
 * a nonexistent semantic slot name
 
-## 11.2 Invalid style family bindings
+## 11.2 Invalid variable bindings for the target
+
+Node variable bindings must use slots that are valid for the node kind.
+
+Normalization must drop any node variable binding whose slot is invalid for the target node kind.
+
+Canvas variable bindings must continue to use only canvas-valid slots.
+
+## 11.3 Invalid style family bindings
+
+Style family bindings must be valid for the target node kind.
+
+Normalization must drop any style binding whose family is invalid for the target node kind.
+
+There is no partial family application during normalization.
+
+## 11.4 Invalid style family keys
 
 Only these style families are valid:
 
@@ -379,7 +401,7 @@ Only these style families are valid:
 
 Any other style binding key must be dropped.
 
-## 11.3 Invalid style slot content
+## 11.5 Invalid style slot content
 
 Within styles:
 
@@ -389,7 +411,7 @@ Within styles:
 
 Invalid style slots should be dropped rather than preserving half-invalid style definitions.
 
-## 11.4 Invalid variable scope declarations
+## 11.6 Invalid variable scope declarations
 
 Variables declare supported semantic scopes.
 
@@ -399,7 +421,7 @@ If a variable ends up with no valid scopes, the variable may still be preserved,
 
 This is preferable to deleting the whole variable automatically.
 
-## 11.5 Alias repair
+## 11.7 Alias repair
 
 Variable alias chains must be acyclic.
 

@@ -79,7 +79,7 @@ Validation is organized into the following layers:
 
 1. schema and normalization tests
 2. command semantics tests
-3. semantic resolution and restyle tests
+3. semantic resolution and design-system tests
 4. renderer and measurement tests
 5. persistence and recovery tests
 6. IPC and Electron boundary tests
@@ -122,11 +122,15 @@ At minimum, normalization tests must cover:
 - missing parent repair to loose top-level node
 - cycle repair
 - invalid child container repair
-- missing assets in `asset_refs`
 - missing `backgroundImage` asset references
 - broken variable bindings
 - broken style bindings
+- broken variable binding repair without command-specific intent
+- broken style binding repair without command-specific intent
 - invalid local semantic slot values
+- invalid variable binding slots for the node kind
+- invalid style family bindings for the node kind
+- svg and svg-visual-element semantic authored state dropped in v1
 - alias loop repair
 - scene record without valid backing frame
 - orphaned frame surviving as loose top-level content
@@ -170,7 +174,18 @@ At minimum, command tests must cover:
 - create/update/delete asset
 - create/update/delete variable collection if supported in v1
 - update SVG root and primitive payloads
-- design brief update
+- `update_node` does not subsume text or SVG payload mutation
+- create-node defaults for omitted `is_visible`, `is_locked`, `render_style`, and `child_ids`
+- create-scene backing-frame defaults for visibility, locking, empty children, empty authoring containers, and `child_count: 0`
+- create-scene requires explicit `left`, `top`, `width`, and `height`
+- clear variable binding snapshots value during command application
+- clear style binding snapshots family values during command application
+- delete variable performs command-owned detach-and-preserve behavior
+- delete style performs command-owned detach-and-preserve behavior
+- delete variable collection applies the same command-owned detach behavior for contained variables
+- valid paint-family binding on `frame`
+- valid paint-family binding on `rectangle`
+- valid text-family binding on `text`
 
 ### Required negative-path coverage
 
@@ -182,11 +197,16 @@ At minimum, command rejection tests must cover:
 - invalid reparent into missing parent
 - delete scene through `delete_node`
 - invalid node-kind payload combinations
+- create-scene missing required geometry
+- create-scene duplicate geometry via convenience fields plus `render_style`
+- invalid semantic slot for the target node kind
+- invalid style family for the target node kind
+- invalid semantic render-style patch for the target node kind
 - invalid reorder payloads
 - unrecoverable cycle introduction
 - unrecoverable scene/frame identity violation
 
-## 5.3 Semantic resolution and restyle tests
+## 5.3 Semantic resolution and design-system tests
 
 These tests validate:
 
@@ -199,6 +219,8 @@ These tests validate:
 - detach-to-local behavior
 - preservation of stronger overrides during style updates
 
+For explicit clear/delete commands, the preserve-visible-appearance behavior under test is command behavior, not normalization ownership.
+
 ### Required coverage
 
 At minimum, semantic tests must prove:
@@ -209,6 +231,10 @@ At minimum, semantic tests must prove:
 - clearing style binding snapshots family values locally where needed
 - deleting a variable preserves visible appearance where deterministically possible
 - deleting a style preserves visible appearance where deterministically possible
+- `frame` accepts only layout and paint-family semantic slots in v1
+- `rectangle` accepts only paint-family semantic slots in v1
+- `text` accepts only text and typography semantic slots in v1
+- `svg` and `svg-visual-element` do not participate in node semantic slots or style bindings in v1
 - raw `render_style` patch on a semantic property behaves like local semantic edit
 - raw `render_style` patch on a non-semantic property remains raw render input only
 
@@ -256,6 +282,7 @@ At minimum, renderer tests must cover:
 At minimum, measurement tests must prove:
 
 - layout-affecting command updates refresh `computed_layout`
+- v1 computed-layout refresh may conservatively measure the whole containing scene rather than the exact minimal affected set
 - descendants affected by flex reflow refresh `computed_layout`
 - ancestors affected by child layout refresh `computed_layout` where required
 - relative or flexible `render_style` inputs are preserved as inputs
@@ -376,6 +403,7 @@ At minimum, snapshot tests must cover:
 - import with checksum mismatch
 - import of damaged but partially recoverable snapshot
 - import creates a new local project rather than mutating the source project in place
+- import remaps all snapshot ids to fresh local ids, including when the same snapshot is imported multiple times
 
 ## 5.9 End-to-end workflow tests
 

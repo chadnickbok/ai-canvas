@@ -151,7 +151,6 @@ type RendererDocument = {
   assets: Record<string, AssetRecord>;
   variables: RendererVariables;
   styles: RendererStyles;
-  design_brief: RendererDesignBrief;
 };
 ```
 
@@ -317,7 +316,6 @@ type BaseNode = {
   is_locked: boolean;
   render_style: RenderStyleBag;
   computed_layout: ComputedLayout;
-  asset_refs?: string[];
   authoring: RendererNodeAuthoring;
 };
 ```
@@ -395,6 +393,19 @@ Rules:
 * relative or flexible layout inputs MUST round-trip unchanged in `render_style`
 * `computed_layout` MUST be refreshed when a mutation changes resolved geometry
 * persisted computed outputs SHOULD capture the latest resolved box for any node affected by layout reflow
+
+### 9.5 Creation-time defaults
+
+When commands create a node or a scene backing frame and omit optional authored fields, the initialized document state is:
+
+* `is_visible: true`
+* `is_locked: false`
+* `child_ids: []`
+* `render_style: {}`
+
+`computed_layout` is derived rather than caller-authored.
+
+A newly created in-memory node may temporarily carry missing or stale `computed_layout`, but committed and persisted document state must carry the measured layout snapshot.
 
 ## 10. Typed Node Payloads
 
@@ -570,7 +581,6 @@ It consists of:
 * node authoring
 * variables
 * styles
-* design brief
 * scene metadata
 
 ### 12.1 Node semantic slots
@@ -603,7 +613,35 @@ type RendererNodeAuthoring = {
 };
 ```
 
-### 12.3 Slot mapping
+Node authoring containers exist on every node, but semantic legality is strict and determined by node kind.
+
+### 12.3 Node-kind semantic applicability
+
+Renderer support for a raw CSS or SVG property does not by itself make a semantic slot legal.
+
+The v1 applicability matrix is:
+
+- `frame`
+  - valid slots: `node.layout.*`, `node.paint.background_color`, `node.paint.opacity`, `node.shape.border_radius`
+  - valid style families: `paint`
+- `rectangle`
+  - valid slots: `node.paint.background_color`, `node.paint.opacity`, `node.shape.border_radius`
+  - valid style families: `paint`
+- `text`
+  - valid slots: `node.text.color`, `node.typography.*`
+  - valid style families: `text`
+- `svg`
+  - valid slots: none in v1
+  - valid style families: none in v1
+- `svg-visual-element`
+  - valid slots: none in v1
+  - valid style families: none in v1
+
+Any other node-kind and slot or node-kind and style-family combination is invalid in the semantic layer.
+
+Raw `render_style` may still carry non-semantic properties outside this matrix when the renderer supports them.
+
+### 12.4 Slot mapping
 
 Only the following render properties participate in semantic authoring:
 
@@ -625,7 +663,7 @@ Only the following render properties participate in semantic authoring:
 
 All other render properties remain raw `render_style` only.
 
-### 12.4 Semantic slot namespace
+### 12.5 Semantic slot namespace
 
 ```ts
 type RendererSemanticSlot = "canvas.background_color" | NodeSemanticSlot;
@@ -725,11 +763,15 @@ Text styles may define:
 * `node.typography.line_height`
 * `node.typography.letter_spacing`
 
+Text styles are only bindable to `text` nodes in v1.
+
 Paint styles may define:
 
 * `node.paint.background_color`
 * `node.shape.border_radius`
 * `node.paint.opacity`
+
+Paint styles are only bindable to `frame` and `rectangle` nodes in v1.
 
 Style slots store either:
 
@@ -763,29 +805,7 @@ type RendererTextStyle = {
 };
 ```
 
-## 15. Design Brief
-
-```ts
-type RendererDesignBrief = {
-  audience?: string;
-  brand_adjectives: string[];
-  notes?: string;
-  preferred_layout_idioms: string[];
-  product_summary?: string;
-  radius_policy?: string;
-  scene_map_summary?: string;
-  spacing_density?: string;
-  target_vibe?: string;
-  typography_direction?: string;
-};
-```
-
-### Rules
-
-* `brand_adjectives` MUST always be present
-* `preferred_layout_idioms` MUST always be present
-
-## 16. Assets
+## 15. Assets
 
 The canonical desktop asset model is local-first and project-local.
 
@@ -834,18 +854,19 @@ type LocalAssetStoreSource = {
 
 ### Asset references
 
-Nodes can reference assets in two ways:
+In v1, nodes reference assets only through concrete document fields.
 
-1. `asset_refs: string[]`
-2. `render_style.backgroundImage` containing `url(asset://<assetId>)`
+The only documented node-level asset reference is:
 
-Both are valid references.
+1. `render_style.backgroundImage` containing `url(asset://<assetId>)`
+
+If future node fields reference assets, they must define their own semantics explicitly.
 
 ### Asset name uniqueness
 
 If the app persists a display name for an asset in `metadata` or elsewhere, that name SHOULD be unique within the project, case-insensitively.
 
-## 17. Canonical Empty Document
+## 16. Canonical Empty Document
 
 A valid empty document has an infinite canvas, no scenes, no loose nodes, no assets, and empty semantic containers.
 
@@ -879,19 +900,15 @@ A valid empty document has an infinite canvas, no scenes, no loose nodes, no ass
   "styles": {
     "paint": {},
     "text": {}
-  },
-  "design_brief": {
-    "brand_adjectives": [],
-    "preferred_layout_idioms": []
   }
 }
 ```
 
-## 18. Validation and Repair Policy
+## 17. Validation and Repair Policy
 
 Normalization SHOULD repair documents where possible.
 
-### 18.1 Repairable issues
+### 17.1 Repairable issues
 
 Normalization SHOULD repair or safely tolerate these when possible:
 
@@ -901,7 +918,6 @@ Normalization SHOULD repair or safely tolerate these when possible:
 * missing or stale `computed_layout`
 * broken `root.child_ids` entries that refer to missing nodes
 * broken `child_ids` entries that refer to missing nodes
-* dangling `asset_refs`
 * `backgroundImage` asset references to missing assets
 * style bindings to missing style ids
 * variable bindings to missing variable ids
@@ -913,7 +929,7 @@ Repair behavior:
 * preserve or tolerate missing/stale `computed_layout` during normalization
 * drop broken references that cannot be repaired safely
 
-### 18.2 Structural issues
+### 17.2 Structural issues
 
 For serious structural issues, normalization SHOULD preserve as much visible content as possible.
 
@@ -923,7 +939,7 @@ Examples:
 * if a scene record exists without a valid frame node, drop the scene record
 * if a frame node looks like an orphaned scene backing node, preserve the frame node as a loose top-level node rather than deleting it outright
 
-### 18.3 Non-fatal stance
+### 17.3 Non-fatal stance
 
 The product should prefer:
 
@@ -931,7 +947,7 @@ The product should prefer:
 * inspect what can be inspected
 * drop only data that is provably broken and unsafe to keep
 
-## 19. Non-Goals of This Document
+## 18. Non-Goals of This Document
 
 This schema document does not define:
 

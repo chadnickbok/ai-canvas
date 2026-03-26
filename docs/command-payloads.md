@@ -199,9 +199,11 @@ Notes:
 
 * `scene.id` is also the backing frame node id
 * omitted `scene_metadata.tags` defaults to `[]`
+* `create_scene` requires authored `left`, `top`, `width`, and `height` inputs for the backing frame
+* each of `left`, `top`, `width`, and `height` must be provided exactly once, either through its convenience field or the corresponding `render_style` property
 * convenience geometry fields are translated into backing-frame `render_style`
 * callers must not provide the same geometry property in both a convenience field and `render_style`
-* omitted width/height remain omitted authored inputs
+* `create_scene` must not rely on implicit placement or size defaults
 
 ## 5.2 `update_scene`
 
@@ -280,7 +282,6 @@ type BaseCreateNodePayload = {
   is_visible?: boolean;
   is_locked?: boolean;
   render_style?: Record<string, RenderStyleValue>;
-  asset_refs?: AssetId[];
 };
 
 type CreateFrameNodePayload = BaseCreateNodePayload & {
@@ -333,6 +334,9 @@ Rules:
 
 * `parent.parent_id = null` creates a loose top-level node
 * callers should use `create_scene` rather than creating a scene backing frame directly
+* omitted `is_visible` defaults to `true`
+* omitted `is_locked` defaults to `false`
+* omitted `render_style` defaults to `{}`
 * convenience geometry fields are translated into `render_style`
 * callers must not provide the same geometry property in both a convenience field and `render_style`
 * omitted width/height remain omitted authored inputs
@@ -352,7 +356,6 @@ type UpdateNodeCommand = {
     width?: RenderStyleValue;
     height?: RenderStyleValue;
     render_style?: RenderStylePatch;
-    asset_refs?: AssetId[];
   };
 };
 ```
@@ -363,7 +366,8 @@ Patch rules:
 * convenience geometry fields are translated into `render_style`
 * callers must not provide the same geometry property in both a convenience field and `render_style`
 * `render_style[key] = null` means delete that style property
-* `asset_refs` replaces the entire asset ref array if provided
+* typed payload fields are updated through dedicated commands rather than `update_node`
+* use `update_text_content`, `update_svg_root`, and `update_svg_primitive` for text and SVG payload mutation
 
 ## 5.7 `reparent_node`
 
@@ -524,6 +528,35 @@ type ClearNodeStyleBindingCommand = {
 };
 ```
 
+## 7.11 Semantic applicability rules
+
+Node-targeted semantic commands use a strict node-kind applicability matrix.
+
+In v1:
+
+- `frame`
+  - valid slots: `node.layout.*`, `node.paint.background_color`, `node.paint.opacity`, `node.shape.border_radius`
+  - valid style families: `paint`
+- `rectangle`
+  - valid slots: `node.paint.background_color`, `node.paint.opacity`, `node.shape.border_radius`
+  - valid style families: `paint`
+- `text`
+  - valid slots: `node.text.color`, `node.typography.*`
+  - valid style families: `text`
+- `svg`
+  - valid slots: none
+  - valid style families: none
+- `svg-visual-element`
+  - valid slots: none
+  - valid style families: none
+
+Rules:
+
+* `set_node_local_value`, `clear_node_local_value`, `bind_node_variable`, and `clear_node_variable_binding` require `slot` to be valid for the target node kind
+* `bind_node_style` and `clear_node_style_binding` require `family` to be valid for the target node kind
+* invalid node-kind and slot or node-kind and family combinations must fail with `validation_failed`
+* v1 does not partially apply an invalid style family to a node
+
 ## 8. Variable Commands
 
 ## 8.1 `create_variable_collection`
@@ -670,6 +703,7 @@ Rules:
 
 * `type` discriminates the command family
 * `style.family` discriminates the create payload variant
+* family validity for a target node is checked when the style is bound, not when the style is defined
 
 ## 9.2 `update_style`
 
@@ -716,6 +750,7 @@ Rule:
 
 * `family` discriminates the update payload variant
 * `slots[slot] = null` means remove that slot from the style definition
+* family validity for a target node is checked when the style is bound, not when the style is defined
 
 ## 9.3 `delete_style`
 
@@ -727,36 +762,9 @@ type DeleteStyleCommand = {
 };
 ```
 
-## 10. Design Brief Commands
+## 10. Asset Commands
 
-## 10.1 `update_design_brief`
-
-```ts
-type UpdateDesignBriefCommand = {
-  type: "update_design_brief";
-  patch: {
-    audience?: string | null;
-    brand_adjectives?: string[];
-    notes?: string | null;
-    preferred_layout_idioms?: string[];
-    product_summary?: string | null;
-    radius_policy?: string | null;
-    scene_map_summary?: string | null;
-    spacing_density?: string | null;
-    target_vibe?: string | null;
-    typography_direction?: string | null;
-  };
-};
-```
-
-Rules:
-
-* array fields replace the full array
-* nullable scalar fields clear when `null`
-
-## 11. Asset Commands
-
-## 11.1 `create_asset`
+## 10.1 `create_asset`
 
 ```ts
 type AssetRecord = {
@@ -778,7 +786,7 @@ type CreateAssetCommand = {
 };
 ```
 
-## 11.2 `update_asset`
+## 10.2 `update_asset`
 
 ```ts
 type UpdateAssetCommand = {
@@ -802,7 +810,7 @@ Rules:
 * `metadata: null` clears metadata
 * asset `id`, `kind`, and `mime_type` are immutable through `update_asset`
 
-## 11.3 `delete_asset`
+## 10.3 `delete_asset`
 
 ```ts
 type DeleteAssetCommand = {
@@ -811,9 +819,9 @@ type DeleteAssetCommand = {
 };
 ```
 
-## 12. SVG Commands
+## 11. SVG Commands
 
-## 12.1 `update_svg_root`
+## 11.1 `update_svg_root`
 
 ```ts
 type UpdateSvgRootCommand = {
@@ -837,7 +845,7 @@ Rules:
 * nullable scalar-like fields clear when `null`
 * array/object fields replace when provided
 
-## 12.2 `update_svg_primitive`
+## 11.2 `update_svg_primitive`
 
 ```ts
 type UpdateSvgPrimitiveCommand = {
@@ -851,7 +859,7 @@ type UpdateSvgPrimitiveCommand = {
 };
 ```
 
-## 13. Full Command Union
+## 12. Full Command Union
 
 ```ts
 type Command =
@@ -884,7 +892,6 @@ type Command =
   | CreateStyleCommand
   | UpdateStyleCommand
   | DeleteStyleCommand
-  | UpdateDesignBriefCommand
   | CreateAssetCommand
   | UpdateAssetCommand
   | DeleteAssetCommand
@@ -892,7 +899,7 @@ type Command =
   | UpdateSvgPrimitiveCommand;
 ```
 
-## 14. Result Envelope
+## 13. Result Envelope
 
 A command application result should return either the updated document state or a structured failure.
 
@@ -949,9 +956,9 @@ Rules:
 * `command_index` identifies the first failing command when the failure is attributable to one command
 * `effects` are optional convenience data and are not part of command meaning
 
-## 15. Examples
+## 14. Examples
 
-## 15.1 Create a scene
+## 14.1 Create a scene
 
 ```json
 {
@@ -974,7 +981,7 @@ Rules:
 }
 ```
 
-## 15.2 Create a text node
+## 14.2 Create a text node
 
 ```json
 {
@@ -1001,7 +1008,7 @@ Rules:
 }
 ```
 
-## 15.3 Bind a paint style
+## 14.3 Bind a paint style
 
 ```json
 {
@@ -1012,7 +1019,7 @@ Rules:
 }
 ```
 
-## 15.4 Patch a semantic style field through `update_node`
+## 14.4 Patch a semantic style field through `update_node`
 
 ```json
 {
@@ -1028,7 +1035,7 @@ Rules:
 
 This payload is valid. Its semantic meaning is defined in `docs/command-semantics.md`.
 
-## 16. Non-Goals of This Document
+## 15. Non-Goals of This Document
 
 This document does not define:
 

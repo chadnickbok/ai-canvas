@@ -100,7 +100,6 @@ It owns:
 - command application
 - binding resolution
 - semantic query surface
-- restyle planners and executors
 - semantic resolution and `render_style` materialization
 - `computed_layout` refresh contracts for browser-measured layout snapshots
 - import/export normalization
@@ -249,14 +248,13 @@ Examples of good API calls:
 - `getRuntimeCapabilities()`
 - `applyCommands(projectId, commands)`
 - `inspectDesignSystem(projectId)`
-- `restyleProject(projectId, request)`
 - `importProjectSnapshot(path)`
 - `exportProjectSnapshot(projectId, destination)`
 - `setMcpEnabled(enabled)`
 
 `getRuntimeCapabilities()` should expose whether a browser measurement surface is currently available for write-capable flows.
 
-Write-capable calls such as `applyCommands(projectId, commands)` and `restyleProject(projectId, request)` should fail with `measurement_surface_unavailable` when no renderer-backed measurement surface exists.
+Write-capable calls such as `applyCommands(projectId, commands)` should fail with `measurement_surface_unavailable` when no renderer-backed measurement surface exists.
 
 That API can be implemented over IPC, but the renderer should experience it as a typed client.
 

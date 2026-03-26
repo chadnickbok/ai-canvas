@@ -144,7 +144,7 @@ Recommended asset metadata fields:
 - source_url nullable
 - created_at
 
-The document should reference assets by stable asset ids or asset refs, not raw OS paths.
+The document should reference assets by stable asset ids in document fields, not raw OS paths.
 
 ## Import/export stance
 
@@ -158,7 +158,7 @@ Recommended product behavior:
 - the app manages a local project library in SQLite
 - users can export a portable project snapshot containing exactly one project and one document in v1
 - users can import a portable project snapshot containing exactly one project and one document in v1
-- importing creates a new local project plus asset entries
+- importing creates a new local project plus asset entries, with imported ids remapped to fresh local ids rather than reused from the snapshot
 - importing rejects multi-document or multi-project bundles in v1
 - exported snapshots exclude local history
 - exported snapshots should avoid leaking app-internal database structure

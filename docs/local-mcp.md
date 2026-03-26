@@ -21,7 +21,7 @@ The local MCP bridge should let an agent:
 - inspect scenes
 - inspect the design system
 - apply document commands when a live browser measurement surface is available
-- run semantic restyle workflows when a live browser measurement surface is available
+- run explicit semantic styling workflows when a live browser measurement surface is available
 - promote selections or targets into styles or variables when a live browser measurement surface is available
 - verify results against the same current project model the UI sees
 
@@ -125,7 +125,6 @@ Recommended initial mutation tools:
 
 - `create_project`
 - `apply_commands`
-- `update_design_system`
 - `promote_selection_to_style`
 - `create_variables_from_selection`
 
