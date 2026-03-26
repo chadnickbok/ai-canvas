@@ -1,0 +1,25 @@
+{
+  "name": "@ai-canvas/desktop",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "pnpm --dir ../.. build:packages && electron-vite dev",
+    "build": "pnpm --dir ../.. build:packages && electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint src",
+    "test": "pnpm --dir ../.. build:packages && vitest run"
+  },
+  "dependencies": {
+    "@ai-canvas/document-core": "workspace:*",
+    "@ai-canvas/editor-ui": "workspace:*",
+    "@ai-canvas/ipc-contract": "workspace:*",
+    "@ai-canvas/mcp-bridge": "workspace:*",
+    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "electron": "^41.0.4",
+    "electron-vite": "^5.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  }
+}

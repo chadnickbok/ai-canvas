@@ -1,0 +1,132 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { app, BrowserWindow, dialog } from "electron";
+
+import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
+
+import { registerIpc } from "./registerIpc.js";
+import { createProjectRuntime, ProjectStore } from "./runtime/index.js";
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const rendererDist = path.join(moduleDir, "../renderer");
+const preloadPath = path.join(moduleDir, "../preload/index.cjs");
+const mcpHost = "127.0.0.1";
+const mcpPort = 4317;
+
+let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
+
+async function createMainWindow(runtime: ReturnType<typeof createProjectRuntime>) {
+  if (mainWindow) {
+    mainWindow.focus();
+    return mainWindow;
+  }
+
+  const browserWindow = new BrowserWindow({
+    backgroundColor: "#0c0f11",
+    height: 920,
+    minHeight: 700,
+    minWidth: 1080,
+    show: false,
+    title: "AI Canvas Desktop",
+    width: 1440,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: preloadPath,
+      sandbox: true
+    }
+  });
+
+  browserWindow.once("ready-to-show", () => {
+    browserWindow.show();
+  });
+
+  browserWindow.webContents.on("did-finish-load", () => {
+    runtime.setMeasurementSurfaceAvailable(true);
+  });
+
+  browserWindow.on("closed", () => {
+    runtime.setMeasurementSurfaceAvailable(false);
+    mainWindow = null;
+  });
+
+  if (process.env.VITE_DEV_SERVER_URL) {
+    await browserWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    await browserWindow.loadFile(path.join(rendererDist, "index.html"));
+  }
+
+  mainWindow = browserWindow;
+
+  return browserWindow;
+}
+
+async function bootstrap() {
+  app.setName("AI Canvas Desktop");
+  await app.whenReady();
+
+  const store = new ProjectStore(path.join(app.getPath("userData"), "app.db"));
+  const runtime = createProjectRuntime(store);
+  const mcpBridge = new LocalMcpBridge({
+    host: mcpHost,
+    port: mcpPort,
+    projectService: {
+      listProjects: async () => {
+        const result = runtime.listProjects();
+
+        return result.ok ? result.data : [];
+      }
+    }
+  });
+
+  runtime.attachMcpStatusProvider(mcpBridge);
+  registerIpc(runtime);
+  let mcpStartError: unknown = null;
+
+  try {
+    await mcpBridge.start();
+  } catch (error) {
+    mcpStartError = error;
+  }
+
+  await createMainWindow(runtime);
+
+  if (mcpStartError) {
+    dialog.showErrorBox(
+      "MCP bridge unavailable",
+      mcpBridge.getStatus().errorMessage ?? formatMcpStartError(mcpStartError)
+    );
+  }
+
+  app.on("activate", async () => {
+    await createMainWindow(runtime);
+  });
+
+  app.on("before-quit", () => {
+    isQuitting = true;
+    runtime.close();
+    void mcpBridge.stop();
+  });
+
+  app.on("window-all-closed", () => {
+    if (!isQuitting) {
+      return;
+    }
+  });
+}
+
+function formatMcpStartError(error: unknown): string {
+  if (isPortInUseError(error)) {
+    return `The local MCP bridge requires ${mcpHost}:${mcpPort}, but that port is already in use. Close the conflicting process and relaunch AI Canvas Desktop.`;
+  }
+
+  return error instanceof Error ? error.message : "The local MCP bridge failed to start.";
+}
+
+function isPortInUseError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "EADDRINUSE";
+}
+
+void bootstrap();

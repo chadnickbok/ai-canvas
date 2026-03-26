@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "render_canon": "browser-css",
+  "document_id": "doc_fixture",
+  "name": "Fixture Project",
+  "page_name": "Fixture Project",
+  "source": {
+    "kind": "ai-canvas",
+    "created_at": "2026-03-25T00:00:00.000Z"
+  },
+  "canvas": {
+    "extent_mode": "infinite",
+    "authoring": {
+      "local_values": {},
+      "variable_bindings": {}
+    }
+  },
+  "root": {
+    "id": "canvas_root",
+    "child_ids": []
+  },
+  "scenes": {},
+  "nodes": {},
+  "assets": {},
+  "variables": {
+    "collections": {}
+  },
+  "styles": {
+    "paint": {},
+    "text": {}
+  }
+}

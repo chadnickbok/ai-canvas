@@ -1,0 +1,55 @@
+@import "@fontsource-variable/ibm-plex-sans/wght.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+@import "tailwindcss" source("../../../../");
+
+@source "../../../../packages/editor-ui/src";
+
+:root {
+  --font-ui: "IBM Plex Sans Variable", "IBM Plex Sans", "Avenir Next", "Segoe UI", system-ui,
+    sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", "SF Mono", Monaco, Consolas, monospace;
+  --canvas-background: #ffffff;
+  --canvas-ink: #111111;
+  --canvas-line: rgb(17 17 17 / 0.032);
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--canvas-background);
+  color: var(--canvas-ink);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.page-grid {
+  background-color: var(--canvas-background);
+  background-image:
+    linear-gradient(to right, var(--canvas-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--canvas-line) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+
+.ui-mono {
+  font-family: var(--font-mono);
+}
