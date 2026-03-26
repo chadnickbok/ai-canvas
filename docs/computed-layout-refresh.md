@@ -1,5 +1,7 @@
 # AI Canvas Computed Layout Refresh
 
+Status: Normative contract.
+
 This document defines how AI Canvas Desktop refreshes `computed_layout` from the browser-backed renderer before persistence.
 
 It answers:
@@ -11,6 +13,8 @@ It answers:
 - how commit and autosave depend on it
 
 This document is normative.
+
+The broader runtime-state transitions for project open, snapshot import/export, and window close are defined in `docs/product-stance.md`. This document defines only the computed-layout refresh portion of that lifecycle.
 
 ## 1. Authority
 
@@ -71,7 +75,7 @@ If no browser-backed measurement surface is available, the write must fail with 
 
 Autosave follows the same requirement as commit.
 
-Window close is one explicit autosave boundary in v1. If the user requests close while the project is dirty or while an autosave is already running, the runtime must start or await a final autosave attempt before renderer teardown.
+Window close is one explicit autosave boundary in v1. The broader transition between the open-editor autosave states, the close-blocked final-save states, and `editor_closed_inspection_only` is defined in `docs/product-stance.md`.
 
 In v1, if the editor window has been closed and no measurement surface remains, autosave must not persist the document as though a fresh layout snapshot exists.
 
@@ -114,8 +118,6 @@ If the affected content is loose top-level content outside any scene, the engine
 
 Refreshing the whole document is not the intended v1 contract.
 
-This performance and precision tradeoff may be revisited in a future version.
-
 ## 7. Relative and Flexible Inputs
 
 Some layout inputs may be authored in a relative or flexible way, for example:
@@ -149,7 +151,9 @@ If commit or autosave requires computed-layout refresh and the browser-backed me
 
 The caller may keep the document in memory, retry refresh, or surface a save failure, but it must not silently write a falsely current `computed_layout`.
 
-If this failure happens during a close-triggered final autosave, the close must be canceled, the window must remain open, and the user must be shown retry, keep-editing, and explicit-discard options. The v1 10 second close-save timeout is treated as this same failure class.
+If this failure happens during a normal autosave while the editor remains open, the runtime transitions to `editor_open_autosave_error` with the measurement surface still available.
+
+If this failure happens during a close-triggered final autosave, the runtime transitions to `close_blocked_final_save_error`. The window and renderer stay alive, renderer teardown remains blocked, and the user must be shown retry, keep-editing, and explicit-discard options. The v1 10 second close-save timeout is treated as this same failure class.
 
 In v1, a closed editor window is one concrete case where refresh is unavailable because no measurement surface remains. The runtime should therefore expose a clear `measurement_surface_unavailable` failure rather than implying that a hidden or headless renderer exists.
 

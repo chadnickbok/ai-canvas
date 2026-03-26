@@ -1,6 +1,14 @@
 # Editor Surface Architecture
 
-This document defines the edit-time visual composition of AI Canvas Desktop while a document workspace is open.
+Status: Implementation guidance.
+
+This document describes the intended edit-time visual composition of AI Canvas Desktop while a document workspace is open.
+
+Related contracts:
+
+- `docs/product-stance.md` for runtime and product behavior
+- `docs/rendering-behavior.md` for pure document render behavior
+- `docs/computed-layout-refresh.md` for browser-backed measurement behavior
 
 It answers:
 
@@ -10,21 +18,7 @@ It answers:
 - how transient interaction previews relate to committed document render
 - which layers are valid screenshot and conformance targets
 
-This document is normative for the editor workspace surface.
-
-## 1. Authority
-
-For editor-surface behavior, the order of authority is:
-
-1. this document
-2. the editor-surface implementation in `packages/editor-ui`
-3. `docs/desktop-architecture.md`
-4. `docs/rendering-behavior.md`
-5. `docs/computed-layout-refresh.md`
-
-If these disagree, update the docs and implementation in the same change.
-
-## 2. Goals
+## 1. Goals
 
 The editor-surface architecture must:
 
@@ -47,11 +41,11 @@ When a document workspace is open, the surface must be composed in this back-to-
 2. interaction layer
 3. UI layer
 
-This is a required v1 architecture rule, not a loose implementation preference.
+This is the intended v1 composition rule.
 
 The product may internally split a layer into multiple DOM subtrees, but those subtrees must behave as one conceptual layer with the same responsibilities and boundaries defined here.
 
-## 4. Renderer Layer
+## 3. Renderer Layer
 
 The renderer layer is the browser-backed render of the normalized document.
 
@@ -72,7 +66,7 @@ It must not include:
 
 The renderer layer may participate in content hit-testing, but it must remain valid when the interaction and UI layers are absent.
 
-## 5. Interaction Layer
+## 4. Interaction Layer
 
 The interaction layer is a transparent, document-anchored overlay above the renderer layer.
 
@@ -106,7 +100,7 @@ If an element primarily depicts geometry or supports direct manipulation, it bel
 
 If an element primarily exposes controls or commands, it belongs in the UI layer even when it is positioned near a selection.
 
-## 6. UI Layer
+## 5. UI Layer
 
 The UI layer is the topmost editor chrome layer.
 
@@ -124,7 +118,7 @@ The UI layer is not part of document-space paint order.
 
 The renderer layer must not depend on the UI layer for correctness, measurement, or conformance capture.
 
-## 7. Viewport And Coordinate Rules
+## 6. Viewport And Coordinate Rules
 
 The renderer and interaction layers must share the same viewport model.
 
@@ -138,7 +132,7 @@ The UI layer is screen-space by default.
 
 UI elements may position themselves using document geometry, but they remain UI-layer elements when their primary role is command input rather than geometry depiction.
 
-## 8. Input Routing
+## 7. Input Routing
 
 Input routing must respect the layer boundaries.
 
@@ -151,7 +145,7 @@ Required behavior:
 
 The exact event plumbing may vary by implementation, but these ownership rules must hold.
 
-## 9. Preview And Commit Semantics
+## 8. Preview And Commit Semantics
 
 Interactive preview and committed document state are separate concerns.
 
@@ -171,7 +165,7 @@ On commit:
 
 On cancel, the app discards the interaction preview without mutating the persisted document.
 
-## 10. Screenshot And Test Targets
+## 9. Screenshot And Test Targets
 
 The product should support these conceptual capture modes:
 
@@ -187,7 +181,7 @@ Tests for `renderer_only` must not require the interaction or UI layers to exist
 
 `full_editor` is appropriate for end-to-end editor UI coverage.
 
-## 11. Non-Goals
+## 10. Non-Goals
 
 This document does not define:
 

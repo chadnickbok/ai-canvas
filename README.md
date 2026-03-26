@@ -1,5 +1,7 @@
 # AI Canvas Desktop
 
+Status: Index / non-normative map.
+
 AI Canvas Desktop is a local-first, scene-first mockup editor built as a standalone Electron app.
 
 It is designed for fast visual authoring, design-system-driven editing, and local AI-assisted workflows. Projects live on your machine. Structured project state is persisted in SQLite, while assets and exported snapshots live on disk. The editor UI and the MCP bridge operate on the same document model, command system, and semantic query surface.
@@ -20,7 +22,7 @@ The goal is to make a powerful mockup and flow-design tool that feels strong bot
 
 > Experimental and actively under development.
 
-The repository currently contains the current product and implementation documentation set that guides implementation. It covers the desktop runtime boundary, editor-surface architecture, storage model, MCP stance, document schema, normalization rules, computed-layout refresh behavior, rendering behavior, command semantics, command payloads, project snapshot format, and testing/release guidance. See `docs/README.md` for the full index.
+The repository currently contains the current product and implementation documentation set that guides implementation. This README is a map, not a source-of-truth contract. See `docs/README.md` for the full index and the split between contract docs, guidance docs, and release policy.
 
 ## Features
 
@@ -45,11 +47,11 @@ A **project** is the top-level unit of storage, editing, and MCP targeting.
 
 A project contains exactly one document in v1, local design-system data, local history metadata, and references to disk-backed assets and exported artifacts.
 
-A document is the canvas/workspace inside a project. Future versions may allow multiple documents per project, but that is out of scope for v1.
+A document is the canvas/workspace inside a project.
 
 ### Document workspace
 
-Opening a project opens its sole **document workspace** in v1.
+When the editor window is open, opening a project opens its sole **document workspace** in v1.
 
 There is no document switcher or multi-canvas project workflow in v1.
 
@@ -230,21 +232,28 @@ Current implementation priorities are:
 
 ## Documentation
 
-Current docs:
+This README is a map, not a source-of-truth contract. See [docs/README.md](docs/README.md) for the full classification.
 
-- [docs/README.md](docs/README.md)
+Contract docs:
+
 - [docs/product-stance.md](docs/product-stance.md)
-- [docs/desktop-architecture.md](docs/desktop-architecture.md)
-- [docs/editor-surface-architecture.md](docs/editor-surface-architecture.md)
-- [docs/storage-model.md](docs/storage-model.md)
-- [docs/local-mcp.md](docs/local-mcp.md)
 - [docs/document-schema.md](docs/document-schema.md)
 - [docs/document-normalization.md](docs/document-normalization.md)
-- [docs/computed-layout-refresh.md](docs/computed-layout-refresh.md)
-- [docs/rendering-behavior.md](docs/rendering-behavior.md)
 - [docs/command-semantics.md](docs/command-semantics.md)
 - [docs/command-payloads.md](docs/command-payloads.md)
+- [docs/rendering-behavior.md](docs/rendering-behavior.md)
+- [docs/computed-layout-refresh.md](docs/computed-layout-refresh.md)
 - [docs/project-snapshot-format.md](docs/project-snapshot-format.md)
+
+Guidance docs:
+
+- [docs/desktop-architecture.md](docs/desktop-architecture.md)
+- [docs/editor-surface-architecture.md](docs/editor-surface-architecture.md)
+- [docs/local-mcp.md](docs/local-mcp.md)
+- [docs/storage-model.md](docs/storage-model.md)
+
+Policy docs:
+
 - [docs/testing-and-release.md](docs/testing-and-release.md)
 
 ## Contributing

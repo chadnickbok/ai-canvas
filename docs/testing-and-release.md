@@ -1,5 +1,7 @@
 # Testing and Release
 
+Status: Release policy.
+
 This document defines the validation strategy and release bar for AI Canvas Desktop.
 
 It answers:
@@ -11,31 +13,21 @@ It answers:
 - what manual verification is still required
 - what failures block release vs generate warnings
 
-This document is normative for:
+This policy applies to:
 
 - local development validation
 - CI validation
 - pre-release checks
 - launch readiness decisions for the desktop app
 
-It does **not** define the document schema, command semantics, or rendering behavior themselves.  
-Those live in the corresponding product and architecture docs.
+It does **not** define product behavior itself.  
+Those contracts live in the product, schema, normalization, command, rendering, computed-layout-refresh, and snapshot docs.
 
-## 1. Authority
+## 1. Policy Scope
 
-For validation and release behavior, the order of authority is:
+This document defines release validation policy only.
 
-1. this document
-2. the machine-readable test suites and CI configuration in the repository
-3. `docs/product-stance.md`
-4. `docs/document-schema.md`
-5. `docs/document-normalization.md`
-6. `docs/rendering-behavior.md`
-7. `docs/command-semantics.md`
-8. `docs/desktop-architecture.md`
-9. `docs/local-mcp.md`
-
-If these disagree, update the docs and the machine-readable implementation in the same change.
+When release policy needs to test behavior, the behavior itself is defined by the contract docs, not by this document.
 
 ## 2. Goals
 
@@ -203,6 +195,7 @@ At minimum, command rejection tests must cover:
 - invalid style family for the target node kind
 - invalid semantic render-style patch for the target node kind
 - invalid reorder payloads
+- `measurement_surface_unavailable` fails before any mutation or durable commit when measurement is unavailable
 - unrecoverable cycle introduction
 - unrecoverable scene/frame identity violation
 
@@ -297,10 +290,9 @@ They must verify:
 - project creation
 - project reopen
 - autosave durability
-- checkpoint creation if implemented
+- recovery artifact creation
 - crash-recovery artifact detection
 - recovery flow correctness
-- migration behavior
 
 ### Required coverage
 
@@ -308,11 +300,21 @@ At minimum, persistence tests must cover:
 
 - save and reopen of a valid project
 - autosaved document survives app restart
+- first edit from clean enters the autosave-pending state
+- autosave timer moves the runtime from autosave-pending to autosave-in-flight
+- autosave success with no newer edits returns the runtime to clean
+- autosave success with newer edits returns the runtime to autosave-pending rather than falsely clean
+- autosave failure while the editor remains open keeps the renderer alive, keeps the document dirty, and shows the non-blocking autosave-error state
+- clean close with no dirty state and no autosave in flight transitions directly to tray
 - dirty close with no autosave in flight starts a final autosave before teardown
 - dirty close with autosave already in flight waits for that save to resolve before teardown
+- close requested while autosave is already in flight and newer unsaved edits remain starts another final-save attempt before close may complete
 - successful close-triggered final save allows close-to-tray
+- failed close-triggered final save enters the blocking final-save-error state
 - failed close-triggered final save keeps the window open and leaves the last durable state unchanged
 - timed-out close-triggered final save keeps the window open and surfaces the same failure path
+- `Retry Save` from blocking final-save error re-enters the blocking final-save-in-flight state
+- `Keep Editing` from blocking final-save error returns to the open-editor autosave-error state
 - discard-and-close after final save failure drops unsaved in-memory state and reopens from the last durable state
 - recovery offered when recovery artifact is newer than durable state
 - recovery decline leaves last durable state intact
@@ -342,6 +344,9 @@ At minimum, IPC tests must cover:
 - failure propagation for invalid command batches
 - import/export IPC calls
 - MCP enable/disable and status calls
+- failed `openProject` leaves the previously active project session and visible workspace unchanged
+- failed `importProjectSnapshot` leaves the previously active project session and visible workspace unchanged
+- failed `exportProjectSnapshot` leaves the active project session and visible workspace unchanged
 - app behavior when no active project is open
 
 ## 5.7 MCP parity tests
@@ -368,8 +373,10 @@ At minimum, MCP tests must cover:
 - update project state through MCP and verify UI-visible result
 - disable MCP and verify listener is unavailable
 - verify MCP binds only to localhost
+- verify MCP stays `read_write` during a normal autosave error while the editor window remains open
 - verify MCP remains available when editor window is closed but app remains resident in tray
 - verify MCP remains `read_write` while a close-triggered final save is still blocking window close
+- verify MCP remains `read_write` in the blocking final-save-error state
 - verify MCP becomes `read_only` only after the window actually closes
 - verify MCP shuts down on explicit app quit
 
@@ -403,6 +410,8 @@ At minimum, snapshot tests must cover:
 - import with checksum mismatch
 - import of damaged but partially recoverable snapshot
 - import creates a new local project rather than mutating the source project in place
+- import does not expose the imported project for editing before validation, id remapping, normalization, and persistence finish
+- failed import exposes no partial imported project and leaves the current active project unchanged
 - import remaps all snapshot ids to fresh local ids, including when the same snapshot is imported multiple times
 
 ## 5.9 End-to-end workflow tests
@@ -637,24 +646,9 @@ Recommended tracked metrics include:
 * snapshot import time
 * renderer frame stability during common edits
 
-These metrics are release signals, not yet hard compatibility promises.
+These metrics are release signals for v1.
 
-If the project later adopts hard budgets, those budgets should be added here.
-
-## 11. Migration Validation
-
-When schema or persistence migrations exist, release validation must include migration tests.
-
-These must verify:
-
-* older valid persisted projects can be opened
-* migrated documents normalize into canonical current form
-* export after migration produces valid current-format snapshots
-* migration failure does not silently destroy user data
-
-If no migration path is yet supported, the current release must say so explicitly.
-
-## 12. Test Environment Rules
+## 11. Test Environment Rules
 
 Validation should prefer deterministic local execution.
 
@@ -667,7 +661,7 @@ Recommended rules:
 * Electron tests should avoid depending on developer-specific absolute paths
 * renderer screenshot baselines should run in a controlled environment to reduce noise
 
-## 13. Failure Triage Rules
+## 12. Failure Triage Rules
 
 When a release gate fails, the team should classify the failure as one of:
 
@@ -684,7 +678,7 @@ The correct response is:
 * if the fixture is outdated because the product changed intentionally, update fixture and docs in the same change
 * if the test is flaky or invalid, fix the test rather than deleting coverage
 
-## 14. Launch Bar
+## 13. Launch Bar
 
 The desktop release is ready when all of the following are true:
 
@@ -698,7 +692,7 @@ The desktop release is ready when all of the following are true:
 * target-platform packaging succeeds
 * manual smoke verification passes on the release candidate
 
-## 15. Non-Goals of This Document
+## 14. Non-Goals of This Document
 
 This document does not define:
 

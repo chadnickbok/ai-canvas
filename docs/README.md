@@ -1,25 +1,15 @@
 # Docs
 
+Status: Index / non-normative map.
+
 This directory contains the current product and implementation docs for AI Canvas Desktop.
 
-The current docs settle product vocabulary, including the v1 `project > document > scene` hierarchy, runtime boundaries, editor-surface composition, local storage semantics, the MCP stance for v1, the canonical document schema, normalization rules, computed-layout refresh behavior, rendering behavior, command semantics, command payload wire shapes, project snapshot portability, and testing/release expectations. That includes the v1 contract that every project contains exactly one document, that window close blocks on a final autosave attempt before renderer teardown, and that MCP remains available for inspection after the editor window closes while write-capable flows still require a live browser-backed measurement surface.
+This file is a map to the docs set, not a source-of-truth contract. If behavior matters, the contract docs win over this index.
 
-## Current docs
+## Contract docs
 
 - [product-stance.md](product-stance.md)
-  Defines the product boundary, launch bar, and core runtime assumptions.
-
-- [desktop-architecture.md](desktop-architecture.md)
-  Defines the Electron, renderer, preload, tray, storage, and worker boundaries.
-
-- [editor-surface-architecture.md](editor-surface-architecture.md)
-  Defines the three-layer edit-time workspace composition for renderer, interaction overlay, and editor UI.
-
-- [storage-model.md](storage-model.md)
-  Defines how projects, the sole v1 document, history, assets, and exports are stored locally.
-
-- [local-mcp.md](local-mcp.md)
-  Defines the local MCP strategy for the desktop app.
+  Defines the product boundary and v1 runtime behavior contract.
 
 - [document-schema.md](document-schema.md)
   Defines the canonical persisted `RendererDocument` schema used by the app.
@@ -41,6 +31,22 @@ The current docs settle product vocabulary, including the v1 `project > document
 
 - [project-snapshot-format.md](project-snapshot-format.md)
   Defines the portable export/import artifact and its compatibility rules.
+
+## Guidance docs
+
+- [desktop-architecture.md](desktop-architecture.md)
+  Describes the recommended Electron, renderer, preload, storage, and package-boundary shape.
+
+- [editor-surface-architecture.md](editor-surface-architecture.md)
+  Describes the intended three-layer edit-time workspace composition for renderer, interaction overlay, and editor UI.
+
+- [local-mcp.md](local-mcp.md)
+  Describes the recommended local MCP surface and runtime integration shape.
+
+- [storage-model.md](storage-model.md)
+  Describes the recommended v1 local persistence implementation shape.
+
+## Policy docs
 
 - [testing-and-release.md](testing-and-release.md)
   Defines the validation strategy, release gates, and manual verification bar for the desktop app.

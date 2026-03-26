@@ -1,5 +1,7 @@
 # AI Canvas Command Semantics
 
+Status: Normative contract.
+
 This document defines the authoritative mutation semantics for AI Canvas Desktop.
 
 It answers:
@@ -15,7 +17,7 @@ This document is normative for:
 - editor mutations
 - local MCP mutations
 - undo/redo state transitions
-- any future automation or scripting layer that writes documents through commands
+- any automation or scripting layer that writes documents through commands
 
 It does **not** define command payload wire shapes. Those live in `docs/command-payloads.md`.
 
@@ -59,15 +61,15 @@ In v1, product flows usually resolve that document from the selected project's s
 
 Commands are applied to the normalized in-memory document shape.
 
-The application flow is:
+The application flow from live session state to durable persistence is:
 
-1. load persisted document
+1. start from the current targeted project session state, initially loaded from persisted storage
 2. normalize it for use
 3. apply the command batch in order
 4. normalize it for use again
-5. refresh `computed_layout` for commit
+5. when the runtime durably persists that updated session state, refresh `computed_layout` for commit
 6. validate final invariants
-7. commit the updated document
+7. commit the updated document to durable storage
 
 ### 3.3 Command batches are atomic
 
@@ -133,7 +135,7 @@ Before the updated document is committed:
 
 ### 3.8 Command application is single-threaded per project
 
-Within a given project session, command batches are serialized through one command-application path shared by the UI, MCP, undo/redo, and future automation.
+Within a given project session, command batches are serialized through one command-application path shared by the UI, MCP, undo/redo, and automation.
 
 There is no interleaving of command batches within a project.
 
@@ -143,7 +145,11 @@ Any command batch that intends to persist document changes must have access to a
 
 In v1, if the editor window is closed and the renderer has been torn down, write-capable callers such as MCP mutation tools must fail with `measurement_surface_unavailable`.
 
-The system must not queue writes for later replay, and it must not apply in-memory mutations that cannot proceed to a valid commit path.
+The system must not queue writes for deferred replay, and it must not apply in-memory mutations that cannot proceed to a valid commit path.
+
+Normal autosave failure while the editor window remains open is not `measurement_surface_unavailable`; the measurement surface still exists in that failure state.
+
+The broader runtime-state transitions for project open, snapshot import/export, and window close are defined in `docs/product-stance.md`. This document defines only the command-owned portion of that lifecycle once a caller has selected a project session.
 
 ## 4. Command Batch Contract
 
@@ -189,11 +195,13 @@ Those wrappers do not change mutation semantics.
 
 ## 5. Command Application Lifecycle
 
-Every command batch must follow this lifecycle.
+Every command batch must follow this lifecycle before its resulting state is durably persisted.
+
+This is the command-owned slice of the broader runtime operation lifecycle.
 
 ### 5.1 Load
 
-Load the current persisted document.
+Start from the current targeted project session state for the targeted document.
 
 ### 5.2 Normalize for use
 
@@ -212,7 +220,9 @@ Normalize into canonical in-memory shape:
 
 If the caller intends to persist mutations, it must verify that a live browser-backed measurement surface is available before applying commands.
 
-If that prerequisite is missing, command application must fail with `measurement_surface_unavailable` and leave the document unchanged.
+This verification happens before any in-memory mutation or commit preparation for the batch.
+
+If that prerequisite is missing, command application must fail with `measurement_surface_unavailable`, leave the document unchanged, and leave the runtime state unchanged.
 
 ### 5.3 Apply
 
@@ -247,6 +257,10 @@ Validate final structural and semantic invariants.
 ### 5.7 Commit
 
 Persist the updated document only if the final state is valid.
+
+This is the only step in command application that changes durable project state.
+
+Any failure before this step leaves the current persisted revision authoritative.
 
 ## 6. Failure and Repair Policy
 
@@ -322,7 +336,7 @@ This applies to:
 * styles
 * assets
 
-This keeps command application deterministic and easy to coordinate across the UI, MCP, undo/redo, and future automation.
+This keeps command application deterministic and easy to coordinate across the UI, MCP, undo/redo, and automation.
 
 ### 7.2 Id uniqueness
 
@@ -611,7 +625,7 @@ Rules:
 * clearing tags results in `[]`
 * scene metadata changes do not directly affect node structure or render state
 
-They may, however, affect later scene filtering workflows.
+They may, however, affect scene filtering workflows.
 
 ## 11. Semantic Command Semantics
 
@@ -752,7 +766,7 @@ Rules:
 
 * `default_mode_id` must continue to reference a mode that exists in the collection
 * collection `modes` are immutable in v1 because no mode-mutation commands exist
-* changing `default_mode_id` may change later variable resolution for callers that omit an explicit mode, so affected bindings must re-resolve before commit
+* changing `default_mode_id` may change variable resolution for callers that omit an explicit mode, so affected bindings must re-resolve before commit
 
 ## 12.3 Delete variable collection
 

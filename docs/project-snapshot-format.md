@@ -1,5 +1,7 @@
 # AI Canvas Project Snapshot Format
 
+Status: Normative contract.
+
 This document defines the portable snapshot format for AI Canvas Desktop.
 
 A project snapshot is a self-contained bundle used for:
@@ -9,7 +11,6 @@ A project snapshot is a self-contained bundle used for:
 - backup
 - restore
 - crash recovery artifacts
-- future sharing or transfer workflows
 
 The snapshot format is **not** the same thing as the live local storage model.
 
@@ -30,7 +31,7 @@ The snapshot format must be:
 - inspectable without the app
 - deterministic to write
 - easy to validate
-- future-friendly for schema evolution
+- versioned for compatibility
 - independent of SQLite internals
 
 It should support:
@@ -172,7 +173,7 @@ V1 export and import do not support:
 * multiple projects per bundle
 * multiple documents per project
 
-Future snapshot versions may expand beyond that, but snapshot version 1 must not imply those shapes.
+Snapshot version 1 must not imply those shapes.
 
 ## 8. Manifest
 
@@ -342,7 +343,7 @@ type SnapshotDocumentAssetSource = {
 };
 ```
 
-If the document schema does not yet support a dedicated snapshot asset source kind, the importer/exporter layer should map between:
+The importer/exporter layer maps between:
 
 * canonical in-app asset representation
 * snapshot bundle asset references
@@ -500,21 +501,11 @@ If checksum validation fails:
 * import should warn
 * partial recovery may still proceed if the content is otherwise readable
 
-## 18. Forward Compatibility
+## 18. Version Compatibility
 
 The snapshot format version is independent of the document schema version.
 
-This allows:
-
-* snapshot container evolution
-* document schema evolution
-* asset packaging evolution
-
-A reader must reject snapshots with unsupported `snapshot_version` unless it explicitly supports migration.
-
-A reader may support importing older snapshot versions by migration.
-
-Future snapshot versions may introduce multi-document project exports or other container changes. Snapshot version 1 must not imply or accept those shapes.
+A reader must reject snapshots with unsupported `snapshot_version`.
 
 ## 19. Minimal Valid Snapshot Example
 

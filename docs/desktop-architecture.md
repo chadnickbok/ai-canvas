@@ -1,6 +1,15 @@
 # Desktop Architecture
 
-This document defines the runtime architecture of the standalone Electron app.
+Status: Implementation guidance.
+
+This document describes the recommended runtime architecture of the standalone Electron app.
+
+Related contracts:
+
+- `docs/product-stance.md` for product and runtime behavior
+- `docs/document-schema.md` for persisted model shape
+- `docs/command-semantics.md` and `docs/command-payloads.md` for mutation contracts
+- `docs/computed-layout-refresh.md` for layout-refresh behavior
 
 ## Goals
 
@@ -12,7 +21,7 @@ The app should be:
 - TypeScript end-to-end
 - safe across Electron process boundaries
 - tray-capable for MCP without requiring a hidden renderer in v1
-- easy to evolve without turning the renderer into a Node-heavy blob
+- keeps the renderer lean rather than Node-heavy
 
 ## Major runtime pieces
 
@@ -29,7 +38,6 @@ The main process owns:
 - storage bootstrapping
 - MCP bootstrap and shutdown
 - IPC registration
-- optional worker or utility-process orchestration
 
 The main process should not contain editor business logic directly.
 
@@ -111,7 +119,6 @@ This package should be usable by:
 - main-process services
 - local MCP bridge
 - tests
-- future background workers
 
 ### 5. Storage services
 
@@ -123,39 +130,20 @@ A storage service layer should sit in the Node-capable side of the app and own:
 - autosave
 - project session bootstrapping
 - project snapshot import/export
-- history checkpoints
 - recovery artifacts
-- migrations
 
 The storage layer should return domain objects, not raw SQL rows.
 
-### 6. Optional utility workers
-
-Longer-running or heavy work should move out of the main process over time.
-
-Examples:
-
-- large imports
-- exports
-- preview rendering
-- snapshot generation
-- fixture replay tools
-- index rebuilding
-
-These can start in-process and later move to worker threads or Electron utility processes.
-
-A future version may introduce a hidden or headless measurement surface here, but v1 should not imply that capability.
-
 ## Runtime session model
 
-The runtime should assume:
+This section describes the recommended v1 implementation shape. The normative runtime behavior contract lives in `docs/product-stance.md`.
+
+Recommended runtime assumptions:
 
 - one editor window in v1
 - one active project at a time
 - each active project contains exactly one document in v1
 - the active project is the most recently opened project
-- opening a project opens that sole document workspace
-- MCP tools may default to the active project when no explicit project id is provided
 - command batches for a given project are serialized through one command-application path
 - the tray-resident process can keep the active project session available even when no editor window is visible
 - when no editor window is visible, the active project session remains inspectable but write-capable flows are unavailable
@@ -164,21 +152,14 @@ Because v1 has one document per project, project selection and document selectio
 
 SQLite is the persistence authority for structured project state. The live project session is the authoritative in-memory representation while the app is running.
 
-The browser renderer is the layout engine. Persisted `render_style` stores layout and style intent; persisted `computed_layout` stores the most recent measured layout snapshot and is refreshed after layout-affecting changes before commit.
+The browser renderer is the only browser-backed measurement surface in v1. The save, autosave, and close-to-tray lifecycle should be implemented through the runtime contract in `docs/product-stance.md`, not redefined here.
 
-Closing the editor window is a save-gated flow in v1:
+Recommended operation behavior:
 
-- if an autosave is already in flight, block close until that save resolves
-- if the project is dirty and no autosave is running, start a final autosave immediately
-- while the close-triggered save is running, keep the window and renderer alive and show blocking save UI
-- the close-triggered save uses a fixed 10 second timeout in v1, and timeout is treated as save failure
-- on save success, proceed with close-to-tray and tear down the renderer
-- on save failure or timeout, cancel close, keep the window open, and show blocking error UI with `Retry Save`, `Keep Editing`, and `Discard and Close`
-- `Retry Save` starts another close-triggered save attempt
-- `Keep Editing` abandons the close request and returns to the editor
-- `Discard and Close` abandons unsaved in-memory changes and closes to tray using the last durable persisted state
-
-The app must not transition into tray-only read-only mode before a successful close or an explicit discard.
+- `openProject(projectId)` should not switch the active project session or visible workspace until load and normalization succeed
+- `applyCommands(projectId, commands)` should update the live project session through the canonical command path, with durable persistence following the runtime's autosave or final-save path
+- `importProjectSnapshot(path)` should persist the imported project before exposing it for editing
+- `exportProjectSnapshot(projectId, destination)` should write from durable project state and leave the live session unchanged on failure
 
 ## Recommended package boundaries
 
@@ -254,7 +235,7 @@ Examples of good API calls:
 
 `getRuntimeCapabilities()` should expose whether a browser measurement surface is currently available for write-capable flows.
 
-Write-capable calls such as `applyCommands(projectId, commands)` should fail with `measurement_surface_unavailable` when no renderer-backed measurement surface exists.
+Write-capable calls such as `applyCommands(projectId, commands)` should fail with `measurement_surface_unavailable` when no renderer-backed measurement surface exists, according to the runtime contract in `docs/product-stance.md`.
 
 That API can be implemented over IPC, but the renderer should experience it as a typed client.
 

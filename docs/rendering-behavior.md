@@ -1,5 +1,7 @@
 # AI Canvas Rendering Behavior
 
+Status: Normative contract.
+
 This document defines how AI Canvas Desktop renders a normalized document.
 
 It answers:
@@ -13,7 +15,7 @@ It answers:
 - how ordering, clipping, and visibility work
 - what fallback behavior is allowed
 
-This document is normative for the desktop renderer layer described in `docs/editor-surface-architecture.md`.
+This document is a normative contract for the pure document render used by the desktop renderer.
 
 It defines the pure document render only.
 
@@ -29,9 +31,8 @@ For rendering behavior, the order of authority is:
 
 1. this document
 2. the renderer implementation in `packages/editor-ui`
-3. `docs/editor-surface-architecture.md`
-4. `docs/document-schema.md`
-5. `docs/document-normalization.md`
+3. `docs/document-schema.md`
+4. `docs/document-normalization.md`
 
 If these disagree, update the docs and implementation in the same change.
 
@@ -595,7 +596,7 @@ That is acceptable outside explicit commit or autosave preparation.
 
 The renderer should still render from normalized structure plus `render_style`.
 
-The renderer should not redo those responsibilities unless a future interactive preview system explicitly introduces a transient non-persisted preview mode.
+The renderer should not redo those responsibilities.
 
 ## 19. Minimal Render Expectations by Kind
 

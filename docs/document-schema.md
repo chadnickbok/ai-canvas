@@ -1,5 +1,7 @@
 # AI Canvas Document Schema
 
+Status: Normative contract.
+
 This document defines the canonical persisted document schema for AI Canvas Desktop.
 
 In v1, each project contains exactly one document. This schema describes that single document/workspace.
@@ -97,7 +99,7 @@ The separation is intentional:
 
 - `render_style` preserves authored or directly edited layout inputs such as `"100%"`, flex properties, or omitted width/height
 - `computed_layout` stores the last resolved box measured from the browser-backed renderer
-- future layout behavior is driven by the input layer, not by the computed output layer
+- layout behavior is driven by the input layer, not by the computed output layer
 - `computed_layout` is derived and cacheable, even though it is persisted
 
 When a change causes layout to reflow:
@@ -860,7 +862,7 @@ The only documented node-level asset reference is:
 
 1. `render_style.backgroundImage` containing `url(asset://<assetId>)`
 
-If future node fields reference assets, they must define their own semantics explicitly.
+If additional node fields reference assets, they must define their own semantics explicitly.
 
 ### Asset name uniqueness
 

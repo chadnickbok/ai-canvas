@@ -1,5 +1,7 @@
 # AI Canvas Command Payloads
 
+Status: Normative contract.
+
 This document defines the canonical command payload schema for AI Canvas Desktop.
 
 It specifies:
@@ -16,10 +18,12 @@ This document is normative for:
 - editor command dispatch
 - local MCP command dispatch
 - undo/redo command replay
-- any future scripting or automation layer
+- any scripting or automation layer
 
 This document does **not** define what commands mean semantically.  
 That behavior lives in `docs/command-semantics.md`.
+
+Whenever this document describes whether a payload shape is valid or invalid, it is defining wire-shape admissibility only. Mutation meaning, repair behavior, lifecycle, and failure semantics live in `docs/command-semantics.md`.
 
 ## 1. Authority
 

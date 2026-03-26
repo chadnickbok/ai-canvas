@@ -1,5 +1,7 @@
 # AI Canvas Document Normalization
 
+Status: Normative contract.
+
 This document defines how AI Canvas Desktop converts a persisted document into the canonical normalized in-memory form used by:
 
 - the editor
