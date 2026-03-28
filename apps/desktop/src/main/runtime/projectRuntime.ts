@@ -1,21 +1,23 @@
-import type { ApplyCommandsInput, AppResult, McpStatus, ProjectSummary, RuntimeCapabilities } from "@ai-canvas/ipc-contract";
+import type {
+  ActiveProject,
+  ApplyCommandsInput,
+  AppResult,
+  McpStatus,
+  ProjectSummary,
+  RuntimeCapabilities,
+  RuntimeEvent
+} from "@ai-canvas/ipc-contract";
 import { err, ok } from "@ai-canvas/ipc-contract";
 
-import type { RendererDocument } from "@ai-canvas/document-core";
-
 import type { ProjectStore } from "./projectStore.js";
-
-type ActiveProjectSession = {
-  document: RendererDocument;
-  project: ProjectSummary;
-};
 
 type McpStatusProvider = {
   getStatus: () => McpStatus;
 };
 
 export class ProjectRuntime {
-  private activeSession: ActiveProjectSession | null = null;
+  private activeSession: ActiveProject | null = null;
+  private readonly listeners = new Set<(event: RuntimeEvent) => void>();
   private measurementSurfaceAvailable = false;
   private mcpStatusProvider: McpStatusProvider | null = null;
 
@@ -23,6 +25,14 @@ export class ProjectRuntime {
 
   attachMcpStatusProvider(provider: McpStatusProvider): void {
     this.mcpStatusProvider = provider;
+  }
+
+  subscribeToEvents(listener: (event: RuntimeEvent) => void): () => void {
+    this.listeners.add(listener);
+
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   listProjects(): AppResult<ProjectSummary[]> {
@@ -33,6 +43,9 @@ export class ProjectRuntime {
     try {
       const storedProject = this.store.createProject(name);
       this.activeSession = storedProject;
+      this.emitProjectsChanged();
+      this.emitActiveProjectChanged();
+      this.emitRuntimeCapabilitiesChanged();
       return ok(storedProject.project);
     } catch (error) {
       return err(
@@ -42,7 +55,7 @@ export class ProjectRuntime {
     }
   }
 
-  openProject(projectId: string): AppResult<ActiveProjectSession> {
+  openProject(projectId: string): AppResult<ActiveProject> {
     const previousSession = this.activeSession;
 
     try {
@@ -63,6 +76,10 @@ export class ProjectRuntime {
         project: openedProject
       };
 
+      this.emitProjectsChanged();
+      this.emitActiveProjectChanged();
+      this.emitRuntimeCapabilitiesChanged();
+
       return ok(this.activeSession);
     } catch (error) {
       this.activeSession = previousSession;
@@ -73,19 +90,12 @@ export class ProjectRuntime {
     }
   }
 
-  getActiveProject(): AppResult<ActiveProjectSession | null> {
+  getActiveProject(): AppResult<ActiveProject | null> {
     return ok(this.activeSession);
   }
 
   getRuntimeCapabilities(): AppResult<RuntimeCapabilities> {
-    const runtimeState = this.activeSession ? "editor_open_clean" : "no_project_open";
-    const mode = this.activeSession && this.measurementSurfaceAvailable ? "read_write" : "read_only";
-
-    return ok({
-      measurementSurfaceAvailable: this.measurementSurfaceAvailable,
-      mode,
-      runtimeState
-    });
+    return ok(this.buildRuntimeCapabilities());
   }
 
   getMcpStatus(): AppResult<McpStatus> {
@@ -115,11 +125,61 @@ export class ProjectRuntime {
   }
 
   setMeasurementSurfaceAvailable(value: boolean): void {
+    if (this.measurementSurfaceAvailable === value) {
+      return;
+    }
+
     this.measurementSurfaceAvailable = value;
+    this.emitRuntimeCapabilitiesChanged();
+  }
+
+  publishMcpStatus(status: McpStatus): void {
+    this.emitRuntimeEvent({
+      type: "mcp_status_changed",
+      mcpStatus: status
+    });
   }
 
   close(): void {
     this.store.close();
+  }
+
+  private buildRuntimeCapabilities(): RuntimeCapabilities {
+    const runtimeState = this.activeSession ? "editor_open_clean" : "no_project_open";
+    const mode = this.activeSession && this.measurementSurfaceAvailable ? "read_write" : "read_only";
+
+    return {
+      measurementSurfaceAvailable: this.measurementSurfaceAvailable,
+      mode,
+      runtimeState
+    };
+  }
+
+  private emitProjectsChanged(): void {
+    this.emitRuntimeEvent({
+      type: "projects_changed",
+      projects: this.store.listProjects()
+    });
+  }
+
+  private emitActiveProjectChanged(): void {
+    this.emitRuntimeEvent({
+      type: "active_project_changed",
+      activeProject: this.activeSession
+    });
+  }
+
+  private emitRuntimeCapabilitiesChanged(): void {
+    this.emitRuntimeEvent({
+      type: "runtime_capabilities_changed",
+      runtimeCapabilities: this.buildRuntimeCapabilities()
+    });
+  }
+
+  private emitRuntimeEvent(event: RuntimeEvent): void {
+    for (const listener of this.listeners) {
+      listener(event);
+    }
   }
 }
 

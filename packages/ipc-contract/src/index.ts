@@ -38,6 +38,42 @@ export const activeProjectSchema = z.object({
   document: rendererDocumentSchema
 });
 
+export const projectsChangedEventSchema = z.object({
+  type: z.literal("projects_changed"),
+  projects: z.array(projectSummarySchema)
+});
+
+export const activeProjectChangedEventSchema = z.object({
+  type: z.literal("active_project_changed"),
+  activeProject: activeProjectSchema.nullable()
+});
+
+export const runtimeCapabilitiesChangedEventSchema = z.object({
+  type: z.literal("runtime_capabilities_changed"),
+  runtimeCapabilities: runtimeCapabilitiesSchema
+});
+
+export const mcpStatusChangedEventSchema = z.object({
+  type: z.literal("mcp_status_changed"),
+  mcpStatus: mcpStatusSchema
+});
+
+export const documentChangedEventSchema = z.object({
+  type: z.literal("document_changed"),
+  document: rendererDocumentSchema,
+  project: projectSummarySchema,
+  revision: z.number().int().nonnegative(),
+  runtimeCapabilities: runtimeCapabilitiesSchema
+});
+
+export const runtimeEventSchema = z.discriminatedUnion("type", [
+  projectsChangedEventSchema,
+  activeProjectChangedEventSchema,
+  runtimeCapabilitiesChangedEventSchema,
+  mcpStatusChangedEventSchema,
+  documentChangedEventSchema
+]);
+
 export const createProjectInputSchema = z.object({
   name: z.string().trim().min(1).max(120)
 });
@@ -107,7 +143,8 @@ export const appChannelNames = {
   getRuntimeCapabilities: "app:getRuntimeCapabilities",
   listProjects: "app:listProjects",
   openExternalUrl: "app:openExternalUrl",
-  openProject: "app:openProject"
+  openProject: "app:openProject",
+  runtimeEvent: "app:runtimeEvent"
 } as const;
 
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
@@ -116,6 +153,12 @@ export type McpStatus = z.infer<typeof mcpStatusSchema>;
 export type McpStatusState = z.infer<typeof mcpStatusStateSchema>;
 export type McpStatusErrorCode = z.infer<typeof mcpStatusErrorCodeSchema>;
 export type ActiveProject = z.infer<typeof activeProjectSchema>;
+export type ProjectsChangedEvent = z.infer<typeof projectsChangedEventSchema>;
+export type ActiveProjectChangedEvent = z.infer<typeof activeProjectChangedEventSchema>;
+export type RuntimeCapabilitiesChangedEvent = z.infer<typeof runtimeCapabilitiesChangedEventSchema>;
+export type McpStatusChangedEvent = z.infer<typeof mcpStatusChangedEventSchema>;
+export type DocumentChangedEvent = z.infer<typeof documentChangedEventSchema>;
+export type RuntimeEvent = z.infer<typeof runtimeEventSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
 export type OpenProjectInput = z.infer<typeof openProjectInputSchema>;
 export type OpenExternalUrlInput = z.infer<typeof openExternalUrlInputSchema>;
@@ -144,6 +187,7 @@ export interface DesktopApi {
   listProjects(): Promise<AppResult<ProjectSummary[]>>;
   openExternalUrl(input: OpenExternalUrlInput): Promise<AppResult<EmptyPayload>>;
   openProject(input: OpenProjectInput): Promise<AppResult<ActiveProject>>;
+  subscribeToRuntimeEvents(listener: (event: RuntimeEvent) => void): () => void;
 }
 
 export function ok<T>(data: T): AppResult<T> {

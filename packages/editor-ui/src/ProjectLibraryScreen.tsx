@@ -2,7 +2,6 @@ import {
   ArrowRight,
   CalendarDays,
   Clock3,
-  RefreshCw,
   Search,
   Settings
 } from "lucide-react";
@@ -35,7 +34,6 @@ type ProjectLibraryScreenProps = {
   onCreateProject: (input: CreateProjectInput) => Promise<void> | void;
   onOpenProject: (projectId: string) => void;
   onOpenExternalUrl: (url: string) => void;
-  onRefresh: () => void;
 };
 
 type SortMode = "updated" | "created";
@@ -840,23 +838,9 @@ status: running`}
                 {sortMode === "updated" ? "Updated by recent activity" : "Ordered by creation date"}
               </span>
 
-              <div className="flex items-center gap-3">
-                <span className="ui-mono text-[11px] uppercase tracking-[0.12em] text-black/34">
-                  {isReady ? `${props.projects.length} projects` : "bootstrap pending"}
-                </span>
-                <button
-                  className={cn(
-                    "ui-mono inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.14em] text-black/42 transition hover:text-[#111111]",
-                    props.isBusy && "cursor-not-allowed opacity-45 hover:text-black/42"
-                  )}
-                  disabled={props.isBusy}
-                  onClick={props.onRefresh}
-                  type="button"
-                >
-                  <RefreshCw className="h-[12px] w-[12px]" strokeWidth={1.7} />
-                  Refresh
-                </button>
-              </div>
+              <span className="ui-mono text-[11px] uppercase tracking-[0.12em] text-black/34">
+                {isReady ? `${props.projects.length} projects` : "bootstrap pending"}
+              </span>
             </div>
           </div>
 

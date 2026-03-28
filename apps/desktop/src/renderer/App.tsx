@@ -7,7 +7,9 @@ import {
   type CreateProjectInput,
   type McpStatus,
   type ProjectSummary,
-  type RuntimeCapabilities
+  runtimeEventSchema,
+  type RuntimeCapabilities,
+  type RuntimeEvent
 } from "@ai-canvas/ipc-contract";
 
 type BootState = "booting" | "ready" | "boot_error";
@@ -54,29 +56,41 @@ async function loadScreenState(
   };
 }
 
+function applyRuntimeEvent(state: ScreenState, event: RuntimeEvent): ScreenState {
+  switch (event.type) {
+    case "projects_changed":
+      return {
+        ...state,
+        projects: event.projects
+      };
+    case "active_project_changed":
+      return {
+        ...state,
+        activeProjectId: event.activeProject?.project.id ?? null
+      };
+    case "runtime_capabilities_changed":
+      return {
+        ...state,
+        runtimeCapabilities: event.runtimeCapabilities
+      };
+    case "mcp_status_changed":
+      return {
+        ...state,
+        mcpStatus: event.mcpStatus
+      };
+    case "document_changed":
+      return {
+        ...state,
+        activeProjectId: event.project.id,
+        runtimeCapabilities: event.runtimeCapabilities
+      };
+  }
+}
+
 export function App() {
   const [state, setState] = useState<ScreenState>(initialState);
 
-  const refresh = async () => {
-    const api = getDesktopApi();
-
-    if (!api) {
-      setState({
-        ...initialState,
-        bootState: "boot_error",
-        errorMessage:
-          "Desktop bridge unavailable. The Electron preload script did not attach aiCanvasApi.",
-        isBusy: false
-      });
-      return;
-    }
-
-    setState((current) => ({
-      ...current,
-      errorMessage: null,
-      isBusy: true
-    }));
-
+  const loadInitialState = async (api: DesktopApi) => {
     try {
       const nextState = await loadScreenState(api);
 
@@ -94,12 +108,45 @@ export function App() {
         bootState: current.bootState === "ready" ? "ready" : "boot_error",
         errorMessage: error instanceof Error ? error.message : "Failed to load the project library",
         isBusy: false
-      }));
+        }));
     }
   };
 
   useEffect(() => {
-    void refresh();
+    const api = getDesktopApi();
+
+    if (!api) {
+      setState({
+        ...initialState,
+        bootState: "boot_error",
+        errorMessage:
+          "Desktop bridge unavailable. The Electron preload script did not attach aiCanvasApi.",
+        isBusy: false
+      });
+      return;
+    }
+
+    const unsubscribe = api.subscribeToRuntimeEvents((runtimeEvent) => {
+      const parsed = runtimeEventSchema.safeParse(runtimeEvent);
+
+      if (!parsed.success) {
+        setState((current) => ({
+          ...current,
+          errorMessage: "Received an invalid runtime event from the desktop main process."
+        }));
+        return;
+      }
+
+      startTransition(() => {
+        setState((current) => applyRuntimeEvent(current, parsed.data));
+      });
+    });
+
+    void loadInitialState(api);
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleCreateProject = async (input: CreateProjectInput) => {
@@ -143,7 +190,11 @@ export function App() {
       throw new Error(message);
     }
 
-    await refresh();
+    setState((current) => ({
+      ...current,
+      errorMessage: null,
+      isBusy: false
+    }));
   };
 
   const handleOpenProject = async (projectId: string) => {
@@ -181,7 +232,11 @@ export function App() {
       return;
     }
 
-    await refresh();
+    setState((current) => ({
+      ...current,
+      errorMessage: null,
+      isBusy: false
+    }));
   };
 
   const handleOpenExternalUrl = async (url: string) => {
@@ -224,9 +279,6 @@ export function App() {
       onOpenProject={handleOpenProject}
       onOpenExternalUrl={(url) => {
         void handleOpenExternalUrl(url);
-      }}
-      onRefresh={() => {
-        void refresh();
       }}
       projects={state.projects}
       runtimeCapabilities={state.runtimeCapabilities}

@@ -48,6 +48,7 @@ export class LocalMcpBridge {
   private readonly host: string;
   private readonly requestedPort: number;
   private readonly projectService: ProjectService;
+  private readonly statusListeners = new Set<(status: McpStatus) => void>();
   private readonly sessions = new Map<string, SessionEntry>();
   private startError: McpStartError | null = null;
 
@@ -57,6 +58,14 @@ export class LocalMcpBridge {
     this.host = options.host;
     this.requestedPort = options.port;
     this.projectService = options.projectService;
+  }
+
+  subscribeToStatusChanges(listener: (status: McpStatus) => void): () => void {
+    this.statusListeners.add(listener);
+
+    return () => {
+      this.statusListeners.delete(listener);
+    };
   }
 
   async start(): Promise<void> {
@@ -92,6 +101,7 @@ export class LocalMcpBridge {
           }
 
           this.boundPort = (address as AddressInfo).port;
+          this.emitStatusChanged();
           resolve();
         });
       });
@@ -100,6 +110,7 @@ export class LocalMcpBridge {
       this.httpServer = null;
       this.boundPort = null;
       this.startError = this.toStartError(error);
+      this.emitStatusChanged();
       throw error;
     }
   }
@@ -123,6 +134,7 @@ export class LocalMcpBridge {
 
     this.httpServer = null;
     this.boundPort = null;
+    this.emitStatusChanged();
   }
 
   getStatus(): McpStatus {
@@ -230,6 +242,7 @@ export class LocalMcpBridge {
             server,
             transport
           });
+          this.emitStatusChanged();
         }
       }
     });
@@ -240,6 +253,7 @@ export class LocalMcpBridge {
 
       if (closedSessionId) {
         this.sessions.delete(closedSessionId);
+        this.emitStatusChanged();
       }
     };
 
@@ -341,6 +355,14 @@ export class LocalMcpBridge {
     }
 
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  }
+
+  private emitStatusChanged(): void {
+    const status = this.getStatus();
+
+    for (const listener of this.statusListeners) {
+      listener(status);
+    }
   }
 }
 

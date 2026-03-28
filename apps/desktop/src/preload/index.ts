@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import type { DesktopApi } from "@ai-canvas/ipc-contract";
+import type { DesktopApi, RuntimeEvent } from "@ai-canvas/ipc-contract";
 
 const appChannelNames = {
   applyCommands: "app:applyCommands",
@@ -10,7 +10,8 @@ const appChannelNames = {
   getRuntimeCapabilities: "app:getRuntimeCapabilities",
   listProjects: "app:listProjects",
   openExternalUrl: "app:openExternalUrl",
-  openProject: "app:openProject"
+  openProject: "app:openProject",
+  runtimeEvent: "app:runtimeEvent"
 } as const;
 
 const api: DesktopApi = {
@@ -37,6 +38,17 @@ const api: DesktopApi = {
   },
   async openProject(input) {
     return ipcRenderer.invoke(appChannelNames.openProject, input);
+  },
+  subscribeToRuntimeEvents(listener) {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, runtimeEvent: RuntimeEvent) => {
+      listener(runtimeEvent);
+    };
+
+    ipcRenderer.on(appChannelNames.runtimeEvent, wrappedListener);
+
+    return () => {
+      ipcRenderer.off(appChannelNames.runtimeEvent, wrappedListener);
+    };
   }
 };
 

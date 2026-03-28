@@ -8,12 +8,21 @@ import {
   err,
   ok,
   openExternalUrlInputSchema,
-  openProjectInputSchema
+  openProjectInputSchema,
+  type RuntimeEvent
 } from "@ai-canvas/ipc-contract";
 
 import type { ProjectRuntime } from "./runtime/index.js";
 
-export function registerIpc(runtime: ProjectRuntime): void {
+type RegisterIpcOptions = {
+  sendRuntimeEvent?: (event: RuntimeEvent) => void;
+};
+
+export function registerIpc(runtime: ProjectRuntime, options: RegisterIpcOptions = {}): () => void {
+  const unsubscribe = runtime.subscribeToEvents((event) => {
+    options.sendRuntimeEvent?.(event);
+  });
+
   ipcMain.handle(appChannelNames.listProjects, async () => runtime.listProjects());
   ipcMain.handle(appChannelNames.getActiveProject, async () => runtime.getActiveProject());
   ipcMain.handle(appChannelNames.getMcpStatus, async () => runtime.getMcpStatus());
@@ -63,6 +72,8 @@ export function registerIpc(runtime: ProjectRuntime): void {
       return toValidationError(error);
     }
   });
+
+  return unsubscribe;
 }
 
 function toValidationError(error: unknown) {

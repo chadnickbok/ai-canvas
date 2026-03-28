@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { RuntimeEvent } from "@ai-canvas/ipc-contract";
+
 import { createProjectRuntime } from "./projectRuntime";
 import { ProjectStore } from "./projectStore";
 
@@ -20,6 +22,12 @@ describe("ProjectRuntime", () => {
 
     const store = new ProjectStore(path.join(tempDir, "app.db"));
     const runtime = createProjectRuntime(store);
+    const events: RuntimeEvent[] = [];
+
+    runtime.subscribeToEvents((event) => {
+      events.push(event);
+    });
+
     const createResult = runtime.createProject("Phase 0 Test");
 
     expect(createResult.ok).toBe(true);
@@ -28,6 +36,29 @@ describe("ProjectRuntime", () => {
 
     expect(activeProject.ok && activeProject.data?.project.name).toBe("Phase 0 Test");
     expect(activeProject.ok && activeProject.data?.document.document_id.startsWith("doc_")).toBe(true);
+    expect(events.map((event) => event.type)).toEqual([
+      "projects_changed",
+      "active_project_changed",
+      "runtime_capabilities_changed"
+    ]);
+    expect(events[0]).toMatchObject({
+      type: "projects_changed",
+      projects: [{ name: "Phase 0 Test" }]
+    });
+    expect(events[1]).toMatchObject({
+      type: "active_project_changed",
+      activeProject: {
+        project: { name: "Phase 0 Test" }
+      }
+    });
+    expect(events[2]).toEqual({
+      type: "runtime_capabilities_changed",
+      runtimeCapabilities: {
+        measurementSurfaceAvailable: false,
+        mode: "read_only",
+        runtimeState: "editor_open_clean"
+      }
+    });
 
     store.close();
   });
@@ -38,14 +69,22 @@ describe("ProjectRuntime", () => {
 
     const firstStore = new ProjectStore(path.join(tempDir, "app.db"));
     const runtime = createProjectRuntime(firstStore);
+    const events: RuntimeEvent[] = [];
+
+    runtime.subscribeToEvents((event) => {
+      events.push(event);
+    });
+
     const created = runtime.createProject("Persisted Project");
 
     if (!created.ok) {
       throw new Error(created.error.message);
     }
 
+    events.length = 0;
     const missingResult = runtime.openProject("project_missing");
     expect(missingResult.ok).toBe(false);
+    expect(events).toEqual([]);
 
     const activeAfterFailure = runtime.getActiveProject();
     expect(activeAfterFailure.ok).toBe(true);
@@ -72,5 +111,56 @@ describe("ProjectRuntime", () => {
     expect(reopened.data.document.name).toBe("Persisted Project");
 
     reopenedStore.close();
+  });
+
+  it("emits capability and MCP status events when those values change", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-status-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store);
+    const events: RuntimeEvent[] = [];
+
+    runtime.subscribeToEvents((event) => {
+      events.push(event);
+    });
+
+    runtime.setMeasurementSurfaceAvailable(true);
+    runtime.publishMcpStatus({
+      connectedSessions: 1,
+      enabled: true,
+      endpoint: "http://127.0.0.1:9311/mcp",
+      errorCode: null,
+      errorMessage: null,
+      host: "127.0.0.1",
+      port: 9311,
+      state: "running"
+    });
+
+    expect(events).toEqual([
+      {
+        type: "runtime_capabilities_changed",
+        runtimeCapabilities: {
+          measurementSurfaceAvailable: true,
+          mode: "read_only",
+          runtimeState: "no_project_open"
+        }
+      },
+      {
+        type: "mcp_status_changed",
+        mcpStatus: {
+          connectedSessions: 1,
+          enabled: true,
+          endpoint: "http://127.0.0.1:9311/mcp",
+          errorCode: null,
+          errorMessage: null,
+          host: "127.0.0.1",
+          port: 9311,
+          state: "running"
+        }
+      }
+    ]);
+
+    store.close();
   });
 });

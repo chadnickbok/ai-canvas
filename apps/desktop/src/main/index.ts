@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { app, BrowserWindow, dialog } from "electron";
 
+import { appChannelNames } from "@ai-canvas/ipc-contract";
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
 import { resolveRendererLoadTarget } from "./resolveRendererLoadTarget.js";
@@ -95,7 +96,18 @@ async function bootstrap() {
   });
 
   runtime.attachMcpStatusProvider(mcpBridge);
-  registerIpc(runtime);
+  const unsubscribeFromRuntimeEvents = registerIpc(runtime, {
+    sendRuntimeEvent: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) {
+          window.webContents.send(appChannelNames.runtimeEvent, event);
+        }
+      }
+    }
+  });
+  const unsubscribeFromMcpStatus = mcpBridge.subscribeToStatusChanges((status) => {
+    runtime.publishMcpStatus(status);
+  });
   let mcpStartError: unknown = null;
 
   try {
@@ -119,6 +131,8 @@ async function bootstrap() {
 
   app.on("before-quit", () => {
     isQuitting = true;
+    unsubscribeFromMcpStatus();
+    unsubscribeFromRuntimeEvents();
     runtime.close();
     void mcpBridge.stop();
   });
