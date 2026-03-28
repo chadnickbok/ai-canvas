@@ -2,7 +2,13 @@ import { startTransition, useEffect, useState } from "react";
 
 import { ProjectLibraryScreen } from "@ai-canvas/editor-ui";
 import type { DesktopApi } from "@ai-canvas/ipc-contract";
-import { assertOk, type McpStatus, type ProjectSummary, type RuntimeCapabilities } from "@ai-canvas/ipc-contract";
+import {
+  assertOk,
+  type CreateProjectInput,
+  type McpStatus,
+  type ProjectSummary,
+  type RuntimeCapabilities
+} from "@ai-canvas/ipc-contract";
 
 type BootState = "booting" | "ready" | "boot_error";
 
@@ -96,18 +102,11 @@ export function App() {
     void refresh();
   }, []);
 
-  const handleCreateProject = async () => {
+  const handleCreateProject = async (input: CreateProjectInput) => {
     const api = getDesktopApi();
 
     if (!api || state.bootState !== "ready") {
-      return;
-    }
-
-    const suggestedName = `Project ${state.projects.length + 1}`;
-    const name = window.prompt("Project name", suggestedName)?.trim();
-
-    if (!name) {
-      return;
+      throw new Error("Desktop bridge unavailable");
     }
 
     setState((current) => ({
@@ -119,23 +118,29 @@ export function App() {
     let result;
 
     try {
-      result = await api.createProject({ name });
+      result = await api.createProject(input);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create the project";
+
       setState((current) => ({
         ...current,
-        errorMessage: error instanceof Error ? error.message : "Failed to create the project",
+        errorMessage: message,
         isBusy: false
       }));
-      return;
+
+      throw new Error(message);
     }
 
     if (!result.ok) {
+      const message = result.error.message;
+
       setState((current) => ({
         ...current,
-        errorMessage: result.error.message,
+        errorMessage: message,
         isBusy: false
       }));
-      return;
+
+      throw new Error(message);
     }
 
     await refresh();

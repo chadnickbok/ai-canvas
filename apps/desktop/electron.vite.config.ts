@@ -7,7 +7,17 @@ import type { PluginOption } from "vite";
 const tailwindPlugin = tailwindcss() as unknown as PluginOption;
 
 export default defineConfig({
-  main: {},
+  main: {
+    build: {
+      externalizeDeps: {
+        exclude: [
+          "@ai-canvas/document-core",
+          "@ai-canvas/ipc-contract",
+          "@ai-canvas/mcp-bridge"
+        ]
+      }
+    }
+  },
   preload: {
     build: {
       rollupOptions: {

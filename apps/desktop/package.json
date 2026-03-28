@@ -4,8 +4,10 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "pnpm --dir ../.. build:packages && electron-vite dev",
-    "build": "pnpm --dir ../.. build:packages && electron-vite build",
+    "dev": "pnpm --dir ../.. dev",
+    "dev:app": "electron-vite dev --watch",
+    "build": "pnpm --dir ../.. build",
+    "build:app": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src",
     "test": "pnpm --dir ../.. build:packages && vitest run"

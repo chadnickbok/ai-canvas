@@ -12,10 +12,17 @@ import {
   useRef,
   useState,
   type ComponentPropsWithoutRef,
+  type FormEvent,
   type ReactNode
 } from "react";
 
-import type { McpStatus, ProjectSummary, RuntimeCapabilities } from "@ai-canvas/ipc-contract";
+import {
+  createProjectInputSchema,
+  type CreateProjectInput,
+  type McpStatus,
+  type ProjectSummary,
+  type RuntimeCapabilities
+} from "@ai-canvas/ipc-contract";
 
 type ProjectLibraryScreenProps = {
   activeProjectId: string | null;
@@ -25,7 +32,7 @@ type ProjectLibraryScreenProps = {
   mcpStatus: McpStatus | null;
   projects: ProjectSummary[];
   runtimeCapabilities: RuntimeCapabilities | null;
-  onCreateProject: () => void;
+  onCreateProject: (input: CreateProjectInput) => Promise<void> | void;
   onOpenProject: (projectId: string) => void;
   onOpenExternalUrl: (url: string) => void;
   onRefresh: () => void;
@@ -190,7 +197,15 @@ function formatMcpStatusLine(status: McpStatus | null): string {
     return `MCP disabled on ${status.host}:${status.port}`;
   }
 
-  return `MCP is running on ${status.host}:${status.port}`;
+  return `MCP is running on ${status.endpoint}`;
+}
+
+function formatMcpEndpoint(status: McpStatus | null): string {
+  if (!status) {
+    return "Loading MCP endpoint";
+  }
+
+  return status.endpoint;
 }
 
 function getPreviewVariant(projectId: string): number {
@@ -454,14 +469,21 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
   const deferredQuery = useDeferredValue(searchQuery);
   const [sortMode, setSortMode] = useState<SortMode>("updated");
   const [guideTarget, setGuideTarget] = useState<GuideTarget | null>(null);
+  const [isCreateProjectDialogOpen, setCreateProjectDialogOpen] = useState(false);
+  const [createProjectName, setCreateProjectName] = useState("");
+  const [createProjectSubmissionError, setCreateProjectSubmissionError] = useState<string | null>(
+    null
+  );
 
   const claudeSectionRef = useRef<HTMLDivElement | null>(null);
   const codexSectionRef = useRef<HTMLDivElement | null>(null);
   const geminiSectionRef = useRef<HTMLDivElement | null>(null);
+  const createProjectInputRef = useRef<HTMLInputElement | null>(null);
 
   const isReady = props.bootState === "ready";
   const isBooting = props.bootState === "booting";
   const hasMcpError = props.mcpStatus?.state === "error";
+  const suggestedProjectName = `Project ${props.projects.length + 1}`;
   const projectSections = isReady
     ? buildProjectSections(props.projects, sortMode, deferredQuery)
     : [];
@@ -476,6 +498,12 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
     props.runtimeCapabilities?.mode === "read_only"
       ? "Runtime is currently read-only."
       : null;
+  const createProjectValidation = createProjectInputSchema.safeParse({ name: createProjectName });
+  const createProjectValidationMessage = createProjectValidation.success
+    ? null
+    : createProjectValidation.error.issues[0]?.message ?? "Enter a project name.";
+  const createProjectInlineError =
+    createProjectValidationMessage ?? createProjectSubmissionError;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -505,6 +533,21 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
     };
   }, [guideTarget, view]);
 
+  useEffect(() => {
+    if (!isCreateProjectDialogOpen || typeof window === "undefined") {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      createProjectInputRef.current?.focus();
+      createProjectInputRef.current?.select();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [isCreateProjectDialogOpen]);
+
   const handleOpenGuide = (target: GuideTarget) => {
     setGuideTarget(target);
     setView("mcp-guide");
@@ -517,6 +560,45 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
 
   const handleOpenRepository = () => {
     props.onOpenExternalUrl(REPO_URL);
+  };
+
+  const handleOpenCreateProjectDialog = () => {
+    if (!isReady || props.isBusy) {
+      return;
+    }
+
+    setCreateProjectName(suggestedProjectName);
+    setCreateProjectSubmissionError(null);
+    setCreateProjectDialogOpen(true);
+  };
+
+  const handleCloseCreateProjectDialog = () => {
+    if (props.isBusy) {
+      return;
+    }
+
+    setCreateProjectDialogOpen(false);
+    setCreateProjectName("");
+    setCreateProjectSubmissionError(null);
+  };
+
+  const handleCreateProjectSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (props.isBusy || !createProjectValidation.success) {
+      return;
+    }
+
+    setCreateProjectSubmissionError(null);
+
+    try {
+      await Promise.resolve(props.onCreateProject(createProjectValidation.data));
+      handleCloseCreateProjectDialog();
+    } catch (error) {
+      setCreateProjectSubmissionError(
+        error instanceof Error ? error.message : "Failed to create the project"
+      );
+    }
   };
 
   if (view === "mcp-guide") {
@@ -577,7 +659,9 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
                 Keep the AI Canvas Desktop window open for edits that depend on layout measurement.
               </p>
               <p className="m-0 text-[14px] leading-8 text-[#111111]">
-                Use the localhost port shown in the app&apos;s MCP status callout or settings.
+                Use the full MCP endpoint shown in the app, including the
+                <span className="ui-mono mx-2 text-[13px]">/mcp</span>
+                path.
               </p>
               <p className="m-0 text-[14px] leading-8 text-[#111111]">
                 If your client supports screenshots in docs, include the app-specific setup screen
@@ -599,8 +683,9 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
                 </p>
                 <p className="m-0">
                   <span className="ui-mono mr-4 text-[12px] text-black/34">02</span>
-                  Copy the AI Canvas MCP details from the app. In practice this is the localhost
-                  endpoint or local server configuration shown in AI Canvas Desktop.
+                  Copy the exact AI Canvas MCP endpoint from the app. For the local bridge this
+                  includes the path, for example
+                  <span className="ui-mono mx-2 text-[13px]">http://localhost:&lt;port&gt;/mcp</span>.
                 </p>
                 <p className="m-0">
                   <span className="ui-mono mr-4 text-[12px] text-black/34">03</span>
@@ -627,8 +712,7 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
                 automation model.
               </p>
               <pre className="ui-mono m-0 whitespace-pre-wrap border border-black/10 bg-[#fafafa] px-4 py-3 text-[13px] leading-7 text-[#111111]">
-{`host: localhost
-port: PORT
+{`endpoint: http://localhost:PORT/mcp
 status: running`}
               </pre>
             </aside>
@@ -646,7 +730,7 @@ status: running`}
               sectionRef={claudeSectionRef}
               steps={[
                 "1. Open Claude settings and find the MCP or tools configuration area.",
-                "2. Add AI Canvas Desktop as a local MCP server.",
+                "2. Add AI Canvas Desktop using the full endpoint from the app, including the /mcp path.",
                 "3. Verify the server appears before prompting against a live project."
               ]}
               title="Claude"
@@ -660,7 +744,7 @@ status: running`}
               sectionRef={codexSectionRef}
               steps={[
                 "1. Open the Codex app and navigate to MCP, connectors, or integrations.",
-                "2. Paste the localhost configuration provided by AI Canvas Desktop.",
+                "2. Paste the full MCP endpoint from AI Canvas Desktop, including the /mcp path.",
                 "3. Confirm that Codex can see the project server before issuing edit requests."
               ]}
               title="Codex"
@@ -673,7 +757,7 @@ status: running`}
               sectionRef={geminiSectionRef}
               steps={[
                 "1. Open Gemini&apos;s tool or server configuration screen.",
-                "2. Add the AI Canvas Desktop MCP using the local host details from the app.",
+                "2. Add the AI Canvas Desktop MCP using the full endpoint from the app, including /mcp.",
                 "3. Test inspection first, then move on to write-capable actions with the editor window open."
               ]}
               title="Gemini"
@@ -688,23 +772,17 @@ status: running`}
     <main className="page-grid min-h-screen bg-white text-[#111111]">
       <div className="grid min-h-screen w-full xl:grid-cols-[420px_minmax(0,1fr)]">
         <aside className="flex min-h-screen flex-col border-r border-black/12 bg-white/90 px-7 py-7">
-          <div className="flex items-start justify-between gap-4 border-b border-black/10 pb-5">
-            <div className="flex flex-col gap-1">
-              <span className="ui-mono text-[11px] uppercase tracking-[0.22em] text-black/42">
-                Project library
-              </span>
-              <h1 className="m-0 text-[22px] font-semibold tracking-[-0.05em] text-[#111111]">
-                My Projects
-              </h1>
-            </div>
-
+          <div className="flex items-center justify-between gap-4 border-b border-black/10 pb-5">
+            <h1 className="m-0 text-[22px] font-semibold tracking-[-0.05em] text-[#111111]">
+              My Projects
+            </h1>
             <button
               className={cn(
                 "h-[42px] shrink-0 border border-[#111111] bg-[#111111] px-4 text-[13px] font-semibold tracking-[0.01em] text-white transition hover:bg-white hover:text-[#111111]",
                 (!isReady || props.isBusy) && "cursor-not-allowed opacity-45 hover:bg-[#111111] hover:text-white"
               )}
               disabled={!isReady || props.isBusy}
-              onClick={props.onCreateProject}
+              onClick={handleOpenCreateProjectDialog}
               type="button"
             >
               New Project
@@ -886,6 +964,15 @@ status: running`}
                   </span>
                 </div>
 
+                <div className="flex flex-col gap-1">
+                  <span className="ui-mono text-[11px] uppercase tracking-[0.18em] text-black/40">
+                    Endpoint
+                  </span>
+                  <span className="ui-mono break-all text-[13px] text-[#111111]">
+                    {formatMcpEndpoint(props.mcpStatus)}
+                  </span>
+                </div>
+
                 <div className="h-px w-full bg-black/10" />
 
                 <div className="flex flex-col gap-3">
@@ -967,6 +1054,97 @@ status: running`}
           </div>
         </section>
       </div>
+
+      {isCreateProjectDialogOpen ? (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/18 px-6 py-10">
+          <div
+            aria-labelledby="create-project-title"
+            aria-modal="true"
+            className="flex w-full max-w-[520px] flex-col gap-5 border border-black bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.14)]"
+            role="dialog"
+          >
+            <div className="flex flex-col gap-2">
+              <span className="ui-mono text-[11px] uppercase tracking-[0.18em] text-black/42">
+                New project
+              </span>
+              <h2
+                className="m-0 text-[30px] font-semibold tracking-[-0.05em] text-[#111111]"
+                id="create-project-title"
+              >
+                Start a local project
+              </h2>
+              <p className="m-0 text-[15px] leading-7 text-black/66">
+                Projects are created on your machine and become the active session for the editor
+                and MCP.
+              </p>
+            </div>
+
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={(event) => {
+                void handleCreateProjectSubmit(event);
+              }}
+            >
+              <label className="flex flex-col gap-2" htmlFor="create-project-name">
+                <span className="ui-mono text-[11px] uppercase tracking-[0.18em] text-black/42">
+                  Project name
+                </span>
+                <input
+                  className={cn(
+                    "h-12 border bg-white px-4 text-[15px] text-[#111111] outline-none transition placeholder:text-black/30 focus:border-black",
+                    createProjectInlineError ? "border-black" : "border-black/18"
+                  )}
+                  disabled={props.isBusy}
+                  id="create-project-name"
+                  onChange={(event) => {
+                    setCreateProjectName(event.target.value);
+                    setCreateProjectSubmissionError(null);
+                  }}
+                  placeholder="Project name"
+                  ref={createProjectInputRef}
+                  value={createProjectName}
+                />
+              </label>
+
+              <div className="min-h-[28px] text-[13px] leading-6 text-[#111111]">
+                {createProjectInlineError ? (
+                  <span>{createProjectInlineError}</span>
+                ) : (
+                  <span className="text-black/52">
+                    Required. Up to 120 characters. The name is used for the document and project
+                    summary.
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  className={cn(
+                    "h-[42px] border border-black/18 bg-white px-4 text-[13px] font-semibold tracking-[0.01em] text-[#111111] transition hover:border-black",
+                    props.isBusy && "cursor-not-allowed opacity-45 hover:border-black/18"
+                  )}
+                  disabled={props.isBusy}
+                  onClick={handleCloseCreateProjectDialog}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className={cn(
+                    "h-[42px] border border-[#111111] bg-[#111111] px-4 text-[13px] font-semibold tracking-[0.01em] text-white transition hover:bg-white hover:text-[#111111]",
+                    (!createProjectValidation.success || props.isBusy) &&
+                      "cursor-not-allowed opacity-45 hover:bg-[#111111] hover:text-white"
+                  )}
+                  disabled={!createProjectValidation.success || props.isBusy}
+                  type="submit"
+                >
+                  {props.isBusy ? "Creating..." : "Create Project"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

@@ -10,21 +10,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "baseUrl": ".",
-    "paths": {
-      "@ai-canvas/document-core": [
-        "packages/document-core/src/index.ts"
-      ],
-      "@ai-canvas/editor-ui": [
-        "packages/editor-ui/src/index.ts"
-      ],
-      "@ai-canvas/ipc-contract": [
-        "packages/ipc-contract/src/index.ts"
-      ],
-      "@ai-canvas/mcp-bridge": [
-        "packages/mcp-bridge/src/index.ts"
-      ]
-    }
+    "verbatimModuleSyntax": true
   }
 }

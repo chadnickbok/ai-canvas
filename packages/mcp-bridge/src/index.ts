@@ -7,16 +7,22 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
 
-import type { McpStatus, ProjectSummary } from "@ai-canvas/ipc-contract";
+import {
+  createProjectInputSchema,
+  projectSummarySchema,
+  type McpStatus,
+  type ProjectSummary
+} from "@ai-canvas/ipc-contract";
 
-export type ListProjectsService = {
+export type ProjectService = {
+  createProject: (name: string) => Promise<ProjectSummary> | ProjectSummary;
   listProjects: () => Promise<ProjectSummary[]> | ProjectSummary[];
 };
 
 export type LocalMcpBridgeOptions = {
   host: string;
   port: number;
-  projectService: ListProjectsService;
+  projectService: ProjectService;
 };
 
 type SessionEntry = {
@@ -30,23 +36,18 @@ type McpStartError = {
 };
 
 const listProjectsOutputSchema = z.object({
-  projects: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      documentId: z.string(),
-      createdAt: z.string(),
-      updatedAt: z.string(),
-      lastOpenedAt: z.string().nullable()
-    })
-  )
+  projects: z.array(projectSummarySchema)
+});
+
+const createProjectOutputSchema = z.object({
+  project: projectSummarySchema
 });
 
 export class LocalMcpBridge {
   private boundPort: number | null = null;
   private readonly host: string;
   private readonly requestedPort: number;
-  private readonly projectService: ListProjectsService;
+  private readonly projectService: ProjectService;
   private readonly sessions = new Map<string, SessionEntry>();
   private startError: McpStartError | null = null;
 
@@ -282,11 +283,36 @@ export class LocalMcpBridge {
       "list_projects",
       {
         description: "List local AI Canvas projects from the shared desktop runtime.",
-        inputSchema: {}
+        inputSchema: {},
+        outputSchema: listProjectsOutputSchema
       },
       async () => {
         const projects = await this.projectService.listProjects();
         const structuredContent = listProjectsOutputSchema.parse({ projects });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(structuredContent, null, 2)
+            }
+          ],
+          structuredContent
+        };
+      }
+    );
+
+    server.registerTool(
+      "create_project",
+      {
+        description: "Create a new local AI Canvas project and make it the active desktop session.",
+        inputSchema: createProjectInputSchema,
+        outputSchema: createProjectOutputSchema
+      },
+      async (args) => {
+        const input = createProjectInputSchema.parse(args);
+        const project = await this.projectService.createProject(input.name);
+        const structuredContent = createProjectOutputSchema.parse({ project });
 
         return {
           content: [

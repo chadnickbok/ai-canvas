@@ -5,14 +5,16 @@ import { app, BrowserWindow, dialog } from "electron";
 
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
+import { resolveRendererLoadTarget } from "./resolveRendererLoadTarget.js";
 import { registerIpc } from "./registerIpc.js";
 import { createProjectRuntime, ProjectStore } from "./runtime/index.js";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const rendererDist = path.join(moduleDir, "../renderer");
+const rendererIndexPath = path.join(rendererDist, "index.html");
 const preloadPath = path.join(moduleDir, "../preload/index.cjs");
 const mcpHost = "127.0.0.1";
-const mcpPort = 4317;
+const mcpPort = 9311;
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -52,10 +54,12 @@ async function createMainWindow(runtime: ReturnType<typeof createProjectRuntime>
     mainWindow = null;
   });
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    await browserWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  const rendererLoadTarget = resolveRendererLoadTarget(process.env, rendererIndexPath);
+
+  if (rendererLoadTarget.kind === "url") {
+    await browserWindow.loadURL(rendererLoadTarget.value);
   } else {
-    await browserWindow.loadFile(path.join(rendererDist, "index.html"));
+    await browserWindow.loadFile(rendererLoadTarget.value);
   }
 
   mainWindow = browserWindow;
@@ -73,6 +77,15 @@ async function bootstrap() {
     host: mcpHost,
     port: mcpPort,
     projectService: {
+      createProject: async (name) => {
+        const result = runtime.createProject(name);
+
+        if (!result.ok) {
+          throw new Error(result.error.message);
+        }
+
+        return result.data;
+      },
       listProjects: async () => {
         const result = runtime.listProjects();
 

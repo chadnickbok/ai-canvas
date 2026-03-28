@@ -11,10 +11,11 @@
     ]
   },
   "scripts": {
-    "build:packages": "pnpm --filter @ai-canvas/document-core build && pnpm --filter @ai-canvas/ipc-contract build && pnpm --filter @ai-canvas/editor-ui build && pnpm --filter @ai-canvas/mcp-bridge build",
-    "dev": "pnpm --filter @ai-canvas/desktop dev",
-    "build": "pnpm build:packages && pnpm --filter @ai-canvas/desktop build",
-    "typecheck": "pnpm --filter @ai-canvas/document-core typecheck && pnpm --filter @ai-canvas/editor-ui typecheck && pnpm --filter @ai-canvas/ipc-contract typecheck && pnpm --filter @ai-canvas/mcp-bridge typecheck && pnpm --filter @ai-canvas/desktop typecheck",
+    "build:packages": "pnpm exec tsc -b tsconfig.packages.json",
+    "watch:packages": "pnpm exec tsc -b -w tsconfig.packages.json --preserveWatchOutput",
+    "dev": "node ./scripts/run-dev.mjs",
+    "build": "pnpm build:packages && pnpm --filter @ai-canvas/desktop build:app",
+    "typecheck": "pnpm build:packages && pnpm --filter @ai-canvas/desktop typecheck",
     "lint": "pnpm --filter @ai-canvas/document-core lint && pnpm --filter @ai-canvas/editor-ui lint && pnpm --filter @ai-canvas/ipc-contract lint && pnpm --filter @ai-canvas/mcp-bridge lint && pnpm --filter @ai-canvas/desktop lint",
     "test": "pnpm --filter @ai-canvas/document-core test && pnpm --filter @ai-canvas/mcp-bridge test && pnpm --filter @ai-canvas/desktop test",
     "test:document-core": "pnpm --filter @ai-canvas/document-core test"
