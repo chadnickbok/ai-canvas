@@ -1,11 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import type { ProjectSummary } from "@ai-canvas/ipc-contract";
 
-import { LocalMcpBridge } from "../src";
+import { LocalMcpBridge, type ProjectService } from "../src";
 
 const activeBridges: LocalMcpBridge[] = [];
 
@@ -13,33 +13,193 @@ afterEach(async () => {
   await Promise.all(activeBridges.splice(0).map((bridge) => bridge.stop()));
 });
 
-describe("LocalMcpBridge", () => {
-  it("initializes and serves list_projects over streamable HTTP", async () => {
-    const projects: ProjectSummary[] = [
-      {
-        createdAt: "2026-03-25T00:00:00.000Z",
-        documentId: "doc_123",
-        id: "project_123",
-        lastOpenedAt: "2026-03-25T00:00:00.000Z",
-        name: "Fixture Project",
-        updatedAt: "2026-03-25T00:00:00.000Z"
-      }
-    ];
+const fixtureProject: ProjectSummary = {
+  createdAt: "2026-03-25T00:00:00.000Z",
+  documentId: "doc_123",
+  id: "project_123",
+  lastOpenedAt: "2026-03-25T00:00:00.000Z",
+  name: "Fixture Project",
+  updatedAt: "2026-03-25T00:00:00.000Z"
+};
 
+const fixtureNode = {
+  authoring: {
+    local_values: {},
+    style_bindings: {},
+    variable_bindings: {}
+  },
+  child_ids: [],
+  id: "scene_home",
+  is_locked: false,
+  is_visible: true,
+  kind: "frame" as const,
+  name: "Home",
+  parent_id: null,
+  render_style: {
+    height: 844,
+    left: 40,
+    top: 60,
+    width: 390
+  },
+  scene_id: "scene_home"
+};
+
+function createOk<T>(data: T) {
+  return {
+    data,
+    ok: true as const
+  };
+}
+
+function createService(overrides: Partial<ProjectService> = {}): ProjectService {
+  return {
+    applyCommands: overrides.applyCommands ?? (async () =>
+      createOk({
+        document_id: "doc_123",
+        effects: {
+          changed_node_ids: ["scene_home"],
+          changed_scene_ids: ["scene_home"]
+        },
+        layout_refresh: {
+          reason: "computed_layout_refresh_not_implemented" as const,
+          status: "skipped" as const
+        },
+        revision: 2
+      })),
+    createProject:
+      overrides.createProject ??
+      (async (name) =>
+        createOk({
+          ...fixtureProject,
+          id: "project_created",
+          name
+        })),
+    inspectDesignSystem:
+      overrides.inspectDesignSystem ??
+      (async () =>
+        createOk({
+          design_system: {
+            canvas: {
+              authoring: {
+                local_values: {
+                  "canvas.background_color": "#faf7f0"
+                },
+                variable_bindings: {}
+              },
+              background_color: "#faf7f0",
+              extent_mode: "infinite" as const
+            },
+            styles: {
+              paint: {},
+              text: {}
+            },
+            variables: {
+              collections: {}
+            }
+          },
+          document_id: "doc_123",
+          project_id: fixtureProject.id,
+          revision: 1
+        })),
+    inspectNode:
+      overrides.inspectNode ??
+      (async (_projectId, nodeId) =>
+        createOk({
+          document_id: "doc_123",
+          node: {
+            ...fixtureNode,
+            id: nodeId
+          },
+          project_id: fixtureProject.id,
+          revision: 1
+        })),
+    inspectProject:
+      overrides.inspectProject ??
+      (async () =>
+        createOk({
+          document: {
+            asset_count: 0,
+            document_id: "doc_123",
+            name: "Fixture Project",
+            node_count: 1,
+            page_name: "Canvas",
+            paint_style_count: 0,
+            root_child_ids: ["scene_home"],
+            root_id: "canvas_root",
+            scene_count: 1,
+            text_style_count: 0,
+            variable_collection_count: 0,
+            variable_count: 0
+          },
+          is_active: true,
+          project: fixtureProject,
+          revision: 1
+        })),
+    inspectScenes:
+      overrides.inspectScenes ??
+      (async () =>
+        createOk({
+          document_id: "doc_123",
+          project_id: fixtureProject.id,
+          revision: 1,
+          scenes: [
+            {
+              child_ids: [],
+              frame: fixtureNode,
+              scene: {
+                child_count: 0,
+                frame_node_id: "scene_home",
+                id: "scene_home",
+                name: "Home",
+                scene_metadata: {
+                  tags: []
+                }
+              }
+            }
+          ]
+        })),
+    inspectTree:
+      overrides.inspectTree ??
+      (async (input) =>
+        createOk({
+          document_id: "doc_123",
+          project_id: fixtureProject.id,
+          revision: 1,
+          root_node_id: input.rootNodeId ?? null,
+          tree: [
+            {
+              child_ids: [],
+              children: [],
+              id: input.rootNodeId ?? "scene_home",
+              is_locked: false,
+              is_visible: true,
+              kind: "frame",
+              name: "Home",
+              parent_id: null,
+              scene_id: "scene_home"
+            }
+          ]
+        })),
+    listProjects: overrides.listProjects ?? (async () => createOk([fixtureProject])),
+    openProject:
+      overrides.openProject ??
+      (async (projectId) =>
+        createOk({
+          project: {
+            ...fixtureProject,
+            id: projectId
+          },
+          revision: 1
+        }))
+  };
+}
+
+describe("LocalMcpBridge", () => {
+  it("initializes and exposes the full first-pass MCP tool surface", async () => {
     const bridge = new LocalMcpBridge({
       host: "127.0.0.1",
       port: 4318,
-      projectService: {
-        createProject: async (name) => ({
-          createdAt: "2026-03-25T00:00:00.000Z",
-          documentId: "doc_created",
-          id: "project_created",
-          lastOpenedAt: "2026-03-25T00:00:00.000Z",
-          name,
-          updatedAt: "2026-03-25T00:00:00.000Z"
-        }),
-        listProjects: async () => projects
-      }
+      projectService: createService()
     });
     activeBridges.push(bridge);
 
@@ -61,8 +221,18 @@ describe("LocalMcpBridge", () => {
     await client.connect(transport);
 
     const tools = await client.listTools();
-    expect(tools.tools.map((tool) => tool.name)).toContain("list_projects");
-    expect(tools.tools.map((tool) => tool.name)).toContain("create_project");
+
+    expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+      "apply_commands",
+      "create_project",
+      "inspect_design_system",
+      "inspect_node",
+      "inspect_project",
+      "inspect_scenes",
+      "inspect_tree",
+      "list_projects",
+      "open_project"
+    ]);
 
     const result = await client.callTool({
       arguments: {},
@@ -70,34 +240,34 @@ describe("LocalMcpBridge", () => {
     });
 
     expect(result.isError).not.toBe(true);
-    expect(result.structuredContent).toEqual({ projects });
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      projects: [fixtureProject]
+    });
 
     await transport.close();
     await client.close();
   });
 
-  it("creates a project over MCP and returns it from a follow-up list_projects call", async () => {
-    const projects: ProjectSummary[] = [];
-
+  it("opens, inspects, and applies commands with structured MCP payloads", async () => {
+    const applyCommands = vi.fn(async (input) =>
+      createOk({
+        document_id: "doc_123",
+        effects: {
+          changed_node_ids: ["scene_home"],
+          changed_scene_ids: ["scene_home"]
+        },
+        layout_refresh: {
+          reason: "computed_layout_refresh_not_implemented" as const,
+          status: "skipped" as const
+        },
+        revision: 2
+      })
+    );
     const bridge = new LocalMcpBridge({
       host: "127.0.0.1",
       port: 4321,
-      projectService: {
-        createProject: async (name) => {
-          const project: ProjectSummary = {
-            createdAt: "2026-03-26T00:00:00.000Z",
-            documentId: "doc_456",
-            id: "project_456",
-            lastOpenedAt: "2026-03-26T00:00:00.000Z",
-            name,
-            updatedAt: "2026-03-26T00:00:00.000Z"
-          };
-
-          projects.unshift(project);
-          return project;
-        },
-        listProjects: async () => projects
-      }
+      projectService: createService({ applyCommands })
     });
     activeBridges.push(bridge);
 
@@ -111,42 +281,244 @@ describe("LocalMcpBridge", () => {
 
     await client.connect(transport);
 
-    const createResult = await client.callTool({
+    const openResult = await client.callTool({
       arguments: {
-        name: "New Project Via MCP"
+        project_id: fixtureProject.id
       },
-      name: "create_project"
+      name: "open_project"
     });
 
-    expect(createResult.isError).not.toBe(true);
-    expect(createResult.structuredContent).toEqual({
-      project: {
-        createdAt: "2026-03-26T00:00:00.000Z",
-        documentId: "doc_456",
-        id: "project_456",
-        lastOpenedAt: "2026-03-26T00:00:00.000Z",
-        name: "New Project Via MCP",
-        updatedAt: "2026-03-26T00:00:00.000Z"
-      }
+    expect(openResult.isError).not.toBe(true);
+    expect(openResult.structuredContent).toEqual({
+      ok: true,
+      project: fixtureProject,
+      revision: 1
     });
 
-    const listResult = await client.callTool({
+    const inspectProjectResult = await client.callTool({
       arguments: {},
-      name: "list_projects"
+      name: "inspect_project"
     });
 
-    expect(listResult.isError).not.toBe(true);
-    expect(listResult.structuredContent).toEqual({
-      projects: [
+    expect(inspectProjectResult.structuredContent).toEqual({
+      document: {
+        asset_count: 0,
+        document_id: "doc_123",
+        name: "Fixture Project",
+        node_count: 1,
+        page_name: "Canvas",
+        paint_style_count: 0,
+        root_child_ids: ["scene_home"],
+        root_id: "canvas_root",
+        scene_count: 1,
+        text_style_count: 0,
+        variable_collection_count: 0,
+        variable_count: 0
+      },
+      is_active: true,
+      ok: true,
+      project: fixtureProject,
+      revision: 1
+    });
+
+    const inspectTreeResult = await client.callTool({
+      arguments: {
+        root_node_id: "scene_home"
+      },
+      name: "inspect_tree"
+    });
+
+    expect(inspectTreeResult.structuredContent).toEqual({
+      document_id: "doc_123",
+      ok: true,
+      project_id: fixtureProject.id,
+      revision: 1,
+      root_node_id: "scene_home",
+      tree: [
         {
-          createdAt: "2026-03-26T00:00:00.000Z",
-          documentId: "doc_456",
-          id: "project_456",
-          lastOpenedAt: "2026-03-26T00:00:00.000Z",
-          name: "New Project Via MCP",
-          updatedAt: "2026-03-26T00:00:00.000Z"
+          child_ids: [],
+          children: [],
+          id: "scene_home",
+          is_locked: false,
+          is_visible: true,
+          kind: "frame",
+          name: "Home",
+          parent_id: null,
+          scene_id: "scene_home"
         }
       ]
+    });
+
+    const inspectNodeResult = await client.callTool({
+      arguments: {
+        node_id: "scene_home"
+      },
+      name: "inspect_node"
+    });
+
+    expect(inspectNodeResult.structuredContent).toEqual({
+      document_id: "doc_123",
+      node: fixtureNode,
+      ok: true,
+      project_id: fixtureProject.id,
+      revision: 1
+    });
+
+    const inspectScenesResult = await client.callTool({
+      arguments: {},
+      name: "inspect_scenes"
+    });
+
+    expect(inspectScenesResult.structuredContent).toEqual({
+      document_id: "doc_123",
+      ok: true,
+      project_id: fixtureProject.id,
+      revision: 1,
+      scenes: [
+        {
+          child_ids: [],
+          frame: fixtureNode,
+          scene: {
+            child_count: 0,
+            frame_node_id: "scene_home",
+            id: "scene_home",
+            name: "Home",
+            scene_metadata: {
+              tags: []
+            }
+          }
+        }
+      ]
+    });
+
+    const inspectDesignSystemResult = await client.callTool({
+      arguments: {},
+      name: "inspect_design_system"
+    });
+
+    expect(inspectDesignSystemResult.structuredContent).toEqual({
+      design_system: {
+        canvas: {
+          authoring: {
+            local_values: {
+              "canvas.background_color": "#faf7f0"
+            },
+            variable_bindings: {}
+          },
+          background_color: "#faf7f0",
+          extent_mode: "infinite"
+        },
+        styles: {
+          paint: {},
+          text: {}
+        },
+        variables: {
+          collections: {}
+        }
+      },
+      document_id: "doc_123",
+      ok: true,
+      project_id: fixtureProject.id,
+      revision: 1
+    });
+
+    const applyResult = await client.callTool({
+      arguments: {
+        base_revision: 1,
+        commands: [
+          {
+            scene: {
+              height: 844,
+              id: "scene_home",
+              left: 40,
+              name: "Home",
+              top: 60,
+              width: 390
+            },
+            type: "create_scene"
+          }
+        ],
+        project_id: fixtureProject.id
+      },
+      name: "apply_commands"
+    });
+
+    expect(applyCommands).toHaveBeenCalledWith({
+      base_revision: 1,
+      commands: [
+        {
+          scene: {
+            height: 844,
+            id: "scene_home",
+            left: 40,
+            name: "Home",
+            top: 60,
+            width: 390
+          },
+          type: "create_scene"
+        }
+      ],
+      project_id: fixtureProject.id
+    });
+    expect(applyResult.structuredContent).toEqual({
+      document_id: "doc_123",
+      effects: {
+        changed_node_ids: ["scene_home"],
+        changed_scene_ids: ["scene_home"]
+      },
+      layout_refresh: {
+        reason: "computed_layout_refresh_not_implemented",
+        status: "skipped"
+      },
+      ok: true,
+      revision: 2
+    });
+
+    await transport.close();
+    await client.close();
+  });
+
+  it("returns structured tool errors when the runtime rejects a request", async () => {
+    const bridge = new LocalMcpBridge({
+      host: "127.0.0.1",
+      port: 4322,
+      projectService: createService({
+        applyCommands: async () => ({
+          error: {
+            code: "measurement_surface_unavailable",
+            message: "Write-capable command execution requires an available renderer measurement surface"
+          },
+          ok: false
+        })
+      })
+    });
+    activeBridges.push(bridge);
+
+    await bridge.start();
+
+    const client = new Client({
+      name: "ai-canvas-test-client",
+      version: "0.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL("http://127.0.0.1:4322/mcp"));
+
+    await client.connect(transport);
+
+    const result = await client.callTool({
+      arguments: {
+        commands: [],
+        project_id: fixtureProject.id
+      },
+      name: "apply_commands"
+    });
+
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "")).toEqual({
+      error: {
+        code: "measurement_surface_unavailable",
+        message: "Write-capable command execution requires an available renderer measurement surface"
+      },
+      ok: false
     });
 
     await transport.close();
@@ -157,17 +529,7 @@ describe("LocalMcpBridge", () => {
     const bridge = new LocalMcpBridge({
       host: "127.0.0.1",
       port: 4320,
-      projectService: {
-        createProject: async (name) => ({
-          createdAt: "2026-03-25T00:00:00.000Z",
-          documentId: "doc_created",
-          id: "project_created",
-          lastOpenedAt: "2026-03-25T00:00:00.000Z",
-          name,
-          updatedAt: "2026-03-25T00:00:00.000Z"
-        }),
-        listProjects: async () => []
-      }
+      projectService: createService()
     });
     activeBridges.push(bridge);
 
@@ -188,32 +550,12 @@ describe("LocalMcpBridge", () => {
     const primaryBridge = new LocalMcpBridge({
       host: "127.0.0.1",
       port: 4319,
-      projectService: {
-        createProject: async (name) => ({
-          createdAt: "2026-03-25T00:00:00.000Z",
-          documentId: "doc_created",
-          id: "project_created",
-          lastOpenedAt: "2026-03-25T00:00:00.000Z",
-          name,
-          updatedAt: "2026-03-25T00:00:00.000Z"
-        }),
-        listProjects: async () => []
-      }
+      projectService: createService()
     });
     const conflictingBridge = new LocalMcpBridge({
       host: "127.0.0.1",
       port: 4319,
-      projectService: {
-        createProject: async (name) => ({
-          createdAt: "2026-03-25T00:00:00.000Z",
-          documentId: "doc_created",
-          id: "project_created",
-          lastOpenedAt: "2026-03-25T00:00:00.000Z",
-          name,
-          updatedAt: "2026-03-25T00:00:00.000Z"
-        }),
-        listProjects: async () => []
-      }
+      projectService: createService()
     });
 
     activeBridges.push(primaryBridge, conflictingBridge);

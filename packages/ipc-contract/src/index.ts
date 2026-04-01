@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { rendererDocumentSchema } from "@ai-canvas/document-core";
+import {
+  applyCommandsEffectsSchema,
+  applyCommandsInputSchema as documentCoreApplyCommandsInputSchema,
+  rendererDocumentSchema
+} from "@ai-canvas/document-core";
 
 export const projectSummarySchema = z.object({
   id: z.string(),
@@ -35,7 +39,8 @@ export const mcpStatusSchema = z.object({
 
 export const activeProjectSchema = z.object({
   project: projectSummarySchema,
-  document: rendererDocumentSchema
+  document: rendererDocumentSchema,
+  revision: z.number().int().positive()
 });
 
 export const projectsChangedEventSchema = z.object({
@@ -96,10 +101,11 @@ export const openExternalUrlInputSchema = z.object({
     }, "External links must use http or https.")
 });
 
-export const applyCommandsInputSchema = z.object({
-  document_id: z.string().min(1),
-  commands: z.array(z.object({ type: z.string() })),
-  base_revision: z.number().int().nonnegative().optional()
+export const applyCommandsInputSchema = documentCoreApplyCommandsInputSchema;
+
+export const commandLayoutRefreshSchema = z.object({
+  reason: z.literal("computed_layout_refresh_not_implemented"),
+  status: z.literal("skipped")
 });
 
 export const appErrorCodeSchema = z.enum([
@@ -107,6 +113,10 @@ export const appErrorCodeSchema = z.enum([
   "measurement_surface_unavailable",
   "not_found",
   "not_implemented",
+  "revision_conflict",
+  "target_not_found",
+  "unknown_command",
+  "unrecoverable_command",
   "validation_failed"
 ]);
 
@@ -132,7 +142,9 @@ export const resultSchema = <T extends z.ZodTypeAny>(schema: T) =>
 export const emptyPayloadSchema = z.object({});
 export const commandResultSchema = z.object({
   document_id: z.string(),
-  revision: z.number().int().nonnegative()
+  effects: applyCommandsEffectsSchema.optional(),
+  layout_refresh: commandLayoutRefreshSchema,
+  revision: z.number().int().positive()
 });
 
 export const appChannelNames = {

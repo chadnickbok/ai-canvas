@@ -36,6 +36,7 @@ describe("ProjectRuntime", () => {
 
     expect(activeProject.ok && activeProject.data?.project.name).toBe("Phase 0 Test");
     expect(activeProject.ok && activeProject.data?.document.document_id.startsWith("doc_")).toBe(true);
+    expect(activeProject.ok && activeProject.data?.revision).toBe(1);
     expect(events.map((event) => event.type)).toEqual([
       "projects_changed",
       "active_project_changed",
@@ -48,7 +49,8 @@ describe("ProjectRuntime", () => {
     expect(events[1]).toMatchObject({
       type: "active_project_changed",
       activeProject: {
-        project: { name: "Phase 0 Test" }
+        project: { name: "Phase 0 Test" },
+        revision: 1
       }
     });
     expect(events[2]).toEqual({
@@ -109,8 +111,142 @@ describe("ProjectRuntime", () => {
 
     expect(reopened.data.project.name).toBe("Persisted Project");
     expect(reopened.data.document.name).toBe("Persisted Project");
+    expect(reopened.data.revision).toBe(1);
 
     reopenedStore.close();
+  });
+
+  it("inspects non-active persisted projects without switching the active session", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-inspect-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store);
+
+    const firstProject = runtime.createProject("First Project");
+
+    if (!firstProject.ok) {
+      throw new Error(firstProject.error.message);
+    }
+
+    const secondProject = runtime.createProject("Second Project");
+
+    if (!secondProject.ok) {
+      throw new Error(secondProject.error.message);
+    }
+
+    const inspected = runtime.inspectProject(firstProject.data.id);
+
+    expect(inspected.ok).toBe(true);
+
+    if (!inspected.ok) {
+      throw new Error(inspected.error.message);
+    }
+
+    expect(inspected.data.project.id).toBe(firstProject.data.id);
+    expect(inspected.data.is_active).toBe(false);
+    expect(inspected.data.revision).toBe(1);
+
+    const activeProject = runtime.getActiveProject();
+
+    expect(activeProject.ok && activeProject.data?.project.id).toBe(secondProject.data.id);
+
+    store.close();
+  });
+
+  it("applies command batches, persists revisions, and emits document_changed", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-commands-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store);
+    const events: RuntimeEvent[] = [];
+
+    runtime.subscribeToEvents((event) => {
+      events.push(event);
+    });
+
+    const created = runtime.createProject("Writable Project");
+
+    if (!created.ok) {
+      throw new Error(created.error.message);
+    }
+
+    runtime.setMeasurementSurfaceAvailable(true);
+    events.length = 0;
+
+    const commandResult = await runtime.applyProjectCommands({
+      base_revision: 1,
+      commands: [
+        {
+          type: "create_scene",
+          scene: {
+            height: 844,
+            id: "scene_home",
+            left: 40,
+            name: "Home",
+            top: 60,
+            width: 390
+          }
+        }
+      ]
+    });
+
+    expect(commandResult.ok).toBe(true);
+
+    if (!commandResult.ok) {
+      throw new Error(commandResult.error.message);
+    }
+
+    expect(commandResult.data).toEqual({
+      document_id: expect.stringMatching(/^doc_/),
+      effects: {
+        changed_node_ids: ["scene_home"],
+        changed_scene_ids: ["scene_home"]
+      },
+      layout_refresh: {
+        reason: "computed_layout_refresh_not_implemented",
+        status: "skipped"
+      },
+      revision: 2
+    });
+
+    const activeProject = runtime.getActiveProject();
+
+    expect(activeProject.ok).toBe(true);
+
+    if (!activeProject.ok || !activeProject.data) {
+      throw new Error("Expected the active project session to remain available");
+    }
+
+    expect(activeProject.data.revision).toBe(2);
+    expect(activeProject.data.document.scenes.scene_home).toMatchObject({
+      id: "scene_home",
+      name: "Home"
+    });
+
+    const persistedProject = store.getProject(created.data.id);
+
+    expect(persistedProject?.revision).toBe(2);
+    expect(persistedProject?.document.scenes.scene_home).toMatchObject({
+      id: "scene_home",
+      name: "Home"
+    });
+
+    expect(events.map((event) => event.type)).toEqual([
+      "projects_changed",
+      "active_project_changed",
+      "document_changed"
+    ]);
+    expect(events[2]).toMatchObject({
+      type: "document_changed",
+      project: {
+        id: created.data.id
+      },
+      revision: 2
+    });
+
+    store.close();
   });
 
   it("emits capability and MCP status events when those values change", async () => {

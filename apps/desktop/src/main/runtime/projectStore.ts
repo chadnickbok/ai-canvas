@@ -12,6 +12,7 @@ type ProjectRow = {
   name: string;
   document_id: string;
   current_document_json: string;
+  revision: number;
   created_at: string;
   updated_at: string;
   last_opened_at: string | null;
@@ -20,6 +21,29 @@ type ProjectRow = {
 export type StoredProject = {
   document: RendererDocument;
   project: ProjectSummary;
+  revision: number;
+};
+
+export type PersistProjectDocumentResult =
+  | {
+      ok: true;
+      project: ProjectSummary;
+      revision: number;
+    }
+  | {
+      ok: false;
+      code: "not_found";
+    }
+  | {
+      ok: false;
+      code: "revision_conflict";
+      revision: number;
+    };
+
+const INITIAL_PROJECT_REVISION = 1;
+
+type TableInfoRow = {
+  name: string;
 };
 
 export class ProjectStore {
@@ -37,7 +61,7 @@ export class ProjectStore {
     const rows = this.database
       .prepare(
         `
-          SELECT id, name, document_id, current_document_json, created_at, updated_at, last_opened_at
+          SELECT id, name, document_id, current_document_json, revision, created_at, updated_at, last_opened_at
           FROM projects
           WHERE archived_at IS NULL
           ORDER BY COALESCE(last_opened_at, updated_at) DESC, updated_at DESC
@@ -67,6 +91,7 @@ export class ProjectStore {
             document_id,
             schema_version,
             current_document_json,
+            revision,
             created_at,
             updated_at,
             last_opened_at,
@@ -80,6 +105,7 @@ export class ProjectStore {
             @document_id,
             1,
             @current_document_json,
+            @revision,
             @created_at,
             @updated_at,
             @last_opened_at,
@@ -96,6 +122,7 @@ export class ProjectStore {
         id: projectId,
         last_opened_at: now,
         name,
+        revision: INITIAL_PROJECT_REVISION,
         updated_at: now
       });
 
@@ -107,7 +134,8 @@ export class ProjectStore {
 
     return {
       document,
-      project: this.toSummary(row)
+      project: this.toSummary(row),
+      revision: row.revision
     };
   }
 
@@ -125,7 +153,64 @@ export class ProjectStore {
 
     return {
       document,
-      project: this.toSummary(row)
+      project: this.toSummary(row),
+      revision: row.revision
+    };
+  }
+
+  saveProjectDocument(
+    projectId: string,
+    document: RendererDocument,
+    expectedRevision: number
+  ): PersistProjectDocumentResult {
+    const now = new Date().toISOString();
+    const updateResult = this.database
+      .prepare(
+        `
+          UPDATE projects
+          SET current_document_json = @current_document_json,
+              revision = revision + 1,
+              updated_at = @updated_at
+          WHERE id = @project_id AND archived_at IS NULL AND revision = @expected_revision
+        `
+      )
+      .run({
+        current_document_json: JSON.stringify(document),
+        expected_revision: expectedRevision,
+        project_id: projectId,
+        updated_at: now
+      });
+
+    if (updateResult.changes === 0) {
+      const currentRow = this.getRow(projectId);
+
+      if (!currentRow) {
+        return {
+          code: "not_found",
+          ok: false
+        };
+      }
+
+      return {
+        code: "revision_conflict",
+        ok: false,
+        revision: currentRow.revision
+      };
+    }
+
+    const updatedRow = this.getRow(projectId);
+
+    if (!updatedRow) {
+      return {
+        code: "not_found",
+        ok: false
+      };
+    }
+
+    return {
+      ok: true,
+      project: this.toSummary(updatedRow),
+      revision: updatedRow.revision
     };
   }
 
@@ -162,6 +247,7 @@ export class ProjectStore {
       .prepare(
         `
           SELECT id, name, document_id, current_document_json, created_at, updated_at, last_opened_at
+               , revision
           FROM projects
           WHERE id = ? AND archived_at IS NULL
         `
@@ -177,6 +263,7 @@ export class ProjectStore {
         document_id TEXT NOT NULL,
         schema_version INTEGER NOT NULL,
         current_document_json TEXT NOT NULL,
+        revision INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         last_opened_at TEXT,
@@ -185,6 +272,16 @@ export class ProjectStore {
         source_metadata_json TEXT
       );
     `);
+
+    const tableInfo = this.database
+      .prepare("PRAGMA table_info(projects)")
+      .all() as TableInfoRow[];
+
+    if (!tableInfo.some((column) => column.name === "revision")) {
+      this.database.exec(
+        `ALTER TABLE projects ADD COLUMN revision INTEGER NOT NULL DEFAULT ${INITIAL_PROJECT_REVISION};`
+      );
+    }
   }
 
   private toSummary(row: ProjectRow): ProjectSummary {

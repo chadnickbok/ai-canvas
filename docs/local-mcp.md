@@ -82,6 +82,7 @@ Recommended stance:
 Recommended initial read tools:
 
 - `list_projects`
+- `open_project`
 - `inspect_project`
 - `inspect_tree`
 - `inspect_node`
@@ -95,7 +96,25 @@ Recommended initial mutation tools:
 - `promote_selection_to_style`
 - `create_variables_from_selection`
 
+For the first implemented pass, ship `create_project` and `apply_commands`, and defer the selection-derived mutation helpers until the runtime exposes the additional selection and styling workflow state they need.
+
 These mutation tools are available only in `read_write` mode.
+
+## First implemented pass
+
+The first implemented MCP pass should:
+
+- expose the core project targeting and inspection tools
+- expose `apply_commands` against the shared runtime session while the editor measurement surface is available
+- persist normalized document state and returned revision/effects through the same runtime path the UI uses
+- explicitly defer browser-backed `computed_layout` refresh to a later stage
+
+That means:
+
+- `apply_commands` succeeds only while the runtime is in `read_write`
+- successful first-pass mutation responses should make it clear that computed-layout refresh was skipped because that stage is not implemented yet
+- callers should not treat first-pass mutation success as a guarantee that `computed_layout` is fresh
+- browser-capture and other layout-fresh workflows remain later-stage work
 
 ## Security and UX rules
 
