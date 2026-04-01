@@ -13,12 +13,17 @@
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
-    "test": "vitest run --passWithNoTests"
+    "lint": "eslint src test",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@ai-canvas/document-core": "workspace:*",
     "@ai-canvas/ipc-contract": "workspace:*",
     "lucide-react": "^1.7.0",
-    "react": "^19.2.4"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
   }
 }

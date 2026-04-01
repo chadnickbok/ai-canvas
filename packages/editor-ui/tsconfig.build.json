@@ -14,5 +14,8 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../ipc-contract/tsconfig.build.json" }]
+  "references": [
+    { "path": "../document-core/tsconfig.build.json" },
+    { "path": "../ipc-contract/tsconfig.build.json" }
+  ]
 }

@@ -17,7 +17,7 @@
     "build": "pnpm build:packages && pnpm --filter @ai-canvas/desktop build:app",
     "typecheck": "pnpm build:packages && pnpm --filter @ai-canvas/desktop typecheck",
     "lint": "pnpm --filter @ai-canvas/document-core lint && pnpm --filter @ai-canvas/editor-ui lint && pnpm --filter @ai-canvas/ipc-contract lint && pnpm --filter @ai-canvas/mcp-bridge lint && pnpm --filter @ai-canvas/desktop lint",
-    "test": "pnpm --filter @ai-canvas/document-core test && pnpm --filter @ai-canvas/mcp-bridge test && pnpm --filter @ai-canvas/desktop test",
+    "test": "pnpm --filter @ai-canvas/document-core test && pnpm --filter @ai-canvas/editor-ui test && pnpm --filter @ai-canvas/mcp-bridge test && pnpm --filter @ai-canvas/desktop test",
     "test:document-core": "pnpm --filter @ai-canvas/document-core test"
   },
   "devDependencies": {
