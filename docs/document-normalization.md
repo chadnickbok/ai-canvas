@@ -19,10 +19,12 @@ It answers:
 - what gets repaired
 - what gets dropped
 - what gets recomputed
-- how semantic state is materialized into render-input state
+- how structural, typed, semantic, and asset-reference repair work
 - what normalization guarantees and does not guarantee
 
 This document is normative.
+
+The current machine-readable implementation produces canonical typed document shape, repairs structure, enforces node-kind semantic legality, repairs broken semantic references, resolves semantic state by exact requested slot, and materializes semantic-owned render values while preserving non-mapped raw render inputs.
 
 ## 1. Authority
 
@@ -45,8 +47,8 @@ Normalization must:
 - repair deterministic structural issues
 - drop broken references that cannot be repaired safely
 - recompute derived fields
-- resolve semantic authoring state deterministically
-- materialize render-input state for rendering and command use
+- normalize typed node, asset, variable, and style records into canonical shapes
+- resolve semantic authoring into deterministic render-facing state
 - preserve as much valid visible content as possible
 
 Normalization must not:
@@ -66,7 +68,7 @@ Persisted documents may be incomplete or slightly damaged.
 Normalized documents must be:
 
 - structurally coherent
-- semantically coherent
+- canonically typed
 - renderable
 - deterministic
 
@@ -92,7 +94,7 @@ After a command batch is applied, the document must be normalized again before v
 
 ### 4.4 Before render
 
-Any render path that depends on canonical semantic or structural state must consume a normalized document.
+Any render path that depends on canonical structural state must consume a normalized document.
 
 A fresh `computed_layout` snapshot is not required for first render. The renderer consumes normalized structure plus `render_style`, then the browser computes layout.
 
@@ -110,10 +112,9 @@ Normalization proceeds in this order:
 2. structural repair
 3. reference repair
 4. derived field recomputation
-5. semantic repair
-6. semantic resolution
-7. render-input materialization
-8. final validation
+5. final validation
+
+Semantic resolution and semantic-to-render-state materialization are part of reference repair and derived-field recomputation.
 
 Each phase sees the results of the earlier phases.
 
@@ -297,37 +298,29 @@ Normalization must:
 - remove or clear `backgroundImage` values that reference missing assets
 - preserve non-asset background images such as literal gradients or external URLs when those are allowed by the product
 
-## 9.2 Variable binding repair
+## 9.2 Variable binding containers
 
-Normalization must drop variable bindings that reference missing variables.
+Normalization keeps variable-binding containers structurally valid and drops broken references to missing variables.
 
-This applies to:
+This means:
 
-- `canvas.authoring.variable_bindings`
-- `node.authoring.variable_bindings`
-- style slot references to missing variables
+- invalid keys are dropped
+- non-string binding ids are dropped
+- well-typed string bindings survive only when the referenced variable exists
 
-This is damaged-state repair, not the normative implementation of commands such as `clear_variable_binding` or `delete_variable`.
+Alias-chain legality is handled separately under semantic repair.
 
-If a dropped variable binding had a currently materialized visible value, the document may preserve appearance by keeping or re-creating the corresponding local value only when that value is still known deterministically from surviving state.
+## 9.3 Style binding containers
 
-The normalization rule is:
+Normalization keeps style-binding containers structurally valid and drops bindings to missing styles.
 
-- preserve visible value when that value is still known deterministically
-- otherwise drop the broken binding without inventing a replacement
+This means:
 
-## 9.3 Style binding repair
+- only declared style families survive
+- non-string style ids are dropped
+- well-typed string style ids survive only when the referenced style exists in that family
 
-Normalization must drop style bindings that reference missing styles.
-
-This applies to:
-
-- `node.authoring.style_bindings.paint`
-- `node.authoring.style_bindings.text`
-
-This is damaged-state repair, not the normative implementation of commands such as `clear_style_binding` or `delete_style`.
-
-If a broken style binding is dropped, normalization may preserve current visible appearance by snapshotting currently known effective values into local values for that family only when those values are still known deterministically from surviving state.
+Style-slot variable references are repaired separately under semantic repair.
 
 ## 9.4 Scene reference repair in external structures
 
@@ -361,195 +354,48 @@ No secondary ordering cache is authoritative.
 
 ## 11. Semantic Repair
 
-Semantic repair ensures the semantic authoring layer is coherent before resolution.
+It ensures:
 
-## 11.1 Invalid local values
-
-Local semantic values must match supported slot kinds and node-kind applicability.
-
-Normalization must drop any local value whose slot is invalid for the target.
-
-Examples:
-
-* a text-only slot on the canvas
-* a canvas-only slot on a node
-* a typography slot on a `frame`
-* a paint slot on a `text`
-* any node semantic slot on `svg` or `svg-visual-element`
-* a nonexistent semantic slot name
-
-## 11.2 Invalid variable bindings for the target
-
-Node variable bindings must use slots that are valid for the node kind.
-
-Normalization must drop any node variable binding whose slot is invalid for the target node kind.
-
-Canvas variable bindings must continue to use only canvas-valid slots.
-
-## 11.3 Invalid style family bindings
-
-Style family bindings must be valid for the target node kind.
-
-Normalization must drop any style binding whose family is invalid for the target node kind.
-
-There is no partial family application during normalization.
-
-## 11.4 Invalid style family keys
-
-Only these style families are valid:
-
-* `paint`
-* `text`
-
-Any other style binding key must be dropped.
-
-## 11.5 Invalid style slot content
-
-Within styles:
-
-* slot names must be valid for the style family
-* raw values must have the correct general value shape
-* variable references must target an existing variable
-
-Invalid style slots should be dropped rather than preserving half-invalid style definitions.
-
-## 11.6 Invalid variable scope declarations
-
-Variables declare supported semantic scopes.
-
-Normalization should drop invalid scopes from a variable’s scope list.
-
-If a variable ends up with no valid scopes, the variable may still be preserved, but it becomes effectively unusable until edited.
-
-This is preferable to deleting the whole variable automatically.
-
-## 11.7 Alias repair
-
-Variable alias chains must be acyclic.
-
-If an alias loop is detected:
-
-* the looping alias edge must be dropped
-* the affected variable mode value becomes unresolved
-* bindings depending on that unresolved value should fall back according to semantic resolution rules
-
-Normalization must not recurse forever or preserve cyclic alias state.
+* authoring containers exist on canvas and nodes
+* only semantic slot keys declared for that node kind survive in local-value and variable-binding maps
+* only style families declared for that node kind survive in `style_bindings`
+* variables and styles are normalized into canonical typed record shapes
+* broken canvas and node variable bindings are dropped
+* broken node style bindings are dropped
+* style slot variable references to missing variables are dropped
+* obvious alias loops in variable mode values are trimmed deterministically
 
 ## 12. Semantic Resolution
 
-After repair, normalization resolves semantic state.
+Normalization resolves semantic slots one requested slot at a time.
 
-## 12.1 Resolution principle
+Rules:
 
-Semantic authoring state is authoritative for semantic slots.
-
-The resolved winner for each semantic slot is determined from:
-
-* local values
-* direct variable bindings
-* style bindings
-* unset
-
-## 12.2 Canvas precedence
-
-Canvas resolution order is:
-
-1. `canvas.authoring.local_values[slot]`
-2. `canvas.authoring.variable_bindings[slot]`
-3. unset
-
-## 12.3 Node precedence
-
-Node resolution order is:
-
-1. `node.authoring.local_values[slot]`
-2. `node.authoring.variable_bindings[slot]`
-3. `node.authoring.style_bindings[family]`
-4. unset
-
-Within a bound style:
-
-* raw style values are used directly
-* style-level variable references are resolved through the variable system
-
-A direct node variable binding is stronger than a style-derived value for the same slot.
-
-## 12.4 Variable resolution
-
-Variable resolution works as follows:
-
-1. start from the referenced variable id
-2. use the requested mode if valid
-3. otherwise use the collection’s `default_mode_id`
-4. follow alias chains
-5. stop at a concrete value
-6. fail closed on unresolved or invalid chains
-
-If resolution fails, the binding contributes no value.
-
-## 12.5 Typography variable flattening
-
-Typography variables may provide compound values.
-
-When a typography variable is bound to a specific typography slot, normalization must flatten it by slot:
-
-* `node.typography.font_family` -> `font_family`
-* `node.typography.font_size` -> `font_size`
-* `node.typography.font_weight` -> `font_weight`
-* `node.typography.line_height` -> `line_height`
-* `node.typography.letter_spacing` -> `letter_spacing`
-
-If a requested subfield is absent, the binding contributes no value for that slot.
+* canvas precedence is local value, then direct variable binding, then unset
+* node precedence is local value, then direct variable binding, then bound style family, then unset
+* a variable contributes only when it exists, resolves in the chosen or default mode, and declares the exact requested slot in `scopes`
+* typography variables contribute only the requested typography field
+* unresolved stronger sources fail closed and do not fall through to weaker sources
 
 ## 13. Semantic Materialization into Render Inputs
 
-After semantic resolution, normalization must materialize render-input state.
+Normalization owns the mapped semantic render keys.
 
-## 13.1 Canvas materialization
+This means:
 
-The resolved canvas semantic state must be written to:
-
-* `canvas.background_color`
-
-If `canvas.background_color` resolves to `undefined`, the field should be omitted.
-
-## 13.2 Node materialization
-
-Each resolved node semantic slot must be written into the mapped `render_style` property.
-
-The canonical slot mapping is:
-
-* `node.paint.background_color` -> `backgroundColor`
-* `node.text.color` -> `color`
-* `node.shape.border_radius` -> `borderRadius`
-* `node.layout.gap` -> `gap`
-* `node.layout.padding_top` -> `paddingTop`
-* `node.layout.padding_right` -> `paddingRight`
-* `node.layout.padding_bottom` -> `paddingBottom`
-* `node.layout.padding_left` -> `paddingLeft`
-* `node.typography.font_family` -> `fontFamily`
-* `node.typography.font_size` -> `fontSize`
-* `node.typography.font_weight` -> `fontWeight`
-* `node.typography.line_height` -> `lineHeight`
-* `node.typography.letter_spacing` -> `letterSpacing`
-* `node.paint.opacity` -> `opacity`
-
-If a semantic slot resolves to `undefined`, the mapped `render_style` property must be removed.
-
-## 13.3 Non-semantic style preservation
-
-Normalization must preserve non-semantic `render_style` properties unless they are independently invalid or broken by reference.
-
-Semantic materialization must not wipe unrelated style properties.
+* `canvas.background_color` is recomputed from semantic authoring
+* mapped node render keys are recomputed from semantic authoring and written into `render_style`
+* when a mapped semantic slot resolves to `undefined`, its mapped render key is removed
+* only non-mapped `render_style` properties remain raw-only and survive untouched unless another normalization rule removes them
 
 ## 14. Computed Layout Is Outside Normalization
 
 Every node has:
 
 * `render_style`, which stores render inputs
-* `computed_layout`, which stores resolved geometry
+* optional `computed_layout`, which stores resolved geometry when that cache is present
 
-Normalization is responsible for making structure, references, semantic state, and render inputs canonical.
+Normalization is responsible for making structure, typed containers, and asset-backed render references canonical.
 
 Normalization is not responsible for browser-backed measurement or for refreshing `computed_layout`.
 
@@ -605,10 +451,9 @@ Normalization must ensure:
 
 Repair policy:
 
-* if a primitive is detached from a valid SVG parent, preserve it as content by reattaching it as a loose top-level `rectangle` or `frame` only if there is an explicit conversion rule
-* otherwise preserve the node but it will render as a bounded fallback according to renderer behavior
-
-If your product does not support fallback-preserved SVG primitives outside SVG context, dropping them is also acceptable as long as that policy is implemented consistently.
+* if a primitive is detached from a valid SVG parent, drop the primitive during normalization
+* normalization must not preserve detached `svg-visual-element` nodes as loose top-level content
+* normalization does not invent synthetic `svg` wrappers or fallback node conversions in v1
 
 ## 18. Final Validation
 
@@ -618,10 +463,11 @@ After normalization, the document must satisfy:
 * structural graph is acyclic
 * all surviving parent-child relationships are coherent
 * scene/frame coupling is valid
+* no surviving `svg-visual-element` is detached from an `svg` parent
 * derived fields are recomputed
 * broken references are removed
-* semantic state is coherent enough to resolve deterministically
-* mapped render-input semantic properties are materialized
+* semantic containers are canonically typed
+* asset-backed render references are coherent enough for structural render and inspection
 
 If these conditions are not met and cannot be repaired safely, normalization must fail.
 
@@ -636,8 +482,8 @@ The serializer should then ensure:
 * required empty containers are emitted explicitly
 * dropped references do not reappear
 * derived fields reflect the normalized state
-* materialized render-input properties reflect the normalized semantic state
-* `computed_layout` reflects the latest resolved layout for persisted nodes
+* semantic containers reflect the normalized typed state
+* when present, `computed_layout` reflects the latest resolved layout for persisted nodes
 * `render_style` preserves surviving authored inputs, including relative or flexible sizing inputs
 
 The serializer should emit one canonical shape, not multiple equivalent shapes.

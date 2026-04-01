@@ -417,7 +417,9 @@ Outside SVG context, a `svg-visual-element` should not render as a normal HTML n
 
 ## 13.4 Detached primitive fallback
 
-If a `svg-visual-element` survives normalization outside a valid SVG parent, the renderer should render a bounded fallback placeholder rather than crash.
+Normalized input should not contain detached `svg-visual-element` nodes.
+
+If unexpected non-normalized input still presents a detached primitive, the renderer should render a bounded fallback placeholder or skip that node rather than crash.
 
 The fallback should be visibly present but clearly degraded.
 
@@ -551,7 +553,7 @@ If normalized input is still imperfect or partially unsupported, the renderer sh
 
 Fallback behavior is acceptable for:
 
-- detached SVG primitives
+- unexpected detached SVG primitives from non-normalized input
 - malformed SVG payloads that survive normalization
 - unsupported style properties
 - missing assets
@@ -623,7 +625,7 @@ The renderer should not redo those responsibilities.
 
 ### `svg-visual-element`
 - renders only as an SVG primitive under an SVG root
-- otherwise falls back visibly
+- normalized docs should not contain detached instances; unexpected non-normalized input may fall back visibly
 
 ## 20. Non-Goals of This Document
 

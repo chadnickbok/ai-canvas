@@ -17,7 +17,7 @@ export function createEmptyDocument(input: CreateEmptyDocumentInput): RendererDo
     render_canon: DEFAULT_RENDER_CANON,
     document_id: input.documentId,
     name: input.name,
-    page_name: input.name,
+    page_name: "Page 1",
     source: {
       kind: "ai-canvas",
       created_at: input.createdAt

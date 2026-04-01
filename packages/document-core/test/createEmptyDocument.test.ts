@@ -22,7 +22,7 @@ describe("createEmptyDocument", () => {
       document_id: "doc_fixture",
       name: "Fixture Project",
       nodes: {},
-      page_name: "Fixture Project",
+      page_name: "Page 1",
       render_canon: "browser-css",
       root: {
         child_ids: [],

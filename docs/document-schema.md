@@ -90,10 +90,10 @@ Imported or unsupported content must be normalized into one of the supported nod
 
 ### 3.7 Render inputs and computed outputs are separate persisted layers
 
-Every node persists both:
+Every node persists:
 
 - `render_style`, which stores render-input declarations
-- `computed_layout`, which stores the most recent resolved layout output
+- optional `computed_layout`, which stores the most recent resolved layout output when that cache is available
 
 The separation is intentional:
 
@@ -112,9 +112,10 @@ This means:
 
 - relative or flexible inputs MUST round-trip unchanged in `render_style`
 - `computed_layout` records only the most recently resolved geometry
+- a document remains schema-valid even when some or all nodes omit `computed_layout`
 - normalization does not require a fresh `computed_layout`
 - first render does not require a fresh `computed_layout`
-- autosave and commit must run the separate computed-layout refresh pass without collapsing authored layout inputs into pixels
+- autosave and commit SHOULD run the separate computed-layout refresh pass when the browser-backed measurement surface is available, without collapsing authored layout inputs into pixels
 
 ### 3.8 No legacy semantic backfill
 
@@ -317,7 +318,7 @@ type BaseNode = {
   is_visible: boolean;
   is_locked: boolean;
   render_style: RenderStyleBag;
-  computed_layout: ComputedLayout;
+  computed_layout?: ComputedLayout;
   authoring: RendererNodeAuthoring;
 };
 ```
@@ -375,7 +376,7 @@ These kinds MAY have children:
 Every node has:
 
 * `render_style`, the input layer
-* `computed_layout`, the computed output layer
+* optional `computed_layout`, the computed output layer cache
 
 ```ts
 type ComputedLayout = {
@@ -393,7 +394,7 @@ Rules:
 * `render_style.width` and `render_style.height` MAY be absolute, relative, or absent
 * omitted width/height in `render_style` are meaningful and MUST not be synthesized just to mirror outputs
 * relative or flexible layout inputs MUST round-trip unchanged in `render_style`
-* `computed_layout` MUST be refreshed when a mutation changes resolved geometry
+* `computed_layout` SHOULD be refreshed when a mutation changes resolved geometry and measurement is available
 * persisted computed outputs SHOULD capture the latest resolved box for any node affected by layout reflow
 
 ### 9.5 Creation-time defaults
@@ -407,7 +408,9 @@ When commands create a node or a scene backing frame and omit optional authored 
 
 `computed_layout` is derived rather than caller-authored.
 
-A newly created in-memory node may temporarily carry missing or stale `computed_layout`, but committed and persisted document state must carry the measured layout snapshot.
+A newly created in-memory node may temporarily carry missing or stale `computed_layout`.
+
+Committed and persisted document state SHOULD carry the latest measured layout snapshot when the browser-backed measurement surface is available, but the schema remains valid when the cache is absent.
 
 ## 10. Typed Node Payloads
 
@@ -921,8 +924,8 @@ Normalization SHOULD repair or safely tolerate these when possible:
 * broken `root.child_ids` entries that refer to missing nodes
 * broken `child_ids` entries that refer to missing nodes
 * `backgroundImage` asset references to missing assets
-* style bindings to missing style ids
-* variable bindings to missing variable ids
+* invalid style-binding keys or non-string style ids
+* invalid variable-binding keys or non-string variable ids
 
 Repair behavior:
 

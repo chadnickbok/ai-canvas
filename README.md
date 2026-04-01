@@ -92,11 +92,11 @@ It includes:
 Resolved render state is split into two persisted layers:
 
 - `render_style`, the authoritative CSS-like render-input bag
-- `computed_layout`, the last measured layout box produced by the browser-backed renderer
+- optional `computed_layout`, the last measured layout box produced by the browser-backed renderer when that cache is available
 
-`render_style` is the source of layout intent. `computed_layout` is deterministic derived/cacheable state that can be refreshed after render and rebuilt when needed.
+After normalization, the semantic-mapped subset of `render_style` is semantic-owned and recomputed from authoring state. Only non-mapped `render_style` properties remain raw-only. `computed_layout` is deterministic derived/cacheable state that can be refreshed after render and rebuilt when needed.
 
-The two are refreshed through separate contracts: normalization materializes canonical render inputs for use, while commit/autosave runs a browser-backed computed-layout refresh pass before persistence.
+The two are refreshed through separate contracts: structural normalization repairs canonical document shape for use, while commit/autosave may run a browser-backed computed-layout refresh pass before persistence.
 
 ### MCP bridge
 
@@ -141,9 +141,9 @@ apps/desktop
   main process, preload bridge, renderer bootstrap, tray lifecycle
 
 packages/document-core
-  Shared document schema, commands, semantic binding,
-  semantic queries, normalization, persistence adapters,
-  and import/export logic
+  Shared document schema, structural normalization/repair,
+  read helpers, and the foundations future command and
+  semantic layers build on
 
 packages/editor-ui
   React editor surface and UI components
