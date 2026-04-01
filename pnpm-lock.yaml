@@ -80,6 +80,13 @@ importers:
       react-dom:
         specifier: ^19.2.4
         version: 19.2.4(react@19.2.4)
+    devDependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.28.0
+        version: 1.28.0(zod@4.3.6)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
 
   packages/document-core:
     dependencies:

@@ -1,19 +1,52 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import type { RuntimeEvent } from "@ai-canvas/ipc-contract";
+import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
+import { createProjectService } from "../createProjectService.js";
 import { createProjectRuntime } from "./projectRuntime";
 import { ProjectStore } from "./projectStore";
 
 const cleanupPaths: string[] = [];
+const activeBridges: LocalMcpBridge[] = [];
 
 afterEach(async () => {
+  await Promise.all(activeBridges.splice(0).map((bridge) => bridge.stop()));
   await Promise.all(cleanupPaths.splice(0).map((entry) => rm(entry, { force: true, recursive: true })));
 });
+
+async function getAvailablePort(): Promise<number> {
+  return await new Promise((resolve, reject) => {
+    const server = createServer();
+
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+
+      if (!address || typeof address === "string") {
+        server.close();
+        reject(new Error("Failed to allocate a test port"));
+        return;
+      }
+
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(address.port);
+      });
+    });
+  });
+}
 
 describe("ProjectRuntime", () => {
   it("creates a project and makes it the active session", async () => {
@@ -247,6 +280,176 @@ describe("ProjectRuntime", () => {
     });
 
     store.close();
+  });
+
+  it("applies commands through the real local MCP bridge and updates the active runtime session", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-mcp-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store);
+    const bridge = new LocalMcpBridge({
+      host: "127.0.0.1",
+      port: await getAvailablePort(),
+      projectService: createProjectService(runtime)
+    });
+    activeBridges.push(bridge);
+
+    await bridge.start();
+
+    const client = new Client({
+      name: "ai-canvas-runtime-test-client",
+      version: "0.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`)
+    );
+
+    try {
+      await client.connect(transport);
+
+      const createProjectResult = await client.callTool({
+        arguments: {
+          name: "Bridge Slice"
+        },
+        name: "create_project"
+      });
+
+      expect(createProjectResult.isError).not.toBe(true);
+
+      const createdProject = (
+        createProjectResult.structuredContent as {
+          ok: true;
+          project: {
+            id: string;
+          };
+        }
+      ).project;
+
+      const openProjectResult = await client.callTool({
+        arguments: {
+          project_id: createdProject.id
+        },
+        name: "open_project"
+      });
+
+      expect(openProjectResult.isError).not.toBe(true);
+
+      const inspectProjectResult = await client.callTool({
+        arguments: {},
+        name: "inspect_project"
+      });
+
+      expect(inspectProjectResult.isError).not.toBe(true);
+
+      const inspectedProject = inspectProjectResult.structuredContent as {
+        document: {
+          document_id: string;
+        };
+        ok: true;
+        revision: number;
+      };
+
+      runtime.setMeasurementSurfaceAvailable(true);
+
+      const applyCommandsResult = await client.callTool({
+        arguments: {
+          base_revision: inspectedProject.revision,
+          commands: [
+            {
+              scene: {
+                height: 844,
+                id: "scene_home",
+                left: 80,
+                name: "Home",
+                render_style: {
+                  backgroundColor: "#ffffff",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 18,
+                  overflow: "hidden",
+                  paddingLeft: 24,
+                  paddingRight: 24,
+                  paddingTop: 24
+                },
+                top: 80,
+                width: 390
+              },
+              type: "create_scene"
+            },
+            {
+              node: {
+                height: 180,
+                id: "rect_hero",
+                kind: "rectangle",
+                name: "Hero",
+                render_style: {
+                  backgroundColor: "#f5c04a",
+                  borderRadius: 24
+                },
+                width: 342
+              },
+              parent: {
+                parent_id: "scene_home"
+              },
+              type: "create_node"
+            },
+            {
+              node: {
+                id: "text_title",
+                kind: "text",
+                name: "Title",
+                render_style: {
+                  color: "#111111",
+                  fontFamily: "IBM Plex Sans",
+                  fontSize: 32,
+                  fontWeight: 600
+                },
+                text: {
+                  content: "Hello from MCP"
+                }
+              },
+              parent: {
+                parent_id: "scene_home"
+              },
+              type: "create_node"
+            }
+          ]
+        },
+        name: "apply_commands"
+      });
+
+      expect(applyCommandsResult.isError).not.toBe(true);
+      expect(applyCommandsResult.structuredContent).toMatchObject({
+        ok: true,
+        revision: 2
+      });
+
+      const activeProject = runtime.getActiveProject();
+
+      expect(activeProject.ok).toBe(true);
+
+      if (!activeProject.ok || !activeProject.data) {
+        throw new Error("Expected an active project session after MCP mutation");
+      }
+
+      expect(activeProject.data.document.document_id).toBe(inspectedProject.document.document_id);
+      expect(activeProject.data.document.scenes.scene_home).toMatchObject({
+        id: "scene_home",
+        name: "Home"
+      });
+      expect(activeProject.data.document.nodes.text_title).toMatchObject({
+        kind: "text",
+        text: {
+          content: "Hello from MCP"
+        }
+      });
+      expect(activeProject.data.revision).toBe(2);
+    } finally {
+      await transport.close();
+      await client.close();
+      store.close();
+    }
   });
 
   it("emits capability and MCP status events when those values change", async () => {

@@ -6,6 +6,7 @@ import { app, BrowserWindow, dialog } from "electron";
 import { appChannelNames } from "@ai-canvas/ipc-contract";
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
+import { createProjectService } from "./createProjectService.js";
 import { resolveRendererLoadTarget } from "./resolveRendererLoadTarget.js";
 import { registerIpc } from "./registerIpc.js";
 import { createProjectRuntime, ProjectStore } from "./runtime/index.js";
@@ -77,36 +78,7 @@ async function bootstrap() {
   const mcpBridge = new LocalMcpBridge({
     host: mcpHost,
     port: mcpPort,
-    projectService: {
-      applyCommands: async (input) =>
-        runtime.applyProjectCommands({
-          base_revision: input.base_revision,
-          commands: input.commands,
-          projectId: input.project_id
-        }),
-      createProject: async (name) => runtime.createProject(name),
-      inspectDesignSystem: async (projectId) => runtime.inspectDesignSystem(projectId),
-      inspectNode: async (projectId, nodeId) => runtime.inspectNode({ nodeId, projectId }),
-      inspectProject: async (projectId) => runtime.inspectProject(projectId),
-      inspectScenes: async (projectId) => runtime.inspectScenes(projectId),
-      inspectTree: async (input) => runtime.inspectTree(input),
-      listProjects: async () => runtime.listProjects(),
-      openProject: async (projectId) => {
-        const result = runtime.openProject(projectId);
-
-        if (!result.ok) {
-          return result;
-        }
-
-        return {
-          data: {
-            project: result.data.project,
-            revision: result.data.revision
-          },
-          ok: true as const
-        };
-      }
-    }
+    projectService: createProjectService(runtime)
   });
 
   runtime.attachMcpStatusProvider(mcpBridge);

@@ -1,9 +1,10 @@
-import { startTransition, useEffect, useState } from "react";
+import React, { startTransition, useEffect, useState } from "react";
 
-import { ProjectLibraryScreen } from "@ai-canvas/editor-ui";
+import { DocumentWorkspaceScreen, ProjectLibraryScreen } from "@ai-canvas/editor-ui";
 import type { DesktopApi } from "@ai-canvas/ipc-contract";
 import {
   assertOk,
+  type ActiveProject,
   type CreateProjectInput,
   type McpStatus,
   type ProjectSummary,
@@ -13,25 +14,28 @@ import {
 } from "@ai-canvas/ipc-contract";
 
 type BootState = "booting" | "ready" | "boot_error";
+type Screen = "library" | "workspace";
 
 type ScreenState = {
-  activeProjectId: string | null;
+  activeProject: ActiveProject | null;
   bootState: BootState;
   errorMessage: string | null;
   isBusy: boolean;
   mcpStatus: McpStatus | null;
   projects: ProjectSummary[];
   runtimeCapabilities: RuntimeCapabilities | null;
+  screen: Screen;
 };
 
 const initialState: ScreenState = {
-  activeProjectId: null,
+  activeProject: null,
   bootState: "booting",
   errorMessage: null,
   isBusy: true,
   mcpStatus: null,
   projects: [],
-  runtimeCapabilities: null
+  runtimeCapabilities: null,
+  screen: "library"
 };
 
 function getDesktopApi(): DesktopApi | null {
@@ -47,12 +51,14 @@ async function loadScreenState(
     api.getRuntimeCapabilities(),
     api.getMcpStatus()
   ]);
+  const activeProject = assertOk(activeProjectResult);
 
   return {
-    activeProjectId: assertOk(activeProjectResult)?.project.id ?? null,
+    activeProject,
     mcpStatus: assertOk(mcpResult),
     projects: assertOk(projectsResult),
-    runtimeCapabilities: assertOk(runtimeResult)
+    runtimeCapabilities: assertOk(runtimeResult),
+    screen: activeProject ? "workspace" : "library"
   };
 }
 
@@ -66,7 +72,8 @@ function applyRuntimeEvent(state: ScreenState, event: RuntimeEvent): ScreenState
     case "active_project_changed":
       return {
         ...state,
-        activeProjectId: event.activeProject?.project.id ?? null
+        activeProject: event.activeProject,
+        screen: event.activeProject ? "workspace" : "library"
       };
     case "runtime_capabilities_changed":
       return {
@@ -81,7 +88,11 @@ function applyRuntimeEvent(state: ScreenState, event: RuntimeEvent): ScreenState
     case "document_changed":
       return {
         ...state,
-        activeProjectId: event.project.id,
+        activeProject: {
+          document: event.document,
+          project: event.project,
+          revision: event.revision
+        },
         runtimeCapabilities: event.runtimeCapabilities
       };
   }
@@ -190,10 +201,43 @@ export function App() {
       throw new Error(message);
     }
 
+    let activeProjectResult;
+
+    try {
+      activeProjectResult = await api.getActiveProject();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load the created project session";
+
+      setState((current) => ({
+        ...current,
+        errorMessage: message,
+        isBusy: false
+      }));
+
+      throw new Error(message);
+    }
+
+    if (!activeProjectResult.ok || !activeProjectResult.data) {
+      const message = activeProjectResult.ok
+        ? "The project was created but no active project session was returned."
+        : activeProjectResult.error.message;
+
+      setState((current) => ({
+        ...current,
+        errorMessage: message,
+        isBusy: false
+      }));
+
+      throw new Error(message);
+    }
+
     setState((current) => ({
       ...current,
+      activeProject: activeProjectResult.data,
       errorMessage: null,
-      isBusy: false
+      isBusy: false,
+      screen: "workspace"
     }));
   };
 
@@ -234,8 +278,10 @@ export function App() {
 
     setState((current) => ({
       ...current,
+      activeProject: result.data,
       errorMessage: null,
-      isBusy: false
+      isBusy: false,
+      screen: "workspace"
     }));
   };
 
@@ -268,9 +314,27 @@ export function App() {
     }
   };
 
+  if (state.bootState === "ready" && state.screen === "workspace" && state.activeProject) {
+    return (
+      <DocumentWorkspaceScreen
+        activeProject={state.activeProject}
+        errorMessage={state.errorMessage}
+        isBusy={state.isBusy}
+        mcpStatus={state.mcpStatus}
+        onBackToLibrary={() => {
+          setState((current) => ({
+            ...current,
+            screen: "library"
+          }));
+        }}
+        runtimeCapabilities={state.runtimeCapabilities}
+      />
+    );
+  }
+
   return (
     <ProjectLibraryScreen
-      activeProjectId={state.activeProjectId}
+      activeProjectId={state.activeProject?.project.id ?? null}
       bootState={state.bootState}
       errorMessage={state.errorMessage}
       isBusy={state.isBusy}

@@ -15,6 +15,7 @@
     "watch:packages": "pnpm exec tsc -b -w tsconfig.packages.json --preserveWatchOutput",
     "dev": "node ./scripts/run-dev.mjs",
     "build": "pnpm build:packages && pnpm --filter @ai-canvas/desktop build:app",
+    "mcp:demo-slice": "pnpm --filter @ai-canvas/desktop mcp:demo-slice",
     "typecheck": "pnpm build:packages && pnpm --filter @ai-canvas/desktop typecheck",
     "lint": "pnpm --filter @ai-canvas/document-core lint && pnpm --filter @ai-canvas/editor-ui lint && pnpm --filter @ai-canvas/ipc-contract lint && pnpm --filter @ai-canvas/mcp-bridge lint && pnpm --filter @ai-canvas/desktop lint",
     "test": "pnpm --filter @ai-canvas/document-core test && pnpm --filter @ai-canvas/editor-ui test && pnpm --filter @ai-canvas/mcp-bridge test && pnpm --filter @ai-canvas/desktop test",
