@@ -1,9 +1,16 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createEmptyDocument, type RendererDocument } from "@ai-canvas/document-core";
-import type { ActiveProject, McpStatus, RuntimeCapabilities } from "@ai-canvas/ipc-contract";
+import {
+  ok,
+  type ActiveProject,
+  type ApplyCommandsInput,
+  type CommandResult,
+  type McpStatus,
+  type RuntimeCapabilities
+} from "@ai-canvas/ipc-contract";
 
 import { DocumentWorkspaceScreen } from "../src/index.js";
 
@@ -44,6 +51,31 @@ function setInputValue(input: HTMLInputElement, value: string) {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
 
   descriptor?.set?.call(input, value);
+}
+
+function dispatchPointerEvent(
+  element: Element,
+  type: string,
+  init: {
+    button?: number;
+    buttons?: number;
+    clientX?: number;
+    clientY?: number;
+    pointerId?: number;
+  } = {}
+) {
+  element.dispatchEvent(
+    new PointerEvent(type, {
+      bubbles: true,
+      button: init.button ?? 0,
+      buttons: init.buttons ?? 1,
+      cancelable: true,
+      clientX: init.clientX ?? 0,
+      clientY: init.clientY ?? 0,
+      isPrimary: true,
+      pointerId: init.pointerId ?? 1
+    })
+  );
 }
 
 function parseTransform(transform: string): { panX: number; panY: number; zoom: number } {
@@ -186,7 +218,46 @@ function createDocumentWithScene(
   return document;
 }
 
-function renderIntoDom(activeProject: ActiveProject): RenderHarness {
+function createDocumentWithLooseNode(): RendererDocument {
+  const document = createDocumentWithScene({
+    documentId: "doc_workspace_loose",
+    name: "Workspace Loose Fixture"
+  });
+
+  document.root.child_ids.push("rect_loose");
+  document.nodes.rect_loose = {
+    authoring: {
+      local_values: {},
+      style_bindings: {},
+      variable_bindings: {}
+    },
+    child_ids: [],
+    id: "rect_loose",
+    is_locked: false,
+    is_visible: true,
+    kind: "rectangle",
+    name: "Loose Card",
+    parent_id: null,
+    render_style: {
+      backgroundColor: "#dbeafe",
+      height: 120,
+      left: 520,
+      top: 160,
+      width: 180
+    },
+    scene_id: null
+  };
+
+  return document;
+}
+
+function renderIntoDom(
+  activeProject: ActiveProject,
+  options: {
+    onApplyCommands?: (input: ApplyCommandsInput) => Promise<ReturnType<typeof ok<CommandResult>>>;
+    runtimeCapabilities?: RuntimeCapabilities;
+  } = {}
+): RenderHarness {
   const container = document.createElement("div");
   container.style.height = "1200px";
   container.style.width = "1600px";
@@ -199,8 +270,9 @@ function renderIntoDom(activeProject: ActiveProject): RenderHarness {
       <DocumentWorkspaceScreen
         activeProject={activeProject}
         mcpStatus={mcpStatus}
+        onApplyCommands={options.onApplyCommands}
         onBackToLibrary={() => {}}
-        runtimeCapabilities={runtimeCapabilities}
+        runtimeCapabilities={options.runtimeCapabilities ?? runtimeCapabilities}
       />
     );
   });
@@ -216,6 +288,70 @@ function renderIntoDom(activeProject: ActiveProject): RenderHarness {
     root
   };
 }
+
+function assignInteractionGeometry(harness: RenderHarness) {
+  const rendererRoot = harness.container.querySelector('[data-renderer-root="true"]') as HTMLElement;
+  const sceneFrame = harness.container.querySelector('[data-node-id="scene_home"]') as HTMLElement;
+  const heroRectangle = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement;
+  const looseRectangle = harness.container.querySelector('[data-node-id="rect_loose"]') as HTMLElement | null;
+
+  assignBoundingRect(rendererRoot, 0, 0, 1600, 1200);
+  assignBoundingRect(sceneFrame, 80, 80, 390, 844);
+  assignBoundingRect(heroRectangle, 104, 104, 320, 180);
+
+  if (looseRectangle) {
+    assignBoundingRect(looseRectangle, 520, 160, 180, 120);
+  }
+}
+
+beforeEach(() => {
+  class TestPointerEvent extends MouseEvent {
+    declare readonly isPrimary: boolean;
+    declare readonly pointerId: number;
+    declare readonly pointerType: string;
+
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      Object.defineProperty(this, "isPrimary", {
+        value: init.isPrimary ?? true
+      });
+      Object.defineProperty(this, "pointerId", {
+        value: init.pointerId ?? 1
+      });
+      Object.defineProperty(this, "pointerType", {
+        value: init.pointerType ?? "mouse"
+      });
+    }
+  }
+
+  const pointerCaptureIds = new WeakMap<Element, Set<number>>();
+
+  Object.defineProperty(globalThis, "PointerEvent", {
+    configurable: true,
+    value: TestPointerEvent
+  });
+  Object.defineProperty(HTMLElement.prototype, "setPointerCapture", {
+    configurable: true,
+    value(pointerId: number) {
+      const capturedIds = pointerCaptureIds.get(this) ?? new Set<number>();
+
+      capturedIds.add(pointerId);
+      pointerCaptureIds.set(this, capturedIds);
+    }
+  });
+  Object.defineProperty(HTMLElement.prototype, "releasePointerCapture", {
+    configurable: true,
+    value(pointerId: number) {
+      pointerCaptureIds.get(this)?.delete(pointerId);
+    }
+  });
+  Object.defineProperty(HTMLElement.prototype, "hasPointerCapture", {
+    configurable: true,
+    value(pointerId: number) {
+      return pointerCaptureIds.get(this)?.has(pointerId) ?? false;
+    }
+  });
+});
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -474,6 +610,284 @@ describe("DocumentWorkspaceScreen", () => {
       expect(harness.container.textContent).toContain("Workspace Fixture Reopened");
       expect(viewportHintReopened.getAttribute("data-viewport-hint-visible")).toBe("true");
       expect(viewportHintReopened.getAttribute("aria-hidden")).toBe("false");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("shows a hover outline and single-node selection affordances", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithLooseNode()));
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const rectangle = harness.container.querySelector('[data-node-id="rect_loose"]') as HTMLElement;
+
+      act(() => {
+        dispatchPointerEvent(rectangle, "pointermove", {
+          clientX: 540,
+          clientY: 180
+        });
+      });
+
+      const hoverOutline = harness.container.querySelector(
+        '[data-interaction-outline="hover"][data-node-id="rect_loose"]'
+      );
+
+      expect(hoverOutline).not.toBeNull();
+
+      act(() => {
+        rectangle.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            button: 0
+          })
+        );
+      });
+
+      const selectionOutline = harness.container.querySelector(
+        '[data-interaction-outline="selected"][data-node-id="rect_loose"]'
+      );
+      const resizeHandle = harness.container.querySelector(
+        '[data-interaction-handle="se"][data-node-id="rect_loose"]'
+      );
+
+      expect(selectionOutline).not.toBeNull();
+      expect(resizeHandle).not.toBeNull();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("selects a scene frame and commits move drags through update_scene", async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          reason: "computed_layout_refresh_not_implemented",
+          status: "skipped"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      onApplyCommands
+    });
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const sceneFrame = harness.container.querySelector('[data-node-id="scene_home"]') as HTMLElement;
+      const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
+
+      act(() => {
+        dispatchPointerEvent(sceneFrame, "pointerdown", {
+          clientX: 200,
+          clientY: 200,
+          pointerId: 5
+        });
+      });
+
+      act(() => {
+        dispatchPointerEvent(viewportFrame, "pointermove", {
+          clientX: 240,
+          clientY: 230,
+          pointerId: 5
+        });
+      });
+
+      const previewGhost = harness.container.querySelector(
+        '[data-interaction-preview="true"][data-node-id="scene_home"]'
+      );
+
+      expect(previewGhost).not.toBeNull();
+
+      await act(async () => {
+        dispatchPointerEvent(viewportFrame, "pointerup", {
+          clientX: 240,
+          clientY: 230,
+          pointerId: 5
+        });
+        await Promise.resolve();
+      });
+
+      const selectionOutline = harness.container.querySelector(
+        '[data-interaction-outline="selected"][data-node-id="scene_home"]'
+      ) as SVGRectElement;
+
+      expect(
+        harness.container.querySelector('[data-interaction-preview="true"][data-node-id="scene_home"]')
+      ).toBeNull();
+      expect(selectionOutline.getAttribute("x")).toBe("120");
+      expect(selectionOutline.getAttribute("y")).toBe("110");
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          {
+            patch: {
+              left: 120,
+              top: 110
+            },
+            scene_id: "scene_home",
+            type: "update_scene"
+          }
+        ],
+        document_id: "doc_workspace_scene"
+      });
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("commits southeast resize drags for loose top-level nodes through update_node", async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          reason: "computed_layout_refresh_not_implemented",
+          status: "skipped"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithLooseNode()), {
+      onApplyCommands
+    });
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const rectangle = harness.container.querySelector('[data-node-id="rect_loose"]') as HTMLElement;
+      const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
+
+      act(() => {
+        dispatchPointerEvent(rectangle, "pointerdown", {
+          clientX: 560,
+          clientY: 200,
+          pointerId: 6
+        });
+      });
+
+      act(() => {
+        dispatchPointerEvent(viewportFrame, "pointerup", {
+          clientX: 560,
+          clientY: 200,
+          pointerId: 6
+        });
+      });
+
+      const southeastHandle = harness.container.querySelector(
+        '[data-interaction-handle="se"][data-node-id="rect_loose"]'
+      ) as HTMLElement;
+
+      act(() => {
+        dispatchPointerEvent(southeastHandle, "pointerdown", {
+          clientX: 700,
+          clientY: 280,
+          pointerId: 7
+        });
+      });
+
+      act(() => {
+        dispatchPointerEvent(viewportFrame, "pointermove", {
+          clientX: 735,
+          clientY: 305,
+          pointerId: 7
+        });
+      });
+
+      expect(
+        harness.container.querySelector('[data-interaction-preview="true"][data-node-id="rect_loose"]')
+      ).not.toBeNull();
+
+      await act(async () => {
+        dispatchPointerEvent(viewportFrame, "pointerup", {
+          clientX: 735,
+          clientY: 305,
+          pointerId: 7
+        });
+        await Promise.resolve();
+      });
+
+      const selectionOutline = harness.container.querySelector(
+        '[data-interaction-outline="selected"][data-node-id="rect_loose"]'
+      ) as SVGRectElement;
+
+      expect(
+        harness.container.querySelector('[data-interaction-preview="true"][data-node-id="rect_loose"]')
+      ).toBeNull();
+      expect(selectionOutline.getAttribute("width")).toBe("215");
+      expect(selectionOutline.getAttribute("height")).toBe("145");
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          {
+            node_id: "rect_loose",
+            patch: {
+              height: 145,
+              width: 215
+            },
+            type: "update_node"
+          }
+        ],
+        document_id: "doc_workspace_loose"
+      });
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("keeps in-flow scene children selectable but without drag handles or mutation", () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          reason: "computed_layout_refresh_not_implemented",
+          status: "skipped"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      onApplyCommands
+    });
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const rectangle = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement;
+
+      act(() => {
+        dispatchPointerEvent(rectangle, "pointerdown", {
+          clientX: 140,
+          clientY: 140,
+          pointerId: 9
+        });
+      });
+
+      expect(
+        harness.container.querySelector('[data-interaction-outline="selected"][data-node-id="rect_hero"]')
+      ).not.toBeNull();
+      expect(
+        harness.container.querySelector('[data-interaction-handle][data-node-id="rect_hero"]')
+      ).toBeNull();
+
+      act(() => {
+        dispatchPointerEvent(rectangle, "pointermove", {
+          clientX: 180,
+          clientY: 180,
+          pointerId: 9
+        });
+        dispatchPointerEvent(rectangle, "pointerup", {
+          clientX: 180,
+          clientY: 180,
+          pointerId: 9
+        });
+      });
+
+      expect(onApplyCommands).not.toHaveBeenCalled();
     } finally {
       harness.cleanup();
     }

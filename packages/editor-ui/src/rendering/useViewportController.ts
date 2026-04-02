@@ -224,21 +224,30 @@ export function useViewportController({
     };
   }, [stopDragging]);
 
-  const handleWheel = useCallback(
-    (event: ReactWheelEvent<HTMLDivElement>) => {
+  const applyWheelInput = useCallback(
+    (input: {
+      clientX: number;
+      clientY: number;
+      ctrlKey: boolean;
+      currentTarget: HTMLDivElement;
+      deltaX: number;
+      deltaY: number;
+      metaKey: boolean;
+      preventDefault: () => void;
+    }) => {
       if (viewportSize.width === 0 || viewportSize.height === 0) {
         return;
       }
 
-      event.preventDefault();
+      input.preventDefault();
 
-      if (event.ctrlKey || event.metaKey) {
-        const frameRect = event.currentTarget.getBoundingClientRect();
+      if (input.ctrlKey || input.metaKey) {
+        const frameRect = input.currentTarget.getBoundingClientRect();
         const pointer = {
-          x: event.clientX - frameRect.left,
-          y: event.clientY - frameRect.top
+          x: input.clientX - frameRect.left,
+          y: input.clientY - frameRect.top
         };
-        const zoomFactor = Math.exp(-event.deltaY * MODIFIED_WHEEL_ZOOM_SENSITIVITY);
+        const zoomFactor = Math.exp(-input.deltaY * MODIFIED_WHEEL_ZOOM_SENSITIVITY);
 
         setViewport((currentViewport) =>
           zoomViewportAroundPoint(
@@ -250,14 +259,61 @@ export function useViewportController({
       } else {
         setViewport((currentViewport) => ({
           ...currentViewport,
-          panX: currentViewport.panX - event.deltaX,
-          panY: currentViewport.panY - event.deltaY
+          panX: currentViewport.panX - input.deltaX,
+          panY: currentViewport.panY - input.deltaY
         }));
       }
 
       setHasInteractedWithCanvas(true);
     },
     [viewportSize]
+  );
+
+  useEffect(() => {
+    if (!viewportElement) {
+      return;
+    }
+
+    const handleNativeWheel = (event: WheelEvent) => {
+      applyWheelInput({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        ctrlKey: event.ctrlKey,
+        currentTarget: viewportElement,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        metaKey: event.metaKey,
+        preventDefault: () => {
+          event.preventDefault();
+        }
+      });
+    };
+
+    viewportElement.addEventListener("wheel", handleNativeWheel, {
+      passive: false
+    });
+
+    return () => {
+      viewportElement.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [applyWheelInput, viewportElement]);
+
+  const handleWheel = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      applyWheelInput({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        ctrlKey: event.ctrlKey,
+        currentTarget: event.currentTarget,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        metaKey: event.metaKey,
+        preventDefault: () => {
+          event.preventDefault();
+        }
+      });
+    },
+    [applyWheelInput]
   );
 
   const handlePointerDown = useCallback(

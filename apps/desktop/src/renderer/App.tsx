@@ -4,7 +4,10 @@ import { DocumentWorkspaceScreen, ProjectLibraryScreen } from "@ai-canvas/editor
 import type { DesktopApi } from "@ai-canvas/ipc-contract";
 import {
   assertOk,
+  err,
   type ActiveProject,
+  type ApplyCommandsInput,
+  type CommandResult,
   type CreateProjectInput,
   type McpStatus,
   type ProjectSummary,
@@ -314,6 +317,23 @@ export function App() {
     }
   };
 
+  const handleApplyCommands = async (input: ApplyCommandsInput) => {
+    const api = getDesktopApi();
+
+    if (!api || state.bootState !== "ready") {
+      return err("internal_error", "Desktop bridge unavailable");
+    }
+
+    try {
+      return await api.applyCommands(input);
+    } catch (error) {
+      return err(
+        "internal_error",
+        error instanceof Error ? error.message : "Failed to apply commands"
+      );
+    }
+  };
+
   if (state.bootState === "ready" && state.screen === "workspace" && state.activeProject) {
     return (
       <DocumentWorkspaceScreen
@@ -321,6 +341,7 @@ export function App() {
         errorMessage={state.errorMessage}
         isBusy={state.isBusy}
         mcpStatus={state.mcpStatus}
+        onApplyCommands={handleApplyCommands}
         onBackToLibrary={() => {
           setState((current) => ({
             ...current,

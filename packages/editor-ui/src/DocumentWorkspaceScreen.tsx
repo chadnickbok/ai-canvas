@@ -1,13 +1,18 @@
 import type { AssetRecord } from "@ai-canvas/document-core";
 import type {
   ActiveProject,
+  AppResult,
+  ApplyCommandsInput,
+  CommandResult,
   McpStatus,
   RuntimeCapabilities
 } from "@ai-canvas/ipc-contract";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { InteractionOverlay } from "./interaction/InteractionOverlay.js";
+import { useInteractionController } from "./interaction/useInteractionController.js";
 import { EditorWorkspaceSurface } from "./rendering/EditorWorkspaceSurface.js";
-import type { ResolvedAssetsById } from "./rendering/types.js";
+import type { RendererMeasurementHandle, ResolvedAssetsById } from "./rendering/types.js";
 import { useViewportController } from "./rendering/useViewportController.js";
 import {
   formatViewportZoomPercent,
@@ -20,6 +25,7 @@ export type DocumentWorkspaceScreenProps = {
   errorMessage?: string | null;
   isBusy?: boolean;
   mcpStatus: McpStatus | null;
+  onApplyCommands?: (input: ApplyCommandsInput) => Promise<AppResult<CommandResult>>;
   onBackToLibrary: () => void;
   runtimeCapabilities: RuntimeCapabilities | null;
 };
@@ -136,12 +142,14 @@ export function DocumentWorkspaceScreen({
   errorMessage,
   isBusy = false,
   mcpStatus,
+  onApplyCommands,
   onBackToLibrary,
   runtimeCapabilities
 }: DocumentWorkspaceScreenProps) {
   const resolvedAssetsById = resolveDocumentAssets(activeProject);
   const sceneCount = Object.keys(activeProject.document.scenes).length;
   const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
+  const rendererRef = useRef<RendererMeasurementHandle | null>(null);
   const {
     fitToContent,
     hasInteractedWithCanvas,
@@ -150,7 +158,6 @@ export function DocumentWorkspaceScreen({
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
-    handleWheel,
     isDragging,
     isSpacePressed,
     resetToActualSize,
@@ -162,8 +169,35 @@ export function DocumentWorkspaceScreen({
     document: activeProject.document,
     workspaceIdentity
   });
+  const {
+    commandError,
+    handleClick: handleInteractionClick,
+    handlePointerCancel: handleInteractionPointerCancel,
+    handlePointerDown: handleInteractionPointerDown,
+    handlePointerLeave: handleInteractionPointerLeave,
+    handlePointerMove: handleInteractionPointerMove,
+    handlePointerUp: handleInteractionPointerUp,
+    hoveredNodeId,
+    isGestureActive,
+    isMutatingSelection,
+    preview,
+    selectionRectOverride,
+    selectedNodeId
+  } = useInteractionController({
+    allowMutation:
+      runtimeCapabilities?.mode === "read_write" &&
+      runtimeCapabilities.measurementSurfaceAvailable === true,
+    document: activeProject.document,
+    isPanModifierActive: isSpacePressed,
+    onApplyCommands,
+    rendererRef,
+    revision: activeProject.revision,
+    viewport,
+    workspaceIdentity
+  });
   const [zoomInputValue, setZoomInputValue] = useState(() => formatViewportZoomPercent(viewport.zoom));
   const canAdjustViewport = viewportSize.width > 0 && viewportSize.height > 0;
+  const effectiveErrorMessage = errorMessage ?? commandError;
 
   useEffect(() => {
     setZoomInputValue(formatViewportZoomPercent(viewport.zoom));
@@ -276,9 +310,11 @@ export function DocumentWorkspaceScreen({
         </div>
       </header>
 
-      {errorMessage ? (
+      {effectiveErrorMessage ? (
         <div className="border-b border-black/12 bg-black/[0.03]">
-          <div className="w-full px-4 py-3 text-[14px] leading-7 text-[#111111]">{errorMessage}</div>
+          <div className="w-full px-4 py-3 text-[14px] leading-7 text-[#111111]">
+            {effectiveErrorMessage}
+          </div>
         </div>
       ) : null}
 
@@ -286,16 +322,52 @@ export function DocumentWorkspaceScreen({
         <div
           className={cn(
             "relative min-h-0 flex-1 overflow-hidden",
-            isDragging ? "cursor-grabbing" : isSpacePressed ? "cursor-grab" : "cursor-default"
+            isMutatingSelection || isGestureActive
+              ? "cursor-default"
+              : isDragging
+                ? "cursor-grabbing"
+                : isSpacePressed
+                  ? "cursor-grab"
+                  : "cursor-default"
           )}
           data-viewport-frame="true"
           onAuxClick={handleAuxClick}
-          onLostPointerCapture={handlePointerCancel}
-          onPointerCancel={handlePointerCancel}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onWheel={handleWheel}
+          onClick={(event) => {
+            if (!isDragging && !isSpacePressed && !isMutatingSelection) {
+              handleInteractionClick(event);
+            }
+          }}
+          onLostPointerCapture={(event) => {
+            if (!handleInteractionPointerCancel(event)) {
+              handlePointerCancel(event);
+            }
+          }}
+          onPointerCancel={(event) => {
+            if (!handleInteractionPointerCancel(event)) {
+              handlePointerCancel(event);
+            }
+          }}
+          onPointerDown={(event) => {
+            if (!handleInteractionPointerDown(event)) {
+              handlePointerDown(event);
+            }
+          }}
+          onPointerLeave={handleInteractionPointerLeave}
+          onPointerMove={(event) => {
+            if (isDragging && !isGestureActive) {
+              handlePointerMove(event);
+              return;
+            }
+
+            if (!handleInteractionPointerMove(event)) {
+              handlePointerMove(event);
+            }
+          }}
+          onPointerUp={(event) => {
+            if (!handleInteractionPointerUp(event)) {
+              handlePointerUp(event);
+            }
+          }}
           ref={viewportRef}
           style={{
             touchAction: "none",
@@ -306,6 +378,22 @@ export function DocumentWorkspaceScreen({
             backdropLayer={<WorkspaceGridBackdrop viewport={viewport} viewportSize={viewportSize} />}
             className="h-full w-full"
             document={activeProject.document}
+            interactionLayer={
+              <InteractionOverlay
+                allowMutation={
+                  runtimeCapabilities?.mode === "read_write" &&
+                  runtimeCapabilities.measurementSurfaceAvailable === true
+                }
+                document={activeProject.document}
+                hoveredNodeId={hoveredNodeId}
+                preview={preview}
+                rendererRef={rendererRef}
+                selectionRectOverride={selectionRectOverride}
+                selectedNodeId={selectedNodeId}
+                viewport={viewport}
+              />
+            }
+            ref={rendererRef}
             resolvedAssetsById={resolvedAssetsById}
             uiLayer={
               <WorkspaceOverlay

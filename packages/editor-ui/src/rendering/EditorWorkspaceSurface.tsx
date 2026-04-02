@@ -29,6 +29,10 @@ export const EditorWorkspaceSurface = forwardRef<
     inset: 0,
     position: "absolute" as const
   };
+  const nonInteractiveLayerStyle = {
+    ...layerStyle,
+    pointerEvents: "none" as const
+  };
   const viewportTransformStyle = {
     height: "100%",
     transform: createViewportTransform(viewport),
@@ -49,7 +53,7 @@ export const EditorWorkspaceSurface = forwardRef<
         width: "100%"
       }}
     >
-      <div data-layer="backdrop" style={layerStyle}>
+      <div data-layer="backdrop" style={nonInteractiveLayerStyle}>
         {backdropLayer}
       </div>
 
@@ -64,13 +68,19 @@ export const EditorWorkspaceSurface = forwardRef<
         </div>
       </div>
 
-      <div data-layer="interaction" style={layerStyle}>
-        <div data-viewport-transform="interaction" style={viewportTransformStyle}>
+      <div data-layer="interaction" style={nonInteractiveLayerStyle}>
+        <div
+          data-viewport-transform="interaction"
+          style={{
+            ...viewportTransformStyle,
+            pointerEvents: "none"
+          }}
+        >
           {interactionLayer}
         </div>
       </div>
 
-      <div data-layer="ui" style={layerStyle}>
+      <div data-layer="ui" style={nonInteractiveLayerStyle}>
         {uiLayer}
       </div>
     </div>
