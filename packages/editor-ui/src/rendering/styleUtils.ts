@@ -111,7 +111,9 @@ export function buildRenderStyle(
     (style as Record<string, string | number | undefined>)[key] =
       key === "backgroundImage" && typeof rawValue === "string"
         ? resolveBackgroundImageValue(rawValue, options.resolvedAssetsById)
-        : rawValue;
+        : key === "lineHeight" && typeof rawValue === "number"
+          ? `${rawValue}px`
+          : rawValue;
   }
 
   if (options.isTopLevel && style.position === undefined) {

@@ -197,11 +197,16 @@ describe("DocumentWorkspaceScreen", () => {
     const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
 
     try {
+      const workspaceSurface = harness.container.querySelector(
+        '[data-editor-workspace-surface="true"]'
+      ) as HTMLElement;
       const sceneFrame = harness.container.querySelector('[data-node-id="scene_home"]') as HTMLElement;
       const rectangle = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement;
 
       expect(harness.container.textContent).toContain("Hello from MCP");
       expect(harness.container.textContent).toContain("1 scene");
+      expect(workspaceSurface.parentElement?.className).toContain("absolute");
+      expect(workspaceSurface.parentElement?.className).toContain("inset-0");
       expect(sceneFrame.style.left).toBe("80px");
       expect(sceneFrame.style.top).toBe("80px");
       expect(rectangle.style.backgroundColor).toBe("rgb(245, 192, 74)");

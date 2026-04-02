@@ -367,6 +367,26 @@ const applyCommandsOutputSchema = z
   .extend(commandResultSchema.shape)
   .strict();
 
+function toJsonCompatibleValue(value: unknown): JsonValue {
+  if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => (entry === undefined ? null : toJsonCompatibleValue(entry)));
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).flatMap(([key, entry]) =>
+        entry === undefined ? [] : [[key, toJsonCompatibleValue(entry)]]
+      )
+    );
+  }
+
+  return null;
+}
+
 export class LocalMcpBridge {
   private boundPort: number | null = null;
   private readonly host: string;
@@ -835,7 +855,9 @@ export class LocalMcpBridge {
   }
 
   private toStructuredResult<TOutput>(schema: z.ZodType<TOutput>, payload: TOutput) {
-    const structuredContent = schema.parse(payload);
+    const structuredContent = schema.parse(
+      toJsonCompatibleValue(payload) as unknown as TOutput
+    );
 
     return {
       content: [

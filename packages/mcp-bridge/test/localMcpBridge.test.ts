@@ -44,6 +44,11 @@ const fixtureNode = {
   scene_id: "scene_home"
 };
 
+const fixtureNodeWithUndefinedComputedLayout = {
+  ...fixtureNode,
+  computed_layout: undefined
+};
+
 function createOk<T>(data: T) {
   return {
     data,
@@ -472,6 +477,99 @@ describe("LocalMcpBridge", () => {
       },
       ok: true,
       revision: 2
+    });
+
+    await transport.close();
+    await client.close();
+  });
+
+  it("omits undefined fields from JSON inspection payloads", async () => {
+    const bridge = new LocalMcpBridge({
+      host: "127.0.0.1",
+      port: 4323,
+      projectService: createService({
+        inspectNode: async () =>
+          createOk({
+            document_id: "doc_123",
+            node: fixtureNodeWithUndefinedComputedLayout,
+            project_id: fixtureProject.id,
+            revision: 1
+          }),
+        inspectScenes: async () =>
+          createOk({
+            document_id: "doc_123",
+            project_id: fixtureProject.id,
+            revision: 1,
+            scenes: [
+              {
+                child_ids: [],
+                frame: fixtureNodeWithUndefinedComputedLayout,
+                scene: {
+                  child_count: 0,
+                  frame_node_id: "scene_home",
+                  id: "scene_home",
+                  name: "Home",
+                  scene_metadata: {
+                    tags: []
+                  }
+                }
+              }
+            ]
+          })
+      })
+    });
+    activeBridges.push(bridge);
+
+    await bridge.start();
+
+    const client = new Client({
+      name: "ai-canvas-test-client",
+      version: "0.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL("http://127.0.0.1:4323/mcp"));
+
+    await client.connect(transport);
+
+    const inspectNodeResult = await client.callTool({
+      arguments: {
+        node_id: "scene_home"
+      },
+      name: "inspect_node"
+    });
+
+    expect(inspectNodeResult.structuredContent).toEqual({
+      document_id: "doc_123",
+      node: fixtureNode,
+      ok: true,
+      project_id: fixtureProject.id,
+      revision: 1
+    });
+
+    const inspectScenesResult = await client.callTool({
+      arguments: {},
+      name: "inspect_scenes"
+    });
+
+    expect(inspectScenesResult.structuredContent).toEqual({
+      document_id: "doc_123",
+      ok: true,
+      project_id: fixtureProject.id,
+      revision: 1,
+      scenes: [
+        {
+          child_ids: [],
+          frame: fixtureNode,
+          scene: {
+            child_count: 0,
+            frame_node_id: "scene_home",
+            id: "scene_home",
+            name: "Home",
+            scene_metadata: {
+              tags: []
+            }
+          }
+        }
+      ]
     });
 
     await transport.close();

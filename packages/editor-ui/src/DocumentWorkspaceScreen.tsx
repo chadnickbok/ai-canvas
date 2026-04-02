@@ -167,14 +167,16 @@ export function DocumentWorkspaceScreen({
       ) : null}
 
       <section className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-6 py-6">
-        <div className="flex min-h-[720px] flex-1 overflow-hidden border border-black/12 bg-[#f2ede1] shadow-[0_24px_80px_rgba(0,0,0,0.08)]">
-          <EditorWorkspaceSurface
-            className="h-full w-full"
-            document={activeProject.document}
-            resolvedAssetsById={resolvedAssetsById}
-            uiLayer={<WorkspaceOverlay activeProject={activeProject} isBusy={isBusy} />}
-            viewport={DEFAULT_VIEWPORT}
-          />
+        <div className="relative flex min-h-[720px] flex-1 overflow-hidden border border-black/12 bg-[#f2ede1] shadow-[0_24px_80px_rgba(0,0,0,0.08)]">
+          <div className="absolute inset-0">
+            <EditorWorkspaceSurface
+              className="h-full w-full"
+              document={activeProject.document}
+              resolvedAssetsById={resolvedAssetsById}
+              uiLayer={<WorkspaceOverlay activeProject={activeProject} isBusy={isBusy} />}
+              viewport={DEFAULT_VIEWPORT}
+            />
+          </div>
         </div>
       </section>
     </main>

@@ -359,6 +359,23 @@ describe("DocumentRenderer", () => {
       harness.cleanup();
     }
   });
+
+  it("treats numeric text line heights as pixel values", () => {
+    const document = createFixtureDocument();
+    document.nodes.title_1.render_style.lineHeight = 32;
+
+    const harness = renderIntoDom(
+      <DocumentRenderer document={document} resolvedAssetsById={{}} />
+    );
+
+    try {
+      const title = harness.container.querySelector('[data-node-id="title_1"]') as HTMLElement;
+
+      expect(title.style.lineHeight).toBe("32px");
+    } finally {
+      harness.cleanup();
+    }
+  });
 });
 
 describe("measurement helpers", () => {
