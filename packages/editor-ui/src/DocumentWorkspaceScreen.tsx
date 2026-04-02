@@ -4,9 +4,16 @@ import type {
   McpStatus,
   RuntimeCapabilities
 } from "@ai-canvas/ipc-contract";
+import { useEffect, useState } from "react";
 
 import { EditorWorkspaceSurface } from "./rendering/EditorWorkspaceSurface.js";
-import type { ResolvedAssetsById, ViewportState } from "./rendering/types.js";
+import type { ResolvedAssetsById } from "./rendering/types.js";
+import { useViewportController } from "./rendering/useViewportController.js";
+import {
+  formatViewportZoomPercent,
+  parseViewportZoomPercent
+} from "./rendering/viewport.js";
+import { WorkspaceGridBackdrop } from "./rendering/workspaceGrid.js";
 
 export type DocumentWorkspaceScreenProps = {
   activeProject: ActiveProject;
@@ -15,12 +22,6 @@ export type DocumentWorkspaceScreenProps = {
   mcpStatus: McpStatus | null;
   onBackToLibrary: () => void;
   runtimeCapabilities: RuntimeCapabilities | null;
-};
-
-const DEFAULT_VIEWPORT: ViewportState = {
-  panX: 0,
-  panY: 0,
-  zoom: 1
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -79,32 +80,53 @@ function resolveDocumentAssets(activeProject: ActiveProject): ResolvedAssetsById
 }
 
 function WorkspaceOverlay({
-  activeProject,
-  isBusy
-}: Pick<DocumentWorkspaceScreenProps, "activeProject" | "isBusy">) {
-  const sceneCount = Object.keys(activeProject.document.scenes).length;
-
+  hasInteractedWithCanvas,
+  isBusy,
+  sceneCount
+}: {
+  hasInteractedWithCanvas: boolean;
+  isBusy: boolean;
+  sceneCount: number;
+}) {
   return (
-    <div className="pointer-events-none flex h-full w-full items-start justify-between p-5">
-      {sceneCount === 0 ? (
-        <div className="max-w-[320px] border border-black/14 bg-white/92 px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
-          <p className="m-0 text-[15px] font-medium text-[#111111]">No scene yet.</p>
-          <p className="m-0 mt-1 text-[13px] leading-6 text-black/62">
-            Use MCP to add a scene, a few rectangles, and text. The committed document render will
-            appear here as soon as the command batch lands.
-          </p>
-        </div>
-      ) : (
-        <div className="ui-mono border border-black/12 bg-white/86 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-black/48 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
+    <div className="pointer-events-none flex h-full w-full flex-col justify-between p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="ui-mono border border-black/12 bg-white/84 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-black/52 shadow-[0_12px_30px_rgba(0,0,0,0.06)] backdrop-blur">
           {sceneCount} scene{sceneCount === 1 ? "" : "s"}
         </div>
-      )}
 
-      {isBusy ? (
-        <div className="ui-mono border border-black/12 bg-white/86 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-black/48 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
-          Syncing
+        {isBusy ? (
+          <div className="ui-mono border border-black/12 bg-white/84 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-black/52 shadow-[0_12px_30px_rgba(0,0,0,0.06)] backdrop-blur">
+            Syncing
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex flex-1 items-center justify-center">
+        {sceneCount === 0 ? (
+          <div className="max-w-[360px] border border-black/14 bg-white/92 px-5 py-4 shadow-[0_18px_48px_rgba(0,0,0,0.08)] backdrop-blur">
+            <p className="m-0 text-[15px] font-medium text-[#111111]">No scene yet.</p>
+            <p className="m-0 mt-2 text-[13px] leading-6 text-black/62">
+              Use MCP to add a scene, a few rectangles, and text. The viewport is ready to pan,
+              zoom, and fit the document as soon as committed content arrives.
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex justify-start">
+        <div
+          aria-hidden={hasInteractedWithCanvas}
+          className={cn(
+            "ui-mono bg-[#1d1a14]/78 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#f6f1e3] shadow-[0_14px_40px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-200 ease-out",
+            hasInteractedWithCanvas ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
+          )}
+          data-viewport-hint="true"
+          data-viewport-hint-visible={hasInteractedWithCanvas ? "false" : "true"}
+        >
+          Scroll to pan. Hold Space and drag to move. Ctrl/Cmd + wheel to zoom.
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -118,12 +140,52 @@ export function DocumentWorkspaceScreen({
   runtimeCapabilities
 }: DocumentWorkspaceScreenProps) {
   const resolvedAssetsById = resolveDocumentAssets(activeProject);
+  const sceneCount = Object.keys(activeProject.document.scenes).length;
+  const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
+  const {
+    fitToContent,
+    hasInteractedWithCanvas,
+    handleAuxClick,
+    handlePointerCancel,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handleWheel,
+    isDragging,
+    isSpacePressed,
+    resetToActualSize,
+    setZoomAtViewportCenter,
+    viewport,
+    viewportRef,
+    viewportSize
+  } = useViewportController({
+    document: activeProject.document,
+    workspaceIdentity
+  });
+  const [zoomInputValue, setZoomInputValue] = useState(() => formatViewportZoomPercent(viewport.zoom));
+  const canAdjustViewport = viewportSize.width > 0 && viewportSize.height > 0;
+
+  useEffect(() => {
+    setZoomInputValue(formatViewportZoomPercent(viewport.zoom));
+  }, [viewport.zoom]);
+
+  const commitZoomInput = () => {
+    const parsedZoom = parseViewportZoomPercent(zoomInputValue);
+
+    if (parsedZoom === null) {
+      setZoomInputValue(formatViewportZoomPercent(viewport.zoom));
+      return;
+    }
+
+    setZoomAtViewportCenter(parsedZoom);
+    setZoomInputValue(formatViewportZoomPercent(parsedZoom));
+  };
 
   return (
-    <main className="page-grid flex min-h-screen flex-col bg-white text-[#111111]">
-      <header className="border-b border-black/12 bg-white/92 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-5 px-6 py-5">
-          <div className="flex min-w-0 items-start gap-4">
+    <main className="flex min-h-screen flex-col bg-white text-[#111111]">
+      <header className="border-b border-black/12 bg-white/94 backdrop-blur">
+        <div className="flex w-full flex-wrap items-center justify-between gap-4 px-4 py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               className={cn(
                 "ui-mono shrink-0 border border-black/16 bg-white px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
@@ -137,10 +199,11 @@ export function DocumentWorkspaceScreen({
             </button>
 
             <div className="min-w-0">
-              <h1 className="m-0 truncate text-[30px] font-semibold tracking-[-0.05em] text-[#111111]">
+              <h1 className="m-0 truncate text-[28px] font-semibold tracking-[-0.05em] text-[#111111]">
                 {activeProject.project.name}
               </h1>
-              <div className="ui-mono mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] uppercase tracking-[0.16em] text-black/48">
+              <div className="ui-mono mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] uppercase tracking-[0.16em] text-black/48">
+                <span>{sceneCount} scene{sceneCount === 1 ? "" : "s"}</span>
                 <span>Project {activeProject.project.id}</span>
                 <span>Document {activeProject.document.document_id}</span>
                 <span>Revision {activeProject.revision}</span>
@@ -149,10 +212,65 @@ export function DocumentWorkspaceScreen({
             </div>
           </div>
 
-          <div className="min-w-0 max-w-full text-left md:text-right">
-            <div className="ui-mono text-[12px] text-[#111111]">{formatMcpStatusLine(mcpStatus)}</div>
-            <div className="ui-mono mt-1 break-all text-[11px] uppercase tracking-[0.14em] text-black/40">
-              {mcpStatus?.endpoint ?? "Loading MCP endpoint"}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="min-w-0 max-w-full text-left md:text-right">
+              <div className="ui-mono text-[12px] text-[#111111]">{formatMcpStatusLine(mcpStatus)}</div>
+              <div className="ui-mono mt-1 break-all text-[11px] uppercase tracking-[0.14em] text-black/40">
+                {mcpStatus?.endpoint ?? "Loading MCP endpoint"}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 border border-black/12 bg-white/86 px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.04)]">
+              <button
+                className={cn(
+                  "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
+                  !canAdjustViewport && "cursor-not-allowed opacity-45 hover:border-black/12"
+                )}
+                disabled={!canAdjustViewport}
+                onClick={fitToContent}
+                type="button"
+              >
+                Fit
+              </button>
+
+              <button
+                className={cn(
+                  "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
+                  !canAdjustViewport && "cursor-not-allowed opacity-45 hover:border-black/12"
+                )}
+                disabled={!canAdjustViewport}
+                onClick={resetToActualSize}
+                type="button"
+              >
+                100%
+              </button>
+
+              <label className="ui-mono flex items-center gap-2 border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-black/52">
+                <span>Zoom</span>
+                <input
+                  aria-label="Zoom percentage"
+                  className="w-[64px] border-0 bg-transparent p-0 text-right text-[#111111] outline-none"
+                  disabled={!canAdjustViewport}
+                  onBlur={commitZoomInput}
+                  onChange={(event) => {
+                    setZoomInputValue(event.target.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitZoomInput();
+                    }
+
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setZoomInputValue(formatViewportZoomPercent(viewport.zoom));
+                      event.currentTarget.blur();
+                    }
+                  }}
+                  type="text"
+                  value={zoomInputValue}
+                />
+              </label>
             </div>
           </div>
         </div>
@@ -160,23 +278,44 @@ export function DocumentWorkspaceScreen({
 
       {errorMessage ? (
         <div className="border-b border-black/12 bg-black/[0.03]">
-          <div className="mx-auto w-full max-w-[1600px] px-6 py-3 text-[14px] leading-7 text-[#111111]">
-            {errorMessage}
-          </div>
+          <div className="w-full px-4 py-3 text-[14px] leading-7 text-[#111111]">{errorMessage}</div>
         </div>
       ) : null}
 
-      <section className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-6 py-6">
-        <div className="relative flex min-h-[720px] flex-1 overflow-hidden border border-black/12 bg-[#f2ede1] shadow-[0_24px_80px_rgba(0,0,0,0.08)]">
-          <div className="absolute inset-0">
-            <EditorWorkspaceSurface
-              className="h-full w-full"
-              document={activeProject.document}
-              resolvedAssetsById={resolvedAssetsById}
-              uiLayer={<WorkspaceOverlay activeProject={activeProject} isBusy={isBusy} />}
-              viewport={DEFAULT_VIEWPORT}
-            />
-          </div>
+      <section className="relative flex min-h-0 flex-1 overflow-hidden">
+        <div
+          className={cn(
+            "relative min-h-0 flex-1 overflow-hidden",
+            isDragging ? "cursor-grabbing" : isSpacePressed ? "cursor-grab" : "cursor-default"
+          )}
+          data-viewport-frame="true"
+          onAuxClick={handleAuxClick}
+          onLostPointerCapture={handlePointerCancel}
+          onPointerCancel={handlePointerCancel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onWheel={handleWheel}
+          ref={viewportRef}
+          style={{
+            touchAction: "none",
+            userSelect: isDragging ? "none" : undefined
+          }}
+        >
+          <EditorWorkspaceSurface
+            backdropLayer={<WorkspaceGridBackdrop viewport={viewport} viewportSize={viewportSize} />}
+            className="h-full w-full"
+            document={activeProject.document}
+            resolvedAssetsById={resolvedAssetsById}
+            uiLayer={
+              <WorkspaceOverlay
+                hasInteractedWithCanvas={hasInteractedWithCanvas}
+                isBusy={isBusy}
+                sceneCount={sceneCount}
+              />
+            }
+            viewport={viewport}
+          />
         </div>
       </section>
     </main>

@@ -4,6 +4,7 @@ import { DocumentRenderer, type DocumentRendererProps } from "./DocumentRenderer
 import type { RendererMeasurementHandle, ViewportState } from "./types.js";
 
 export type EditorWorkspaceSurfaceProps = Omit<DocumentRendererProps, "viewportZoom"> & {
+  backdropLayer?: ReactNode;
   interactionLayer?: ReactNode;
   uiLayer?: ReactNode;
   viewport: ViewportState;
@@ -21,7 +22,7 @@ export const EditorWorkspaceSurface = forwardRef<
   RendererMeasurementHandle,
   EditorWorkspaceSurfaceProps
 >(function EditorWorkspaceSurface(
-  { className, document, interactionLayer, resolvedAssetsById, uiLayer, viewport },
+  { backdropLayer, className, document, interactionLayer, resolvedAssetsById, uiLayer, viewport },
   ref
 ) {
   const layerStyle = {
@@ -48,6 +49,10 @@ export const EditorWorkspaceSurface = forwardRef<
         width: "100%"
       }}
     >
+      <div data-layer="backdrop" style={layerStyle}>
+        {backdropLayer}
+      </div>
+
       <div data-layer="renderer" style={layerStyle}>
         <div data-viewport-transform="renderer" style={viewportTransformStyle}>
           <DocumentRenderer
