@@ -7,10 +7,12 @@ import type {
   McpStatus,
   RuntimeCapabilities
 } from "@ai-canvas/ipc-contract";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
+import { resolveNodeCanvasRect } from "./interaction/geometry.js";
 import { InteractionOverlay } from "./interaction/InteractionOverlay.js";
 import { useInteractionController } from "./interaction/useInteractionController.js";
+import { LayersInspector } from "./LayersInspector.js";
 import { EditorWorkspaceSurface } from "./rendering/EditorWorkspaceSurface.js";
 import type { RendererMeasurementHandle, ResolvedAssetsById } from "./rendering/types.js";
 import { useViewportController } from "./rendering/useViewportController.js";
@@ -29,6 +31,8 @@ export type DocumentWorkspaceScreenProps = {
   onBackToLibrary: () => void;
   runtimeCapabilities: RuntimeCapabilities | null;
 };
+
+type SelectionSource = "canvas" | "hierarchy";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -150,6 +154,17 @@ export function DocumentWorkspaceScreen({
   const sceneCount = Object.keys(activeProject.document.scenes).length;
   const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
   const rendererRef = useRef<RendererMeasurementHandle | null>(null);
+  const [selectionState, setSelectionState] = useState<{
+    nodeId: string | null;
+    sequence: number;
+    source: SelectionSource | null;
+    workspaceIdentity: string;
+  }>(() => ({
+    nodeId: null,
+    sequence: 0,
+    source: null,
+    workspaceIdentity
+  }));
   const {
     fitToContent,
     hasInteractedWithCanvas,
@@ -160,6 +175,7 @@ export function DocumentWorkspaceScreen({
     handlePointerUp,
     isDragging,
     isSpacePressed,
+    revealCanvasRect,
     resetToActualSize,
     setZoomAtViewportCenter,
     viewport,
@@ -169,6 +185,20 @@ export function DocumentWorkspaceScreen({
     document: activeProject.document,
     workspaceIdentity
   });
+  const selectedNodeId =
+    selectionState.workspaceIdentity === workspaceIdentity &&
+    selectionState.nodeId &&
+    activeProject.document.nodes[selectionState.nodeId]
+      ? selectionState.nodeId
+      : null;
+  const selectedNodeSelectionSource =
+    selectionState.workspaceIdentity === workspaceIdentity && selectedNodeId !== null
+      ? selectionState.source
+      : null;
+  const selectedNodeSelectionSequence =
+    selectionState.workspaceIdentity === workspaceIdentity && selectedNodeId !== null
+      ? selectionState.sequence
+      : 0;
   const {
     commandError,
     handleClick: handleInteractionClick,
@@ -181,42 +211,85 @@ export function DocumentWorkspaceScreen({
     isGestureActive,
     isMutatingSelection,
     preview,
-    selectionRectOverride,
-    selectedNodeId
+    selectionRectOverride
   } = useInteractionController({
     allowMutation:
       runtimeCapabilities?.mode === "read_write" &&
       runtimeCapabilities.measurementSurfaceAvailable === true,
     document: activeProject.document,
     isPanModifierActive: isSpacePressed,
+    onSelectedNodeIdChange: (nodeId) => {
+      setSelectionState((currentSelectionState) => ({
+        nodeId,
+        sequence: currentSelectionState.sequence + 1,
+        source: "canvas",
+        workspaceIdentity
+      }));
+    },
     onApplyCommands,
     rendererRef,
     revision: activeProject.revision,
+    selectedNodeId,
     viewport,
     workspaceIdentity
   });
-  const [zoomInputValue, setZoomInputValue] = useState(() => formatViewportZoomPercent(viewport.zoom));
+  const [zoomInputState, setZoomInputState] = useState(() => ({
+    draft: formatViewportZoomPercent(viewport.zoom),
+    lastCommittedZoom: viewport.zoom
+  }));
   const canAdjustViewport = viewportSize.width > 0 && viewportSize.height > 0;
   const effectiveErrorMessage = errorMessage ?? commandError;
+  const zoomInputValue =
+    zoomInputState.lastCommittedZoom === viewport.zoom
+      ? zoomInputState.draft
+      : formatViewportZoomPercent(viewport.zoom);
 
-  useEffect(() => {
-    setZoomInputValue(formatViewportZoomPercent(viewport.zoom));
-  }, [viewport.zoom]);
+  const handleLayerSelection = useCallback(
+    (nodeId: string) => {
+      setSelectionState((currentSelectionState) => ({
+        nodeId,
+        sequence: currentSelectionState.sequence + 1,
+        source: "hierarchy",
+        workspaceIdentity
+      }));
+
+      const selectionRect = resolveNodeCanvasRect(
+        activeProject.document,
+        nodeId,
+        rendererRef.current,
+        viewport.zoom
+      );
+
+      if (selectionRect) {
+        revealCanvasRect(selectionRect);
+      }
+    },
+    [activeProject.document, revealCanvasRect, viewport.zoom, workspaceIdentity]
+  );
 
   const commitZoomInput = () => {
     const parsedZoom = parseViewportZoomPercent(zoomInputValue);
 
     if (parsedZoom === null) {
-      setZoomInputValue(formatViewportZoomPercent(viewport.zoom));
+      setZoomInputState({
+        draft: formatViewportZoomPercent(viewport.zoom),
+        lastCommittedZoom: viewport.zoom
+      });
       return;
     }
 
     setZoomAtViewportCenter(parsedZoom);
-    setZoomInputValue(formatViewportZoomPercent(parsedZoom));
+    setZoomInputState({
+      draft: formatViewportZoomPercent(parsedZoom),
+      lastCommittedZoom: parsedZoom
+    });
   };
 
   return (
-    <main className="flex min-h-screen flex-col bg-white text-[#111111]">
+    <main
+      className="flex h-screen min-h-0 flex-col overflow-hidden bg-white text-[#111111]"
+      data-workspace-shell="true"
+    >
       <header className="border-b border-black/12 bg-white/94 backdrop-blur">
         <div className="flex w-full flex-wrap items-center justify-between gap-4 px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -287,7 +360,10 @@ export function DocumentWorkspaceScreen({
                   disabled={!canAdjustViewport}
                   onBlur={commitZoomInput}
                   onChange={(event) => {
-                    setZoomInputValue(event.target.value);
+                    setZoomInputState({
+                      draft: event.target.value,
+                      lastCommittedZoom: viewport.zoom
+                    });
                   }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
@@ -297,7 +373,10 @@ export function DocumentWorkspaceScreen({
 
                     if (event.key === "Escape") {
                       event.preventDefault();
-                      setZoomInputValue(formatViewportZoomPercent(viewport.zoom));
+                      setZoomInputState({
+                        draft: formatViewportZoomPercent(viewport.zoom),
+                        lastCommittedZoom: viewport.zoom
+                      });
                       event.currentTarget.blur();
                     }
                   }}
@@ -318,7 +397,19 @@ export function DocumentWorkspaceScreen({
         </div>
       ) : null}
 
-      <section className="relative flex min-h-0 flex-1 overflow-hidden">
+      <section
+        className="relative flex min-h-0 flex-1 overflow-hidden"
+        data-workspace-body="true"
+      >
+        <LayersInspector
+          document={activeProject.document}
+          onSelectNode={handleLayerSelection}
+          selectedNodeId={selectedNodeId}
+          selectedNodeSelectionSequence={selectedNodeSelectionSequence}
+          selectedNodeSelectionSource={selectedNodeSelectionSource}
+          workspaceIdentity={workspaceIdentity}
+        />
+
         <div
           className={cn(
             "relative min-h-0 flex-1 overflow-hidden",

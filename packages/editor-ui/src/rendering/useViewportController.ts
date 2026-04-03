@@ -16,6 +16,8 @@ import {
   centerViewportOnPoint,
   clampViewportZoom,
   createViewportForContentBounds,
+  isCanvasBoundsFullyVisible,
+  revealCanvasBounds,
   resolveTopLevelContentBounds,
   zoomViewportAroundPoint,
   type ViewportSize
@@ -126,6 +128,39 @@ export function useViewportController({
       );
     },
     [viewportSize]
+  );
+
+  const revealCanvasRect = useCallback(
+    (
+      rect: {
+        height: number;
+        width: number;
+        x: number;
+        y: number;
+      },
+      options?: {
+        padding?: number;
+      }
+    ) => {
+      if (viewportSize.width === 0 || viewportSize.height === 0) {
+        return false;
+      }
+
+      const shouldReveal = !isCanvasBoundsFullyVisible(viewport, rect, viewportSize, options?.padding ?? fitPadding);
+
+      if (!shouldReveal) {
+        return false;
+      }
+
+      setViewport((currentViewport) =>
+        revealCanvasBounds(currentViewport, rect, viewportSize, {
+          padding: options?.padding ?? fitPadding
+        })
+      );
+      setHasInteractedWithCanvas(true);
+      return true;
+    },
+    [fitPadding, viewport, viewportSize]
   );
 
   const stopDragging = useCallback(() => {
@@ -405,6 +440,7 @@ export function useViewportController({
     isDragging,
     isSpacePressed,
     resetToActualSize,
+    revealCanvasRect,
     setZoomAtViewportCenter,
     viewport,
     viewportRef,

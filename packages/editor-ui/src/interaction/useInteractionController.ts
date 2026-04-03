@@ -49,9 +49,11 @@ export type UseInteractionControllerInput = {
   allowMutation: boolean;
   document: RendererDocument;
   isPanModifierActive?: boolean;
+  onSelectedNodeIdChange?: (nodeId: string | null) => void;
   onApplyCommands?: (input: ApplyCommandsInput) => Promise<AppResult<CommandResult>>;
   rendererRef: RefObject<RendererMeasurementHandle | null>;
   revision: number;
+  selectedNodeId: string | null;
   viewport: ViewportState;
   workspaceIdentity: string;
 };
@@ -76,9 +78,11 @@ export function useInteractionController({
   allowMutation,
   document,
   isPanModifierActive = false,
+  onSelectedNodeIdChange,
   onApplyCommands,
   rendererRef,
   revision,
+  selectedNodeId,
   viewport,
   workspaceIdentity
 }: UseInteractionControllerInput): UseInteractionControllerResult {
@@ -89,7 +93,6 @@ export function useInteractionController({
   const [selectionRectOverride, setSelectionRectOverride] = useState<SelectionRectOverride | null>(
     null
   );
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const suppressNextClickRef = useRef(false);
 
   useEffect(() => {
@@ -98,13 +101,12 @@ export function useInteractionController({
     setHoveredNodeId(null);
     setIsMutatingSelection(false);
     setSelectionRectOverride(null);
-    setSelectedNodeId(null);
     suppressNextClickRef.current = false;
   }, [workspaceIdentity]);
 
   useEffect(() => {
     if (selectedNodeId && !document.nodes[selectedNodeId]) {
-      setSelectedNodeId(null);
+      onSelectedNodeIdChange?.(null);
     }
 
     if (hoveredNodeId && !document.nodes[hoveredNodeId]) {
@@ -119,7 +121,7 @@ export function useInteractionController({
     if (selectionRectOverride && !document.nodes[selectionRectOverride.nodeId]) {
       setSelectionRectOverride(null);
     }
-  }, [document, gestureState, hoveredNodeId, selectedNodeId]);
+  }, [document, gestureState, hoveredNodeId, onSelectedNodeIdChange, selectedNodeId, selectionRectOverride]);
 
   useLayoutEffect(() => {
     if (!selectionRectOverride) {
@@ -292,7 +294,7 @@ export function useInteractionController({
 
       setCommandError(null);
       setHoveredNodeId(targetNodeId);
-      setSelectedNodeId(targetNodeId);
+      onSelectedNodeIdChange?.(targetNodeId);
       setSelectionRectOverride(null);
 
       if (!isNodeDirectlyManipulable(document, targetNode, allowMutation)) {
@@ -305,7 +307,14 @@ export function useInteractionController({
 
       return startGesture(event, targetNode, "move", null);
     },
-    [allowMutation, document, isMutatingSelection, isPanModifierActive, startGesture]
+    [
+      allowMutation,
+      document,
+      isMutatingSelection,
+      isPanModifierActive,
+      onSelectedNodeIdChange,
+      startGesture
+    ]
   );
 
   const handlePointerMove = useCallback(
@@ -426,10 +435,10 @@ export function useInteractionController({
       const targetNodeId = resolveInteractionTargetNodeId(event.target);
 
       setCommandError(null);
-      setSelectedNodeId(targetNodeId);
+      onSelectedNodeIdChange?.(targetNodeId);
       setHoveredNodeId(targetNodeId);
     },
-    [isMutatingSelection]
+    [isMutatingSelection, onSelectedNodeIdChange]
   );
 
   return {

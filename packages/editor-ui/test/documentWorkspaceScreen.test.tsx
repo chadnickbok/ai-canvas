@@ -26,6 +26,8 @@ type RenderHarness = {
   root: Root;
 };
 
+let scrollIntoViewMock: ReturnType<typeof vi.fn>;
+
 function createDomRect(left: number, top: number, width: number, height: number): DOMRect {
   return {
     bottom: top + height,
@@ -251,6 +253,148 @@ function createDocumentWithLooseNode(): RendererDocument {
   return document;
 }
 
+function createDocumentWithInspectorFixtures(): RendererDocument {
+  const document = createDocumentWithLooseNode();
+
+  document.nodes.scene_home.render_style.backgroundImage = "url(asset://asset_scene)";
+  document.nodes.scene_home.render_style.display = "flex";
+  document.nodes.scene_home.render_style.flexDirection = "row";
+  document.nodes.rect_loose.render_style.backgroundImage = "url(asset://asset_loose)";
+  document.assets.asset_scene = {
+    id: "asset_scene",
+    kind: "image",
+    mime_type: "image/png",
+    source: {
+      data_uri: "data:image/png;base64,AAAA",
+      kind: "data_uri"
+    }
+  };
+  document.assets.asset_loose = {
+    id: "asset_loose",
+    kind: "image",
+    mime_type: "image/png",
+    source: {
+      data_uri: "data:image/png;base64,AAAA",
+      kind: "data_uri"
+    }
+  };
+
+  return document;
+}
+
+function createDocumentWithDeepHierarchy(): RendererDocument {
+  const document = createDocumentWithScene({
+    documentId: "doc_workspace_deep",
+    name: "Workspace Deep Fixture"
+  });
+
+  document.scenes.scene_home.child_count = 1;
+  document.nodes.scene_home.child_ids = ["frame_level_1"];
+  document.nodes.scene_home.render_style.display = "flex";
+  document.nodes.scene_home.render_style.flexDirection = "column";
+  document.nodes.frame_level_1 = {
+    authoring: {
+      local_values: {},
+      style_bindings: {},
+      variable_bindings: {}
+    },
+    child_ids: ["frame_level_2"],
+    id: "frame_level_1",
+    is_locked: false,
+    is_visible: true,
+    kind: "frame",
+    name: "Level 1",
+    parent_id: "scene_home",
+    render_style: {
+      display: "flex",
+      flexDirection: "column"
+    },
+    scene_id: "scene_home"
+  };
+  document.nodes.frame_level_2 = {
+    authoring: {
+      local_values: {},
+      style_bindings: {},
+      variable_bindings: {}
+    },
+    child_ids: ["frame_level_3"],
+    id: "frame_level_2",
+    is_locked: false,
+    is_visible: true,
+    kind: "frame",
+    name: "Level 2",
+    parent_id: "frame_level_1",
+    render_style: {
+      display: "flex",
+      flexDirection: "column"
+    },
+    scene_id: "scene_home"
+  };
+  document.nodes.frame_level_3 = {
+    authoring: {
+      local_values: {},
+      style_bindings: {},
+      variable_bindings: {}
+    },
+    child_ids: ["frame_level_4"],
+    id: "frame_level_3",
+    is_locked: false,
+    is_visible: true,
+    kind: "frame",
+    name: "Level 3",
+    parent_id: "frame_level_2",
+    render_style: {
+      display: "flex",
+      flexDirection: "column"
+    },
+    scene_id: "scene_home"
+  };
+  document.nodes.frame_level_4 = {
+    authoring: {
+      local_values: {},
+      style_bindings: {},
+      variable_bindings: {}
+    },
+    child_ids: ["text_leaf"],
+    id: "frame_level_4",
+    is_locked: false,
+    is_visible: true,
+    kind: "frame",
+    name: "Level 4",
+    parent_id: "frame_level_3",
+    render_style: {
+      display: "flex",
+      flexDirection: "column"
+    },
+    scene_id: "scene_home"
+  };
+  document.nodes.text_leaf = {
+    authoring: {
+      local_values: {},
+      style_bindings: {},
+      variable_bindings: {}
+    },
+    child_ids: [],
+    id: "text_leaf",
+    is_locked: false,
+    is_visible: true,
+    kind: "text",
+    name: "Deep Label",
+    parent_id: "frame_level_4",
+    render_style: {
+      color: "#111111",
+      fontFamily: "IBM Plex Sans",
+      fontSize: 16
+    },
+    scene_id: "scene_home",
+    text: {
+      content: "Deep Label"
+    }
+  };
+
+  return document;
+}
+
 function renderIntoDom(
   activeProject: ActiveProject,
   options: {
@@ -304,7 +448,21 @@ function assignInteractionGeometry(harness: RenderHarness) {
   }
 }
 
+function getLayerRow(harness: RenderHarness, nodeId: string): HTMLButtonElement | null {
+  return harness.container.querySelector(
+    `[data-layer-row="true"][data-layer-node-id="${nodeId}"]`
+  ) as HTMLButtonElement | null;
+}
+
+function getLayerDisclosure(harness: RenderHarness, nodeId: string): HTMLButtonElement | null {
+  return harness.container.querySelector(
+    `[data-layer-disclosure="true"][data-layer-node-id="${nodeId}"]`
+  ) as HTMLButtonElement | null;
+}
+
 beforeEach(() => {
+  scrollIntoViewMock = vi.fn();
+
   class TestPointerEvent extends MouseEvent {
     declare readonly isPrimary: boolean;
     declare readonly pointerId: number;
@@ -350,6 +508,10 @@ beforeEach(() => {
     value(pointerId: number) {
       return pointerCaptureIds.get(this)?.has(pointerId) ?? false;
     }
+  });
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoViewMock
   });
 });
 
@@ -408,6 +570,102 @@ describe("DocumentWorkspaceScreen", () => {
       expect(sceneFrame.style.left).toBe("80px");
       expect(sceneFrame.style.top).toBe("80px");
       expect(rectangle.style.backgroundColor).toBe("rgb(245, 192, 74)");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("renders the layers inspector in canvas order with type-specific icons", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithInspectorFixtures()));
+
+    try {
+      const layerRows = [...harness.container.querySelectorAll('[data-layer-row="true"]')];
+      const sceneRow = getLayerRow(harness, "scene_home");
+      const heroRow = getLayerRow(harness, "rect_hero");
+      const titleRow = getLayerRow(harness, "text_title");
+      const looseRow = getLayerRow(harness, "rect_loose");
+
+      expect(layerRows.map((row) => row.getAttribute("data-layer-node-id"))).toEqual([
+        "scene_home",
+        "rect_hero",
+        "text_title",
+        "rect_loose"
+      ]);
+
+      expect(sceneRow?.querySelector('[data-layer-icon-type="frame"]')).not.toBeNull();
+      expect(sceneRow?.querySelector('[data-layer-icon-direction="row"]')).not.toBeNull();
+      expect(heroRow?.querySelector('[data-layer-icon-type="rectangle"]')).not.toBeNull();
+      expect(titleRow?.querySelector('[data-layer-icon-type="text"]')).not.toBeNull();
+      expect(looseRow?.querySelector('[data-layer-icon-type="image"]')).not.toBeNull();
+      expect(sceneRow?.textContent).toBe("Home");
+      expect(heroRow?.textContent).toBe("Hero");
+      expect(titleRow?.textContent).toBe("Title");
+      expect(looseRow?.textContent).toBe("Loose Card");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("keeps the workspace shell viewport-locked and the hierarchy self-scrolling", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      const workspaceShell = harness.container.querySelector(
+        '[data-workspace-shell="true"]'
+      ) as HTMLElement;
+      const workspaceBody = harness.container.querySelector(
+        '[data-workspace-body="true"]'
+      ) as HTMLElement;
+      const inspector = harness.container.querySelector(
+        '[data-layers-inspector="true"]'
+      ) as HTMLElement;
+      const scrollRegion = harness.container.querySelector(
+        '[data-layers-scroll-region="true"]'
+      ) as HTMLElement;
+
+      expect(workspaceShell.className).toContain("h-screen");
+      expect(workspaceShell.className).toContain("overflow-hidden");
+      expect(workspaceBody.className).toContain("overflow-hidden");
+      expect(inspector.className).toContain("min-h-0");
+      expect(inspector.className).toContain("overflow-hidden");
+      expect(inspector.className).toContain("bg-[#fcfbf8]");
+      expect(scrollRegion.className).toContain("overflow-auto");
+      expect(scrollRegion.className).toContain("bg-[#fcfbf8]");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("supports horizontal scrolling for deep layer indentation", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithDeepHierarchy()));
+
+    try {
+      act(() => {
+        getLayerDisclosure(harness, "frame_level_1")?.click();
+      });
+
+      act(() => {
+        getLayerDisclosure(harness, "frame_level_2")?.click();
+      });
+
+      act(() => {
+        getLayerDisclosure(harness, "frame_level_3")?.click();
+      });
+
+      act(() => {
+        getLayerDisclosure(harness, "frame_level_4")?.click();
+      });
+
+      const scrollRegion = harness.container.querySelector(
+        '[data-layers-scroll-region="true"]'
+      ) as HTMLElement;
+      const treeContent = harness.container.querySelector(
+        '[data-layers-tree-content="true"]'
+      ) as HTMLElement;
+
+      expect(scrollRegion).not.toBeNull();
+      expect(treeContent.getAttribute("data-tree-max-depth")).toBe("5");
+      expect(treeContent.style.minWidth).toBe("310px");
     } finally {
       harness.cleanup();
     }
@@ -544,7 +802,7 @@ describe("DocumentWorkspaceScreen", () => {
       const transform = parseTransform(rendererTransform.style.transform);
 
       expect(transform.zoom).toBeCloseTo(0.6376281516217733, 6);
-      expect(transform.panX).toBeCloseTo(336.65225830401233, 2);
+      expect(transform.panX).toBeCloseTo(336.6522583040123, 2);
       expect(transform.panY).toBeCloseTo(191.9106678858698, 2);
     } finally {
       harness.cleanup();
@@ -610,6 +868,170 @@ describe("DocumentWorkspaceScreen", () => {
       expect(harness.container.textContent).toContain("Workspace Fixture Reopened");
       expect(viewportHintReopened.getAttribute("data-viewport-hint-visible")).toBe("true");
       expect(viewportHintReopened.getAttribute("aria-hidden")).toBe("false");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("syncs canvas selection into the layers inspector and re-expands collapsed ancestors", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      assignInteractionGeometry(harness);
+      const sceneDisclosure = getLayerDisclosure(harness, "scene_home");
+
+      act(() => {
+        sceneDisclosure?.click();
+      });
+
+      expect(getLayerRow(harness, "rect_hero")).toBeNull();
+
+      const rectangle = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement;
+
+      act(() => {
+        dispatchPointerEvent(rectangle, "pointerdown", {
+          clientX: 140,
+          clientY: 140,
+          pointerId: 11
+        });
+      });
+
+      expect(getLayerDisclosure(harness, "scene_home")?.getAttribute("data-expanded")).toBe("true");
+      expect(getLayerRow(harness, "rect_hero")?.getAttribute("data-layer-selected")).toBe("true");
+      expect(scrollIntoViewMock).not.toHaveBeenCalled();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("scrolls the hierarchy row into view for offscreen canvas selections", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithDeepHierarchy()));
+
+    try {
+      act(() => {
+        getLayerDisclosure(harness, "frame_level_1")?.click();
+      });
+
+      act(() => {
+        getLayerDisclosure(harness, "frame_level_2")?.click();
+      });
+
+      act(() => {
+        getLayerDisclosure(harness, "frame_level_3")?.click();
+      });
+
+      act(() => {
+        getLayerDisclosure(harness, "frame_level_4")?.click();
+      });
+
+      const scrollRegion = harness.container.querySelector(
+        '[data-layers-scroll-region="true"]'
+      ) as HTMLElement;
+      const deepRow = getLayerRow(harness, "text_leaf") as HTMLButtonElement;
+      const deepCanvasNode = harness.container.querySelector('[data-node-id="text_leaf"]') as HTMLElement;
+
+      assignBoundingRect(scrollRegion, 0, 0, 320, 96);
+      assignBoundingRect(deepRow, 0, 220, 280, 24);
+
+      act(() => {
+        dispatchPointerEvent(deepCanvasNode, "pointerdown", {
+          clientX: 40,
+          clientY: 40,
+          pointerId: 12
+        });
+      });
+
+      expect(getLayerRow(harness, "text_leaf")?.getAttribute("data-layer-selected")).toBe("true");
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({
+        block: "nearest",
+        inline: "nearest"
+      });
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("does not scroll the hierarchy row when a canvas selection is already visible", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      const scrollRegion = harness.container.querySelector(
+        '[data-layers-scroll-region="true"]'
+      ) as HTMLElement;
+      const heroRow = getLayerRow(harness, "rect_hero") as HTMLButtonElement;
+      const heroCanvasNode = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement;
+
+      assignBoundingRect(scrollRegion, 0, 0, 320, 160);
+      assignBoundingRect(heroRow, 0, 40, 280, 24);
+
+      act(() => {
+        dispatchPointerEvent(heroCanvasNode, "pointerdown", {
+          clientX: 140,
+          clientY: 140,
+          pointerId: 13
+        });
+      });
+
+      expect(getLayerRow(harness, "rect_hero")?.getAttribute("data-layer-selected")).toBe("true");
+      expect(scrollIntoViewMock).not.toHaveBeenCalled();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("does not auto-scroll the hierarchy for hierarchy-driven selection", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      act(() => {
+        getLayerRow(harness, "scene_home")?.click();
+      });
+
+      expect(getLayerRow(harness, "scene_home")?.getAttribute("data-layer-selected")).toBe("true");
+      expect(scrollIntoViewMock).not.toHaveBeenCalled();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("selects layers from the pane and reveals offscreen content", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
+      const rendererTransform = harness.container.querySelector(
+        '[data-viewport-transform="renderer"]'
+      ) as HTMLElement;
+
+      assignBoundingRect(viewportFrame, 0, 0, 1024, 1024);
+
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      act(() => {
+        viewportFrame.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaY: 900
+          })
+        );
+      });
+
+      expect(rendererTransform.style.transform).toBe("translate(237px, -890px) scale(1)");
+
+      act(() => {
+        getLayerRow(harness, "scene_home")?.click();
+      });
+
+      expect(rendererTransform.style.transform).toBe("translate(237px, -16px) scale(1)");
+      expect(getLayerRow(harness, "scene_home")?.getAttribute("data-layer-selected")).toBe("true");
+      expect(
+        harness.container.querySelector('[data-interaction-outline="selected"][data-node-id="scene_home"]')
+      ).not.toBeNull();
     } finally {
       harness.cleanup();
     }

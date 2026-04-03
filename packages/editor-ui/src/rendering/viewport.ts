@@ -145,6 +145,77 @@ export function zoomViewportAroundPoint(
   };
 }
 
+export function isCanvasBoundsFullyVisible(
+  viewport: ViewportState,
+  bounds: CanvasBounds,
+  viewportSize: ViewportSize,
+  padding = 0
+): boolean {
+  const normalizedZoom = clampViewportZoom(viewport.zoom);
+  const visibleLeft = (-viewport.panX + padding) / normalizedZoom;
+  const visibleTop = (-viewport.panY + padding) / normalizedZoom;
+  const visibleRight = (viewportSize.width - viewport.panX - padding) / normalizedZoom;
+  const visibleBottom = (viewportSize.height - viewport.panY - padding) / normalizedZoom;
+
+  return (
+    bounds.x >= visibleLeft &&
+    bounds.y >= visibleTop &&
+    bounds.x + bounds.width <= visibleRight &&
+    bounds.y + bounds.height <= visibleBottom
+  );
+}
+
+export function revealCanvasBounds(
+  viewport: ViewportState,
+  bounds: CanvasBounds,
+  viewportSize: ViewportSize,
+  options?: {
+    padding?: number;
+  }
+): ViewportState {
+  const normalizedZoom = clampViewportZoom(viewport.zoom);
+  const padding = Math.max(0, options?.padding ?? 0);
+  const horizontalPadding = padding / normalizedZoom;
+  const verticalPadding = padding / normalizedZoom;
+  const paddedViewportWidth = Math.max(1 / normalizedZoom, viewportSize.width / normalizedZoom - horizontalPadding * 2);
+  const paddedViewportHeight = Math.max(
+    1 / normalizedZoom,
+    viewportSize.height / normalizedZoom - verticalPadding * 2
+  );
+  const currentVisibleLeft = -viewport.panX / normalizedZoom;
+  const currentVisibleTop = -viewport.panY / normalizedZoom;
+  const currentVisibleRight = currentVisibleLeft + viewportSize.width / normalizedZoom;
+  const currentVisibleBottom = currentVisibleTop + viewportSize.height / normalizedZoom;
+  let nextPanX = viewport.panX;
+  let nextPanY = viewport.panY;
+
+  if (bounds.width > paddedViewportWidth) {
+    nextPanX = viewportSize.width / 2 - (bounds.x + bounds.width / 2) * normalizedZoom;
+  } else if (bounds.x < currentVisibleLeft + horizontalPadding) {
+    nextPanX = padding - bounds.x * normalizedZoom;
+  } else if (bounds.x + bounds.width > currentVisibleRight - horizontalPadding) {
+    nextPanX = viewportSize.width - padding - (bounds.x + bounds.width) * normalizedZoom;
+  }
+
+  if (bounds.height > paddedViewportHeight) {
+    nextPanY = viewportSize.height / 2 - (bounds.y + bounds.height / 2) * normalizedZoom;
+  } else if (bounds.y < currentVisibleTop + verticalPadding) {
+    nextPanY = padding - bounds.y * normalizedZoom;
+  } else if (bounds.y + bounds.height > currentVisibleBottom - verticalPadding) {
+    nextPanY = viewportSize.height - padding - (bounds.y + bounds.height) * normalizedZoom;
+  }
+
+  if (nextPanX === viewport.panX && nextPanY === viewport.panY) {
+    return viewport;
+  }
+
+  return {
+    ...viewport,
+    panX: nextPanX,
+    panY: nextPanY
+  };
+}
+
 function resolveTopLevelNode(
   document: RendererDocument,
   childId: string
