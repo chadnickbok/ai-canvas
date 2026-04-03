@@ -406,56 +406,12 @@ export function DocumentWorkspaceScreen({
       ) : null}
 
       <section
-        className="relative flex min-h-0 flex-1 overflow-hidden"
+        className="relative min-h-0 flex-1 overflow-hidden"
         data-workspace-body="true"
       >
-        {isLayersInspectorVisible ? (
-          <LayersInspector
-            document={activeProject.document}
-            headerAction={
-              <button
-                aria-label="Hide layers panel"
-                className="flex h-9 w-9 items-center justify-center border border-black/14 bg-white text-[#111111] transition hover:border-black/60"
-                data-layers-hide-toggle="true"
-                onClick={() => {
-                  setLayersInspectorVisibilityState({
-                    isVisible: false,
-                    workspaceIdentity
-                  });
-                }}
-                title="Hide layers panel"
-                type="button"
-              >
-                <PanelLeftClose className="h-4 w-4" strokeWidth={1.6} />
-              </button>
-            }
-            onSelectNode={handleLayerSelection}
-            selectedNodeId={selectedNodeId}
-            selectedNodeSelectionSequence={selectedNodeSelectionSequence}
-            selectedNodeSelectionSource={selectedNodeSelectionSource}
-            workspaceIdentity={workspaceIdentity}
-          />
-        ) : (
-          <button
-            aria-label="Show layers panel"
-            className="absolute left-4 top-5 z-10 flex h-9 w-9 items-center justify-center border border-black/14 bg-white/96 text-[#111111] shadow-[0_10px_24px_rgba(0,0,0,0.08)] backdrop-blur transition hover:border-black/60"
-            data-layers-show-toggle="true"
-            onClick={() => {
-              setLayersInspectorVisibilityState({
-                isVisible: true,
-                workspaceIdentity
-              });
-            }}
-            title="Show layers panel"
-            type="button"
-          >
-            <PanelLeftOpen className="h-4 w-4" strokeWidth={1.6} />
-          </button>
-        )}
-
         <div
           className={cn(
-            "relative min-h-0 flex-1 overflow-hidden",
+            "absolute inset-0 min-h-0 overflow-hidden",
             isMutatingSelection || isGestureActive
               ? "cursor-default"
               : isDragging
@@ -538,6 +494,60 @@ export function DocumentWorkspaceScreen({
             }
             viewport={viewport}
           />
+        </div>
+
+        <div
+          className="pointer-events-none absolute inset-0 z-10"
+          data-layers-overlay="true"
+        >
+          {isLayersInspectorVisible ? (
+            <div
+              className="pointer-events-auto absolute inset-y-0 left-0 shadow-[18px_0_42px_rgba(0,0,0,0.10)]"
+              data-layers-overlay-panel="true"
+            >
+              <LayersInspector
+                document={activeProject.document}
+                headerAction={
+                  <button
+                    aria-label="Hide layers panel"
+                    className="flex h-9 w-9 items-center justify-center border border-black/14 bg-white text-[#111111] transition hover:border-black/60"
+                    data-layers-hide-toggle="true"
+                    onClick={() => {
+                      setLayersInspectorVisibilityState({
+                        isVisible: false,
+                        workspaceIdentity
+                      });
+                    }}
+                    title="Hide layers panel"
+                    type="button"
+                  >
+                    <PanelLeftClose className="h-4 w-4" strokeWidth={1.6} />
+                  </button>
+                }
+                onSelectNode={handleLayerSelection}
+                selectedNodeId={selectedNodeId}
+                selectedNodeSelectionSequence={selectedNodeSelectionSequence}
+                selectedNodeSelectionSource={selectedNodeSelectionSource}
+                workspaceIdentity={workspaceIdentity}
+              />
+            </div>
+          ) : (
+            <button
+              aria-label="Show layers panel"
+              className="pointer-events-auto absolute left-4 top-5 flex h-9 w-9 items-center justify-center border border-black/14 bg-white/96 text-[#111111] shadow-[0_10px_24px_rgba(0,0,0,0.08)] backdrop-blur transition hover:border-black/60"
+              data-layers-show-toggle="true"
+              onClick={() => {
+                setLayersInspectorVisibilityState({
+                  isVisible: true,
+                  workspaceIdentity
+                });
+              }}
+              title="Show layers panel"
+              type="button"
+            >
+              <PanelLeftOpen className="h-4 w-4" strokeWidth={1.6} />
+            </button>
+          )}
         </div>
       </section>
     </main>

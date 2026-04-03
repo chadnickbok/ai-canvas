@@ -633,6 +633,12 @@ describe("DocumentWorkspaceScreen", () => {
       const workspaceBody = harness.container.querySelector(
         '[data-workspace-body="true"]'
       ) as HTMLElement;
+      const overlay = harness.container.querySelector(
+        '[data-layers-overlay="true"]'
+      ) as HTMLElement;
+      const overlayPanel = harness.container.querySelector(
+        '[data-layers-overlay-panel="true"]'
+      ) as HTMLElement;
       const inspector = harness.container.querySelector(
         '[data-layers-inspector="true"]'
       ) as HTMLElement;
@@ -643,6 +649,10 @@ describe("DocumentWorkspaceScreen", () => {
       expect(workspaceShell.className).toContain("h-screen");
       expect(workspaceShell.className).toContain("overflow-hidden");
       expect(workspaceBody.className).toContain("overflow-hidden");
+      expect(overlay.className).toContain("absolute");
+      expect(overlay.className).toContain("inset-0");
+      expect(overlayPanel.className).toContain("absolute");
+      expect(overlayPanel.className).toContain("left-0");
       expect(inspector.className).toContain("min-h-0");
       expect(inspector.className).toContain("overflow-hidden");
       expect(inspector.className).toContain("bg-white");
@@ -658,18 +668,21 @@ describe("DocumentWorkspaceScreen", () => {
 
     try {
       const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]');
+      const overlay = harness.container.querySelector('[data-layers-overlay="true"]') as HTMLElement;
       const hideToggle = getHideLayersToggle(harness);
 
       expect(harness.container.querySelector('[data-layers-inspector="true"]')).not.toBeNull();
       expect(hideToggle?.getAttribute("aria-label")).toBe("Hide layers panel");
       expect(hideToggle?.className).not.toContain("rounded-full");
       expect(viewportFrame).not.toBeNull();
+      expect(overlay.className).toContain("absolute");
 
       act(() => {
         hideToggle?.click();
       });
 
       expect(harness.container.querySelector('[data-layers-inspector="true"]')).toBeNull();
+      expect(harness.container.querySelector('[data-layers-overlay-panel="true"]')).toBeNull();
       expect(getShowLayersToggle(harness)?.getAttribute("aria-label")).toBe("Show layers panel");
       expect(harness.container.querySelector('[data-viewport-frame="true"]')).toBe(viewportFrame);
     } finally {

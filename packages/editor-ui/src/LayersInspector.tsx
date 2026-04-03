@@ -111,7 +111,7 @@ export function LayersInspector({
 
   return (
     <aside
-      className="flex h-full min-h-0 w-[320px] shrink-0 self-stretch flex-col overflow-hidden border-r border-black/12 bg-white"
+      className="flex h-full min-h-0 w-[320px] flex-col overflow-hidden border-r border-black/12 bg-white"
       data-layers-inspector="true"
     >
       <div className="flex items-start justify-between gap-3 border-b border-black/10 px-4 py-3">
