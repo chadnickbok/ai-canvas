@@ -7,6 +7,7 @@ import type {
   McpStatus,
   RuntimeCapabilities
 } from "@ai-canvas/ipc-contract";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
 import { resolveNodeCanvasRect } from "./interaction/geometry.js";
@@ -100,17 +101,13 @@ function WorkspaceOverlay({
 }) {
   return (
     <div className="pointer-events-none flex h-full w-full flex-col justify-between p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="ui-mono border border-black/12 bg-white/84 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-black/52 shadow-[0_12px_30px_rgba(0,0,0,0.06)] backdrop-blur">
-          {sceneCount} scene{sceneCount === 1 ? "" : "s"}
-        </div>
-
-        {isBusy ? (
+      {isBusy ? (
+        <div className="flex items-start justify-end">
           <div className="ui-mono border border-black/12 bg-white/84 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-black/52 shadow-[0_12px_30px_rgba(0,0,0,0.06)] backdrop-blur">
             Syncing
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-1 items-center justify-center">
         {sceneCount === 0 ? (
@@ -165,6 +162,13 @@ export function DocumentWorkspaceScreen({
     source: null,
     workspaceIdentity
   }));
+  const [layersInspectorVisibilityState, setLayersInspectorVisibilityState] = useState<{
+    isVisible: boolean;
+    workspaceIdentity: string;
+  }>(() => ({
+    isVisible: true,
+    workspaceIdentity
+  }));
   const {
     fitToContent,
     hasInteractedWithCanvas,
@@ -199,6 +203,10 @@ export function DocumentWorkspaceScreen({
     selectionState.workspaceIdentity === workspaceIdentity && selectedNodeId !== null
       ? selectionState.sequence
       : 0;
+  const isLayersInspectorVisible =
+    layersInspectorVisibilityState.workspaceIdentity === workspaceIdentity
+      ? layersInspectorVisibilityState.isVisible
+      : true;
   const {
     commandError,
     handleClick: handleInteractionClick,
@@ -401,14 +409,49 @@ export function DocumentWorkspaceScreen({
         className="relative flex min-h-0 flex-1 overflow-hidden"
         data-workspace-body="true"
       >
-        <LayersInspector
-          document={activeProject.document}
-          onSelectNode={handleLayerSelection}
-          selectedNodeId={selectedNodeId}
-          selectedNodeSelectionSequence={selectedNodeSelectionSequence}
-          selectedNodeSelectionSource={selectedNodeSelectionSource}
-          workspaceIdentity={workspaceIdentity}
-        />
+        {isLayersInspectorVisible ? (
+          <LayersInspector
+            document={activeProject.document}
+            headerAction={
+              <button
+                aria-label="Hide layers panel"
+                className="flex h-9 w-9 items-center justify-center border border-black/14 bg-white text-[#111111] transition hover:border-black/60"
+                data-layers-hide-toggle="true"
+                onClick={() => {
+                  setLayersInspectorVisibilityState({
+                    isVisible: false,
+                    workspaceIdentity
+                  });
+                }}
+                title="Hide layers panel"
+                type="button"
+              >
+                <PanelLeftClose className="h-4 w-4" strokeWidth={1.6} />
+              </button>
+            }
+            onSelectNode={handleLayerSelection}
+            selectedNodeId={selectedNodeId}
+            selectedNodeSelectionSequence={selectedNodeSelectionSequence}
+            selectedNodeSelectionSource={selectedNodeSelectionSource}
+            workspaceIdentity={workspaceIdentity}
+          />
+        ) : (
+          <button
+            aria-label="Show layers panel"
+            className="absolute left-4 top-5 z-10 flex h-9 w-9 items-center justify-center border border-black/14 bg-white/96 text-[#111111] shadow-[0_10px_24px_rgba(0,0,0,0.08)] backdrop-blur transition hover:border-black/60"
+            data-layers-show-toggle="true"
+            onClick={() => {
+              setLayersInspectorVisibilityState({
+                isVisible: true,
+                workspaceIdentity
+              });
+            }}
+            title="Show layers panel"
+            type="button"
+          >
+            <PanelLeftOpen className="h-4 w-4" strokeWidth={1.6} />
+          </button>
+        )}
 
         <div
           className={cn(

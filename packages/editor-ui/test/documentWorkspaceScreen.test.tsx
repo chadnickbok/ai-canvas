@@ -96,6 +96,10 @@ function parseTransform(transform: string): { panX: number; panY: number; zoom: 
   };
 }
 
+function countMatches(value: string, pattern: RegExp): number {
+  return value.match(pattern)?.length ?? 0;
+}
+
 const runtimeCapabilities: RuntimeCapabilities = {
   measurementSurfaceAvailable: true,
   mode: "read_write",
@@ -460,6 +464,18 @@ function getLayerDisclosure(harness: RenderHarness, nodeId: string): HTMLButtonE
   ) as HTMLButtonElement | null;
 }
 
+function getHideLayersToggle(harness: RenderHarness): HTMLButtonElement | null {
+  return harness.container.querySelector(
+    '[data-layers-hide-toggle="true"]'
+  ) as HTMLButtonElement | null;
+}
+
+function getShowLayersToggle(harness: RenderHarness): HTMLButtonElement | null {
+  return harness.container.querySelector(
+    '[data-layers-show-toggle="true"]'
+  ) as HTMLButtonElement | null;
+}
+
 beforeEach(() => {
   scrollIntoViewMock = vi.fn();
 
@@ -565,6 +581,7 @@ describe("DocumentWorkspaceScreen", () => {
 
       expect(harness.container.textContent).toContain("Hello from MCP");
       expect(harness.container.textContent).toContain("1 scene");
+      expect(countMatches(harness.container.textContent ?? "", /1 scene/g)).toBe(1);
       expect(workspaceSurface).not.toBeNull();
       expect(viewportFrame).not.toBeNull();
       expect(sceneFrame.style.left).toBe("80px");
@@ -628,9 +645,94 @@ describe("DocumentWorkspaceScreen", () => {
       expect(workspaceBody.className).toContain("overflow-hidden");
       expect(inspector.className).toContain("min-h-0");
       expect(inspector.className).toContain("overflow-hidden");
-      expect(inspector.className).toContain("bg-[#fcfbf8]");
+      expect(inspector.className).toContain("bg-white");
       expect(scrollRegion.className).toContain("overflow-auto");
-      expect(scrollRegion.className).toContain("bg-[#fcfbf8]");
+      expect(scrollRegion.className).toContain("bg-white");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("hides the layers pane and shows a floating reveal control", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]');
+      const hideToggle = getHideLayersToggle(harness);
+
+      expect(harness.container.querySelector('[data-layers-inspector="true"]')).not.toBeNull();
+      expect(hideToggle?.getAttribute("aria-label")).toBe("Hide layers panel");
+      expect(hideToggle?.className).not.toContain("rounded-full");
+      expect(viewportFrame).not.toBeNull();
+
+      act(() => {
+        hideToggle?.click();
+      });
+
+      expect(harness.container.querySelector('[data-layers-inspector="true"]')).toBeNull();
+      expect(getShowLayersToggle(harness)?.getAttribute("aria-label")).toBe("Show layers panel");
+      expect(harness.container.querySelector('[data-viewport-frame="true"]')).toBe(viewportFrame);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("restores the layers pane from the floating reveal control", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      act(() => {
+        getHideLayersToggle(harness)?.click();
+      });
+
+      expect(harness.container.querySelector('[data-layers-inspector="true"]')).toBeNull();
+
+      const showToggle = getShowLayersToggle(harness);
+
+      expect(showToggle?.className).not.toContain("rounded-full");
+
+      act(() => {
+        showToggle?.click();
+      });
+
+      expect(harness.container.querySelector('[data-layers-inspector="true"]')).not.toBeNull();
+      expect(getHideLayersToggle(harness)).not.toBeNull();
+      expect(getShowLayersToggle(harness)).toBeNull();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("reopens the layers pane when the workspace identity changes", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      act(() => {
+        getHideLayersToggle(harness)?.click();
+      });
+
+      expect(harness.container.querySelector('[data-layers-inspector="true"]')).toBeNull();
+
+      act(() => {
+        harness.root.render(
+          <DocumentWorkspaceScreen
+            activeProject={createActiveProject(
+              createDocumentWithScene({
+                documentId: "doc_workspace_scene_reopened",
+                name: "Workspace Fixture Reopened"
+              })
+            )}
+            mcpStatus={mcpStatus}
+            onBackToLibrary={() => {}}
+            runtimeCapabilities={runtimeCapabilities}
+          />
+        );
+      });
+
+      expect(harness.container.textContent).toContain("Workspace Fixture Reopened");
+      expect(harness.container.querySelector('[data-layers-inspector="true"]')).not.toBeNull();
+      expect(getHideLayersToggle(harness)).not.toBeNull();
+      expect(getShowLayersToggle(harness)).toBeNull();
     } finally {
       harness.cleanup();
     }
