@@ -14,6 +14,7 @@ import { resolveNodeCanvasRect } from "./interaction/geometry.js";
 import { InteractionOverlay } from "./interaction/InteractionOverlay.js";
 import { useInteractionController } from "./interaction/useInteractionController.js";
 import { LayersInspector } from "./LayersInspector.js";
+import { SelectionInspector } from "./SelectionInspector.js";
 import { EditorWorkspaceSurface } from "./rendering/EditorWorkspaceSurface.js";
 import type { RendererMeasurementHandle, ResolvedAssetsById } from "./rendering/types.js";
 import { useViewportController } from "./rendering/useViewportController.js";
@@ -125,7 +126,7 @@ function WorkspaceOverlay({
         <div
           aria-hidden={hasInteractedWithCanvas}
           className={cn(
-            "ui-mono bg-[#1d1a14]/78 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#f6f1e3] shadow-[0_14px_40px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-200 ease-out",
+            "ui-mono bg-[var(--chrome-surface-strong)]/78 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[var(--chrome-ink-inverse)] shadow-[0_14px_40px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-200 ease-out",
             hasInteractedWithCanvas ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
           )}
           data-viewport-hint="true"
@@ -406,149 +407,165 @@ export function DocumentWorkspaceScreen({
       ) : null}
 
       <section
-        className="relative min-h-0 flex-1 overflow-hidden"
+        className="flex min-h-0 flex-1 overflow-hidden"
         data-workspace-body="true"
       >
         <div
-          className={cn(
-            "absolute inset-0 min-h-0 overflow-hidden",
-            isMutatingSelection || isGestureActive
-              ? "cursor-default"
-              : isDragging
-                ? "cursor-grabbing"
-                : isSpacePressed
-                  ? "cursor-grab"
-                  : "cursor-default"
-          )}
-          data-viewport-frame="true"
-          onAuxClick={handleAuxClick}
-          onClick={(event) => {
-            if (!isDragging && !isSpacePressed && !isMutatingSelection) {
-              handleInteractionClick(event);
-            }
-          }}
-          onLostPointerCapture={(event) => {
-            if (!handleInteractionPointerCancel(event)) {
-              handlePointerCancel(event);
-            }
-          }}
-          onPointerCancel={(event) => {
-            if (!handleInteractionPointerCancel(event)) {
-              handlePointerCancel(event);
-            }
-          }}
-          onPointerDown={(event) => {
-            if (!handleInteractionPointerDown(event)) {
-              handlePointerDown(event);
-            }
-          }}
-          onPointerLeave={handleInteractionPointerLeave}
-          onPointerMove={(event) => {
-            if (isDragging && !isGestureActive) {
-              handlePointerMove(event);
-              return;
-            }
-
-            if (!handleInteractionPointerMove(event)) {
-              handlePointerMove(event);
-            }
-          }}
-          onPointerUp={(event) => {
-            if (!handleInteractionPointerUp(event)) {
-              handlePointerUp(event);
-            }
-          }}
-          ref={viewportRef}
-          style={{
-            touchAction: "none",
-            userSelect: isDragging ? "none" : undefined
-          }}
+          className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+          data-workspace-canvas-region="true"
         >
-          <EditorWorkspaceSurface
-            backdropLayer={<WorkspaceGridBackdrop viewport={viewport} viewportSize={viewportSize} />}
-            className="h-full w-full"
-            document={activeProject.document}
-            interactionLayer={
-              <InteractionOverlay
-                allowMutation={
-                  runtimeCapabilities?.mode === "read_write" &&
-                  runtimeCapabilities.measurementSurfaceAvailable === true
-                }
-                document={activeProject.document}
-                hoveredNodeId={hoveredNodeId}
-                preview={preview}
-                rendererRef={rendererRef}
-                selectionRectOverride={selectionRectOverride}
-                selectedNodeId={selectedNodeId}
-                viewport={viewport}
-              />
-            }
-            ref={rendererRef}
-            resolvedAssetsById={resolvedAssetsById}
-            uiLayer={
-              <WorkspaceOverlay
-                hasInteractedWithCanvas={hasInteractedWithCanvas}
-                isBusy={isBusy}
-                sceneCount={sceneCount}
-              />
-            }
-            viewport={viewport}
-          />
+          <div
+            className={cn(
+              "absolute inset-0 min-h-0 overflow-hidden",
+              isMutatingSelection || isGestureActive
+                ? "cursor-default"
+                : isDragging
+                  ? "cursor-grabbing"
+                  : isSpacePressed
+                    ? "cursor-grab"
+                    : "cursor-default"
+            )}
+            data-viewport-frame="true"
+            onAuxClick={handleAuxClick}
+            onClick={(event) => {
+              if (!isDragging && !isSpacePressed && !isMutatingSelection) {
+                handleInteractionClick(event);
+              }
+            }}
+            onLostPointerCapture={(event) => {
+              if (!handleInteractionPointerCancel(event)) {
+                handlePointerCancel(event);
+              }
+            }}
+            onPointerCancel={(event) => {
+              if (!handleInteractionPointerCancel(event)) {
+                handlePointerCancel(event);
+              }
+            }}
+            onPointerDown={(event) => {
+              if (!handleInteractionPointerDown(event)) {
+                handlePointerDown(event);
+              }
+            }}
+            onPointerLeave={handleInteractionPointerLeave}
+            onPointerMove={(event) => {
+              if (isDragging && !isGestureActive) {
+                handlePointerMove(event);
+                return;
+              }
+
+              if (!handleInteractionPointerMove(event)) {
+                handlePointerMove(event);
+              }
+            }}
+            onPointerUp={(event) => {
+              if (!handleInteractionPointerUp(event)) {
+                handlePointerUp(event);
+              }
+            }}
+            ref={viewportRef}
+            style={{
+              touchAction: "none",
+              userSelect: isDragging ? "none" : undefined
+            }}
+          >
+            <EditorWorkspaceSurface
+              backdropLayer={<WorkspaceGridBackdrop viewport={viewport} viewportSize={viewportSize} />}
+              className="h-full w-full"
+              document={activeProject.document}
+              interactionLayer={
+                <InteractionOverlay
+                  allowMutation={
+                    runtimeCapabilities?.mode === "read_write" &&
+                    runtimeCapabilities.measurementSurfaceAvailable === true
+                  }
+                  document={activeProject.document}
+                  hoveredNodeId={hoveredNodeId}
+                  preview={preview}
+                  rendererRef={rendererRef}
+                  selectionRectOverride={selectionRectOverride}
+                  selectedNodeId={selectedNodeId}
+                  viewport={viewport}
+                />
+              }
+              ref={rendererRef}
+              resolvedAssetsById={resolvedAssetsById}
+              uiLayer={
+                <WorkspaceOverlay
+                  hasInteractedWithCanvas={hasInteractedWithCanvas}
+                  isBusy={isBusy}
+                  sceneCount={sceneCount}
+                />
+              }
+              viewport={viewport}
+            />
+          </div>
+
+          <div
+            className="pointer-events-none absolute inset-0 z-10"
+            data-layers-overlay="true"
+          >
+            {isLayersInspectorVisible ? (
+              <div
+                className="pointer-events-auto absolute inset-y-0 left-0 shadow-[18px_0_42px_rgba(0,0,0,0.10)]"
+                data-layers-overlay-panel="true"
+              >
+                <LayersInspector
+                  document={activeProject.document}
+                  headerAction={
+                    <button
+                      aria-label="Hide layers panel"
+                      className="flex h-9 w-9 items-center justify-center border border-black/14 bg-white text-[#111111] transition hover:border-black/60"
+                      data-layers-hide-toggle="true"
+                      onClick={() => {
+                        setLayersInspectorVisibilityState({
+                          isVisible: false,
+                          workspaceIdentity
+                        });
+                      }}
+                      title="Hide layers panel"
+                      type="button"
+                    >
+                      <PanelLeftClose className="h-4 w-4" strokeWidth={1.6} />
+                    </button>
+                  }
+                  onSelectNode={handleLayerSelection}
+                  selectedNodeId={selectedNodeId}
+                  selectedNodeSelectionSequence={selectedNodeSelectionSequence}
+                  selectedNodeSelectionSource={selectedNodeSelectionSource}
+                  workspaceIdentity={workspaceIdentity}
+                />
+              </div>
+            ) : (
+              <button
+                aria-label="Show layers panel"
+                className="pointer-events-auto absolute left-4 top-5 flex h-9 w-9 items-center justify-center border border-black/14 bg-white/96 text-[#111111] shadow-[0_10px_24px_rgba(0,0,0,0.08)] backdrop-blur transition hover:border-black/60"
+                data-layers-show-toggle="true"
+                onClick={() => {
+                  setLayersInspectorVisibilityState({
+                    isVisible: true,
+                    workspaceIdentity
+                  });
+                }}
+                title="Show layers panel"
+                type="button"
+              >
+                <PanelLeftOpen className="h-4 w-4" strokeWidth={1.6} />
+              </button>
+            )}
+          </div>
         </div>
 
-        <div
-          className="pointer-events-none absolute inset-0 z-10"
-          data-layers-overlay="true"
-        >
-          {isLayersInspectorVisible ? (
-            <div
-              className="pointer-events-auto absolute inset-y-0 left-0 shadow-[18px_0_42px_rgba(0,0,0,0.10)]"
-              data-layers-overlay-panel="true"
-            >
-              <LayersInspector
-                document={activeProject.document}
-                headerAction={
-                  <button
-                    aria-label="Hide layers panel"
-                    className="flex h-9 w-9 items-center justify-center border border-black/14 bg-white text-[#111111] transition hover:border-black/60"
-                    data-layers-hide-toggle="true"
-                    onClick={() => {
-                      setLayersInspectorVisibilityState({
-                        isVisible: false,
-                        workspaceIdentity
-                      });
-                    }}
-                    title="Hide layers panel"
-                    type="button"
-                  >
-                    <PanelLeftClose className="h-4 w-4" strokeWidth={1.6} />
-                  </button>
-                }
-                onSelectNode={handleLayerSelection}
-                selectedNodeId={selectedNodeId}
-                selectedNodeSelectionSequence={selectedNodeSelectionSequence}
-                selectedNodeSelectionSource={selectedNodeSelectionSource}
-                workspaceIdentity={workspaceIdentity}
-              />
-            </div>
-          ) : (
-            <button
-              aria-label="Show layers panel"
-              className="pointer-events-auto absolute left-4 top-5 flex h-9 w-9 items-center justify-center border border-black/14 bg-white/96 text-[#111111] shadow-[0_10px_24px_rgba(0,0,0,0.08)] backdrop-blur transition hover:border-black/60"
-              data-layers-show-toggle="true"
-              onClick={() => {
-                setLayersInspectorVisibilityState({
-                  isVisible: true,
-                  workspaceIdentity
-                });
-              }}
-              title="Show layers panel"
-              type="button"
-            >
-              <PanelLeftOpen className="h-4 w-4" strokeWidth={1.6} />
-            </button>
-          )}
-        </div>
+        <SelectionInspector
+          document={activeProject.document}
+          projectId={activeProject.project.id}
+          projectName={activeProject.project.name}
+          rendererRef={rendererRef}
+          revision={activeProject.revision}
+          runtimeCapabilities={runtimeCapabilities}
+          selectedNodeId={selectedNodeId}
+          viewport={viewport}
+        />
       </section>
     </main>
   );

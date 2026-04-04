@@ -1,5 +1,6 @@
 import {
   applyCommands as applyDocumentCommands,
+  type RefreshComputedLayoutInput,
   inspectDesignSystem as inspectDocumentDesignSystem,
   inspectDocument,
   inspectNode as inspectDocumentNode,
@@ -14,6 +15,7 @@ import {
 import type {
   ActiveProject,
   ApplyCommandsInput,
+  AppErrorCode,
   AppResult,
   CommandResult,
   McpStatus,
@@ -85,14 +87,19 @@ export type ApplyProjectCommandsInput = {
   projectId?: string;
 };
 
-const SKIPPED_LAYOUT_REFRESH = {
-  reason: "computed_layout_refresh_not_implemented" as const,
-  status: "skipped" as const
+type ComputedLayoutRefreshResult = {
+  document: ActiveProject["document"];
+  layoutRefresh: CommandResult["layout_refresh"];
 };
+
+type ComputedLayoutRefresher = (
+  input: RefreshComputedLayoutInput
+) => Promise<ComputedLayoutRefreshResult>;
 
 export class ProjectRuntime {
   private activeSession: ActiveProject | null = null;
   private commandQueue: Promise<void> = Promise.resolve();
+  private computedLayoutRefresher: ComputedLayoutRefresher | null = null;
   private readonly listeners = new Set<(event: RuntimeEvent) => void>();
   private measurementSurfaceAvailable = false;
   private mcpStatusProvider: McpStatusProvider | null = null;
@@ -309,6 +316,15 @@ export class ProjectRuntime {
     this.emitRuntimeCapabilitiesChanged();
   }
 
+  setComputedLayoutRefresher(refresher: ComputedLayoutRefresher | null): void {
+    if (this.computedLayoutRefresher === refresher) {
+      return;
+    }
+
+    this.computedLayoutRefresher = refresher;
+    this.emitRuntimeCapabilitiesChanged();
+  }
+
   publishMcpStatus(status: McpStatus): void {
     this.emitRuntimeEvent({
       type: "mcp_status_changed",
@@ -329,17 +345,34 @@ export class ProjectRuntime {
       return err("target_not_found", `Document ${input.document_id} is not the active document`);
     }
 
-    if (!this.measurementSurfaceAvailable) {
+    if (!this.hasMeasurementSurface()) {
       return err(
         "measurement_surface_unavailable",
         "Write-capable command execution requires an available renderer measurement surface"
       );
     }
 
-    const commandResult = await applyDocumentCommands(this.activeSession.document, input, {
-      currentRevision: this.activeSession.revision,
-      measurementSurfaceAvailable: true
-    });
+    let layoutRefresh: CommandResult["layout_refresh"] = {
+      status: "not_required"
+    };
+    let commandResult: Awaited<ReturnType<typeof applyDocumentCommands>>;
+    const computedLayoutRefresher = this.computedLayoutRefresher;
+
+    try {
+      commandResult = await applyDocumentCommands(this.activeSession.document, input, {
+        currentRevision: this.activeSession.revision,
+        measurementSurfaceAvailable: true,
+        refreshComputedLayout: computedLayoutRefresher
+          ? async (refreshInput) => {
+              const refreshedDocument = await computedLayoutRefresher(refreshInput);
+              layoutRefresh = refreshedDocument.layoutRefresh;
+              return refreshedDocument.document;
+            }
+          : undefined
+      });
+    } catch (error) {
+      return err(resolveRuntimeErrorCode(error), resolveRuntimeErrorMessage(error));
+    }
 
     if (!commandResult.ok) {
       return err(commandResult.error.code, commandResult.error.message);
@@ -375,20 +408,24 @@ export class ProjectRuntime {
     return ok({
       document_id: commandResult.document_id,
       ...(commandResult.effects === undefined ? {} : { effects: commandResult.effects }),
-      layout_refresh: SKIPPED_LAYOUT_REFRESH,
+      layout_refresh: layoutRefresh,
       revision: persistedProject.revision
     });
   }
 
   private buildRuntimeCapabilities(): RuntimeCapabilities {
     const runtimeState = this.activeSession ? "editor_open_clean" : "no_project_open";
-    const mode = this.activeSession && this.measurementSurfaceAvailable ? "read_write" : "read_only";
+    const mode = this.activeSession && this.hasMeasurementSurface() ? "read_write" : "read_only";
 
     return {
-      measurementSurfaceAvailable: this.measurementSurfaceAvailable,
+      measurementSurfaceAvailable: this.hasMeasurementSurface(),
       mode,
       runtimeState
     };
+  }
+
+  private hasMeasurementSurface(): boolean {
+    return this.measurementSurfaceAvailable && this.computedLayoutRefresher !== null;
   }
 
   private emitProjectsChanged(): void {
@@ -492,4 +529,32 @@ export class ProjectRuntime {
 
 export function createProjectRuntime(store: ProjectStore): ProjectRuntime {
   return new ProjectRuntime(store);
+}
+
+function resolveRuntimeErrorCode(error: unknown): AppErrorCode {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof (error as { code: unknown }).code === "string"
+  ) {
+    switch ((error as { code: string }).code) {
+      case "internal_error":
+      case "measurement_surface_unavailable":
+      case "not_found":
+      case "not_implemented":
+      case "revision_conflict":
+      case "target_not_found":
+      case "unknown_command":
+      case "unrecoverable_command":
+      case "validation_failed":
+        return (error as { code: AppErrorCode }).code;
+    }
+  }
+
+  return "internal_error";
+}
+
+function resolveRuntimeErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Failed to refresh computed layout";
 }

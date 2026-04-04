@@ -115,7 +115,8 @@ export function InteractionOverlay({
             data-node-id={hoveredNode?.id}
             fill="none"
             height={hoveredRect.height}
-            stroke="rgba(37, 99, 235, 0.62)"
+            stroke="rgba(17, 17, 17, 0.52)"
+            strokeDasharray={`${5 * labelScale} ${4 * labelScale}`}
             strokeWidth={outlineThickness}
             width={hoveredRect.width}
             x={hoveredRect.x}
@@ -127,9 +128,9 @@ export function InteractionOverlay({
           <rect
             data-interaction-padding-box="true"
             data-node-id={parentNode?.id}
-            fill="rgba(245, 158, 11, 0.03)"
+            fill="rgba(17, 17, 17, 0.03)"
             height={parentPaddingRect.height}
-            stroke="rgba(245, 158, 11, 0.58)"
+            stroke="rgba(17, 17, 17, 0.42)"
             strokeDasharray={`${6 * labelScale} ${4 * labelScale}`}
             strokeWidth={outlineThickness}
             width={parentPaddingRect.width}
@@ -143,7 +144,9 @@ export function InteractionOverlay({
             <line
               data-interaction-measure={measure.tone}
               data-measure-id={measure.id}
-              stroke={measure.tone === "padding" ? "rgba(245, 158, 11, 0.72)" : "rgba(16, 185, 129, 0.72)"}
+              stroke={
+                measure.tone === "padding" ? "rgba(17, 17, 17, 0.72)" : "rgba(17, 17, 17, 0.54)"
+              }
               strokeDasharray={measure.tone === "padding" ? `${4 * labelScale} ${3 * labelScale}` : undefined}
               strokeWidth={outlineThickness}
               x1={measure.x1}
@@ -160,7 +163,7 @@ export function InteractionOverlay({
             data-node-id={selectedNode?.id}
             fill="none"
             height={selectedRect.height}
-            stroke="rgba(15, 23, 42, 0.92)"
+            stroke="rgba(17, 17, 17, 0.92)"
             strokeWidth={outlineThickness}
             width={selectedRect.width}
             x={selectedRect.x}
@@ -200,9 +203,9 @@ export function InteractionOverlay({
           data-interaction-preview="true"
           data-node-id={preview.nodeId}
           style={{
-            backgroundColor: "rgba(37, 99, 235, 0.08)",
-            border: `${outlineThickness}px dashed rgba(37, 99, 235, 0.88)`,
-            boxShadow: `0 ${8 * labelScale}px ${24 * labelScale}px rgba(15, 23, 42, 0.16)`,
+            backgroundColor: "rgba(17, 17, 17, 0.06)",
+            border: `${outlineThickness}px dashed rgba(17, 17, 17, 0.72)`,
+            boxShadow: `0 ${8 * labelScale}px ${24 * labelScale}px rgba(0, 0, 0, 0.16)`,
             height: `${preview.previewRect.height}px`,
             left: `${preview.previewRect.x}px`,
             pointerEvents: "none",
@@ -218,7 +221,7 @@ export function InteractionOverlay({
           data-interaction-original="true"
           data-node-id={preview.nodeId}
           style={{
-            border: `${outlineThickness}px solid rgba(15, 23, 42, 0.28)`,
+            border: `${outlineThickness}px solid rgba(17, 17, 17, 0.28)`,
             height: `${originalSelectedRect.height}px`,
             left: `${originalSelectedRect.x}px`,
             pointerEvents: "none",
@@ -241,7 +244,7 @@ export function InteractionOverlay({
                 key={handle}
                 style={{
                   backgroundColor: "#ffffff",
-                  border: `${outlineThickness}px solid rgba(15, 23, 42, 0.92)`,
+                  border: `${outlineThickness}px solid rgba(17, 17, 17, 0.92)`,
                   borderRadius: 999,
                   cursor: resolveHandleCursor(handle),
                   height: `${handleSize}px`,
@@ -400,9 +403,9 @@ function buildSpacingMeasures(
 function createLabelStyle(x: number, y: number, scale: number) {
   return {
     backgroundColor: "rgba(255, 255, 255, 0.95)",
-    border: `${1 * scale}px solid rgba(15, 23, 42, 0.18)`,
+    border: `${1 * scale}px solid rgba(17, 17, 17, 0.18)`,
     borderRadius: `${999 * scale}px`,
-    color: "#0f172a",
+    color: "#111111",
     fontFamily: "IBM Plex Mono, monospace",
     fontSize: `${11 * scale}px`,
     left: `${x}px`,

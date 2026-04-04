@@ -7,11 +7,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
+import {
+  collectSubtreeIds,
+  resolveComputedLayoutRootIds,
+  type RendererDocument
+} from "@ai-canvas/document-core";
 import type { RuntimeEvent } from "@ai-canvas/ipc-contract";
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
 import { createProjectService } from "../createProjectService.js";
-import { createProjectRuntime } from "./projectRuntime";
+import { createProjectRuntime, type ProjectRuntime } from "./projectRuntime";
 import { ProjectStore } from "./projectStore";
 
 const cleanupPaths: string[] = [];
@@ -46,6 +51,78 @@ async function getAvailablePort(): Promise<number> {
       });
     });
   });
+}
+
+function attachTestComputedLayoutRefresher(runtime: ProjectRuntime) {
+  runtime.setComputedLayoutRefresher(async ({ changed_node_ids, document }) => {
+    const refreshedDocument = structuredClone(document);
+    const rootIds = resolveComputedLayoutRootIds(document, changed_node_ids);
+    let measuredNodeCount = 0;
+
+    for (const rootId of rootIds) {
+      for (const nodeId of collectSubtreeIds(document, rootId)) {
+        const node = refreshedDocument.nodes[nodeId];
+
+        if (!node) {
+          continue;
+        }
+
+        const x = resolveFiniteCanvasNumber(node.render_style.left);
+        const y = resolveFiniteCanvasNumber(node.render_style.top);
+        const width = resolveFiniteCanvasNumber(node.render_style.width);
+        const height = resolveFiniteCanvasNumber(node.render_style.height);
+
+        if (x === null || y === null || width === null || height === null) {
+          delete node.computed_layout;
+          continue;
+        }
+
+        node.computed_layout = {
+          height,
+          width,
+          x,
+          y
+        };
+        measuredNodeCount += 1;
+      }
+    }
+
+    return {
+      document: refreshedDocument,
+      layoutRefresh: rootIds.length
+        ? {
+            measured_node_count: measuredNodeCount,
+            measured_root_ids: rootIds,
+            status: "refreshed" as const
+          }
+        : {
+            status: "not_required" as const
+          }
+    };
+  });
+}
+
+function resolveFiniteCanvasNumber(value: RendererDocument["nodes"][string]["render_style"][string]) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^-?\d+(\.\d+)?px$/i.test(trimmed) || /^-?\d+(\.\d+)?$/.test(trimmed)) {
+    const parsed = Number.parseFloat(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 describe("ProjectRuntime", () => {
@@ -205,6 +282,7 @@ describe("ProjectRuntime", () => {
       throw new Error(created.error.message);
     }
 
+    attachTestComputedLayoutRefresher(runtime);
     runtime.setMeasurementSurfaceAvailable(true);
     events.length = 0;
 
@@ -238,8 +316,9 @@ describe("ProjectRuntime", () => {
         changed_scene_ids: ["scene_home"]
       },
       layout_refresh: {
-        reason: "computed_layout_refresh_not_implemented",
-        status: "skipped"
+        measured_node_count: 1,
+        measured_root_ids: ["scene_home"],
+        status: "refreshed"
       },
       revision: 2
     });
@@ -264,6 +343,12 @@ describe("ProjectRuntime", () => {
     expect(persistedProject?.document.scenes.scene_home).toMatchObject({
       id: "scene_home",
       name: "Home"
+    });
+    expect(persistedProject?.document.nodes.scene_home.computed_layout).toEqual({
+      height: 844,
+      width: 390,
+      x: 40,
+      y: 60
     });
 
     expect(events.map((event) => event.type)).toEqual([
@@ -350,6 +435,7 @@ describe("ProjectRuntime", () => {
         revision: number;
       };
 
+      attachTestComputedLayoutRefresher(runtime);
       runtime.setMeasurementSurfaceAvailable(true);
 
       const applyCommandsResult = await client.callTool({
@@ -464,6 +550,7 @@ describe("ProjectRuntime", () => {
       events.push(event);
     });
 
+    attachTestComputedLayoutRefresher(runtime);
     runtime.setMeasurementSurfaceAvailable(true);
     runtime.publishMcpStatus({
       connectedSessions: 1,
@@ -477,6 +564,14 @@ describe("ProjectRuntime", () => {
     });
 
     expect(events).toEqual([
+      {
+        type: "runtime_capabilities_changed",
+        runtimeCapabilities: {
+          measurementSurfaceAvailable: false,
+          mode: "read_only",
+          runtimeState: "no_project_open"
+        }
+      },
       {
         type: "runtime_capabilities_changed",
         runtimeCapabilities: {

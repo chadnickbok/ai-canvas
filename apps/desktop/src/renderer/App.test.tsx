@@ -118,7 +118,7 @@ function createDocumentWithScene(documentId: string, name: string): RendererDocu
     name: "Hero",
     parent_id: "scene_home",
     render_style: {
-      backgroundColor: "#f5c04a",
+      backgroundColor: "#d4d4d4",
       borderRadius: 24,
       height: 180,
       width: 320
@@ -187,6 +187,13 @@ function createDesktopApiMock(overrides: Partial<DesktopApi> = {}) {
           })
         )
       ),
+    submitLayoutMeasurementResult:
+      overrides.submitLayoutMeasurementResult ?? vi.fn(async () => ok({})),
+    subscribeToLayoutMeasurementRequests:
+      overrides.subscribeToLayoutMeasurementRequests ??
+      vi.fn(() => {
+        return () => undefined;
+      }),
     subscribeToRuntimeEvents:
       overrides.subscribeToRuntimeEvents ??
       vi.fn((listener) => {

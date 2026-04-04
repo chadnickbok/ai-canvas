@@ -16,6 +16,8 @@ import {
   type RuntimeEvent
 } from "@ai-canvas/ipc-contract";
 
+import { CommitLayoutMeasurementHost } from "./CommitLayoutMeasurementHost.js";
+
 type BootState = "booting" | "ready" | "boot_error";
 type Screen = "library" | "workspace";
 
@@ -103,6 +105,7 @@ function applyRuntimeEvent(state: ScreenState, event: RuntimeEvent): ScreenState
 
 export function App() {
   const [state, setState] = useState<ScreenState>(initialState);
+  const api = getDesktopApi();
 
   const loadInitialState = async (api: DesktopApi) => {
     try {
@@ -127,9 +130,9 @@ export function App() {
   };
 
   useEffect(() => {
-    const api = getDesktopApi();
+    const effectApi = getDesktopApi();
 
-    if (!api) {
+    if (!effectApi) {
       setState({
         ...initialState,
         bootState: "boot_error",
@@ -140,7 +143,7 @@ export function App() {
       return;
     }
 
-    const unsubscribe = api.subscribeToRuntimeEvents((runtimeEvent) => {
+    const unsubscribe = effectApi.subscribeToRuntimeEvents((runtimeEvent) => {
       const parsed = runtimeEventSchema.safeParse(runtimeEvent);
 
       if (!parsed.success) {
@@ -156,7 +159,7 @@ export function App() {
       });
     });
 
-    void loadInitialState(api);
+    void loadInitialState(effectApi);
 
     return () => {
       unsubscribe();
@@ -334,39 +337,47 @@ export function App() {
     }
   };
 
+  const measurementHost = api ? <CommitLayoutMeasurementHost api={api} /> : null;
+
   if (state.bootState === "ready" && state.screen === "workspace" && state.activeProject) {
     return (
-      <DocumentWorkspaceScreen
-        activeProject={state.activeProject}
-        errorMessage={state.errorMessage}
-        isBusy={state.isBusy}
-        mcpStatus={state.mcpStatus}
-        onApplyCommands={handleApplyCommands}
-        onBackToLibrary={() => {
-          setState((current) => ({
-            ...current,
-            screen: "library"
-          }));
-        }}
-        runtimeCapabilities={state.runtimeCapabilities}
-      />
+      <>
+        <DocumentWorkspaceScreen
+          activeProject={state.activeProject}
+          errorMessage={state.errorMessage}
+          isBusy={state.isBusy}
+          mcpStatus={state.mcpStatus}
+          onApplyCommands={handleApplyCommands}
+          onBackToLibrary={() => {
+            setState((current) => ({
+              ...current,
+              screen: "library"
+            }));
+          }}
+          runtimeCapabilities={state.runtimeCapabilities}
+        />
+        {measurementHost}
+      </>
     );
   }
 
   return (
-    <ProjectLibraryScreen
-      activeProjectId={state.activeProject?.project.id ?? null}
-      bootState={state.bootState}
-      errorMessage={state.errorMessage}
-      isBusy={state.isBusy}
-      mcpStatus={state.mcpStatus}
-      onCreateProject={handleCreateProject}
-      onOpenProject={handleOpenProject}
-      onOpenExternalUrl={(url) => {
-        void handleOpenExternalUrl(url);
-      }}
-      projects={state.projects}
-      runtimeCapabilities={state.runtimeCapabilities}
-    />
+    <>
+      <ProjectLibraryScreen
+        activeProjectId={state.activeProject?.project.id ?? null}
+        bootState={state.bootState}
+        errorMessage={state.errorMessage}
+        isBusy={state.isBusy}
+        mcpStatus={state.mcpStatus}
+        onCreateProject={handleCreateProject}
+        onOpenProject={handleOpenProject}
+        onOpenExternalUrl={(url) => {
+          void handleOpenExternalUrl(url);
+        }}
+        projects={state.projects}
+        runtimeCapabilities={state.runtimeCapabilities}
+      />
+      {measurementHost}
+    </>
   );
 }

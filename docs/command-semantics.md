@@ -249,6 +249,7 @@ Let the browser-backed renderer resolve layout for affected nodes, then refresh 
 * `node.computed_layout`
 
 This step requires the same live measurement surface verified earlier in the lifecycle.
+The live measurement surface itself is transient runtime state; the persisted output of this step is the refreshed `computed_layout` snapshot.
 
 ### 5.6 Validate
 

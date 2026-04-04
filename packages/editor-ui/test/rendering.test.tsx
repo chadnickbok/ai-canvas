@@ -42,7 +42,7 @@ function createFixtureDocument(): RendererDocument {
     name: "Renderer Fixture"
   });
 
-  document.canvas.background_color = "#faf7f0";
+  document.canvas.background_color = "#f5f5f5";
   document.root.child_ids = ["scene_home", "rect_loose", "primitive_loose"];
   document.assets.asset_hero = {
     id: "asset_hero",
@@ -170,7 +170,7 @@ function createFixtureDocument(): RendererDocument {
       attributes: {
         cx: 12,
         cy: 12,
-        fill: "#e5e7eb",
+        fill: "#e5e5e5",
         r: 10
       },
       element_name: "circle",
@@ -209,7 +209,7 @@ function createFixtureDocument(): RendererDocument {
     name: "Loose Card",
     parent_id: null,
     render_style: {
-      backgroundColor: "#dbeafe",
+      backgroundColor: "#e5e5e5",
       backgroundImage: "url(asset://missing_asset)",
       height: 120,
       left: 480,

@@ -96,6 +96,8 @@ Resolved render state is split into two persisted layers:
 
 After normalization, the semantic-mapped subset of `render_style` is semantic-owned and recomputed from authoring state. Only non-mapped `render_style` properties remain raw-only. `computed_layout` is deterministic derived/cacheable state that can be refreshed after render and rebuilt when needed.
 
+Editor overlays and inspector panels may also show live DOM measurement from the current renderer session. That live measurement is transient runtime state, separate from the persisted `computed_layout` snapshot.
+
 The two are refreshed through separate contracts: structural normalization repairs canonical document shape for use, while commit/autosave may run a browser-backed computed-layout refresh pass before persistence.
 
 ### MCP bridge

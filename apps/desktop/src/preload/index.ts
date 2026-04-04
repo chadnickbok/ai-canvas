@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import type { DesktopApi, RuntimeEvent } from "@ai-canvas/ipc-contract";
+import type {
+  DesktopApi,
+  LayoutMeasurementRequest,
+  RuntimeEvent
+} from "@ai-canvas/ipc-contract";
 
 const appChannelNames = {
   applyCommands: "app:applyCommands",
@@ -8,9 +12,11 @@ const appChannelNames = {
   getActiveProject: "app:getActiveProject",
   getMcpStatus: "app:getMcpStatus",
   getRuntimeCapabilities: "app:getRuntimeCapabilities",
+  layoutMeasurementRequest: "app:layoutMeasurementRequest",
   listProjects: "app:listProjects",
   openExternalUrl: "app:openExternalUrl",
   openProject: "app:openProject",
+  submitLayoutMeasurementResult: "app:submitLayoutMeasurementResult",
   runtimeEvent: "app:runtimeEvent"
 } as const;
 
@@ -38,6 +44,23 @@ const api: DesktopApi = {
   },
   async openProject(input) {
     return ipcRenderer.invoke(appChannelNames.openProject, input);
+  },
+  async submitLayoutMeasurementResult(input) {
+    return ipcRenderer.invoke(appChannelNames.submitLayoutMeasurementResult, input);
+  },
+  subscribeToLayoutMeasurementRequests(listener) {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      request: LayoutMeasurementRequest
+    ) => {
+      listener(request);
+    };
+
+    ipcRenderer.on(appChannelNames.layoutMeasurementRequest, wrappedListener);
+
+    return () => {
+      ipcRenderer.off(appChannelNames.layoutMeasurementRequest, wrappedListener);
+    };
   },
   subscribeToRuntimeEvents(listener) {
     const wrappedListener = (_event: Electron.IpcRendererEvent, runtimeEvent: RuntimeEvent) => {

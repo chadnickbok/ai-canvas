@@ -39,6 +39,9 @@ Computed-layout refresh must:
 - preserve relative, flexible, or omitted layout inputs exactly as authored
 - produce persisted layout snapshots that match what the editor most recently resolved and displayed
 
+This document covers the persisted `computed_layout` cache only.
+Transient live measurement used by selection overlays or inspector views is a separate runtime surface.
+
 Computed-layout refresh must not:
 
 - repair schema or semantic state ad hoc

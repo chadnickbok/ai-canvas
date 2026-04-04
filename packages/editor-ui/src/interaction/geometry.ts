@@ -132,10 +132,42 @@ export function resolveNodeCanvasRect(
   measurementHandle: RendererMeasurementHandle | null,
   zoom: number
 ): CanvasRect | null {
+  const resolvedRect = resolveNodeCanvasRectWithSource(document, nodeId, measurementHandle, zoom);
+
+  return resolvedRect?.rect ?? null;
+}
+
+export type NodeCanvasRectSource =
+  | "authored_render_style"
+  | "computed_layout"
+  | "measured_dom";
+
+export type NodeCanvasRectResolution = {
+  rect: CanvasRect;
+  source: NodeCanvasRectSource;
+};
+
+export function resolveMeasuredNodeCanvasRect(
+  nodeId: string,
+  measurementHandle: RendererMeasurementHandle | null,
+  zoom: number
+): CanvasRect | null {
+  return resolveMeasuredCanvasRect(nodeId, measurementHandle, zoom);
+}
+
+export function resolveNodeCanvasRectWithSource(
+  document: RendererDocument,
+  nodeId: string,
+  measurementHandle: RendererMeasurementHandle | null,
+  zoom: number
+): NodeCanvasRectResolution | null {
   const measuredRect = resolveMeasuredCanvasRect(nodeId, measurementHandle, zoom);
 
   if (measuredRect) {
-    return measuredRect;
+    return {
+      rect: measuredRect,
+      source: "measured_dom"
+    };
   }
 
   const node = document.nodes[nodeId];
@@ -145,7 +177,10 @@ export function resolveNodeCanvasRect(
   }
 
   if (node.computed_layout) {
-    return createCanvasRect(node.computed_layout);
+    return {
+      rect: createCanvasRect(node.computed_layout),
+      source: "computed_layout"
+    };
   }
 
   const x = parseFiniteCanvasLength(node.render_style.left);
@@ -157,12 +192,15 @@ export function resolveNodeCanvasRect(
     return null;
   }
 
-  return createCanvasRect({
-    height,
-    width,
-    x,
-    y
-  });
+  return {
+    rect: createCanvasRect({
+      height,
+      width,
+      x,
+      y
+    }),
+    source: "authored_render_style"
+  };
 }
 
 export function isSceneFrameNode(document: RendererDocument, node: RendererNode): boolean {

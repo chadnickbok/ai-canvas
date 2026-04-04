@@ -6,9 +6,13 @@ import {
   createProjectInputSchema,
   emptyPayloadSchema,
   err,
+  layoutMeasurementResultSchema,
   ok,
   openExternalUrlInputSchema,
   openProjectInputSchema,
+  type AppResult,
+  type EmptyPayload,
+  type LayoutMeasurementResult,
   type RuntimeEvent
 } from "@ai-canvas/ipc-contract";
 
@@ -16,6 +20,9 @@ import type { ProjectRuntime } from "./runtime/index.js";
 
 type RegisterIpcOptions = {
   sendRuntimeEvent?: (event: RuntimeEvent) => void;
+  submitLayoutMeasurementResult?: (
+    input: LayoutMeasurementResult
+  ) => AppResult<EmptyPayload> | Promise<AppResult<EmptyPayload>>;
 };
 
 export function registerIpc(runtime: ProjectRuntime, options: RegisterIpcOptions = {}): () => void {
@@ -68,6 +75,20 @@ export function registerIpc(runtime: ProjectRuntime, options: RegisterIpcOptions
     try {
       emptyPayloadSchema.parse(input ?? {});
       return runtime.getRuntimeCapabilities();
+    } catch (error) {
+      return toValidationError(error);
+    }
+  });
+
+  ipcMain.handle(appChannelNames.submitLayoutMeasurementResult, async (_event, input) => {
+    try {
+      const parsed = layoutMeasurementResultSchema.parse(input);
+
+      if (!options.submitLayoutMeasurementResult) {
+        return err("not_implemented", "Renderer layout measurement bridge is not attached");
+      }
+
+      return await options.submitLayoutMeasurementResult(parsed);
     } catch (error) {
       return toValidationError(error);
     }

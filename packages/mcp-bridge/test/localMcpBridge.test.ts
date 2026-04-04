@@ -66,8 +66,9 @@ function createService(overrides: Partial<ProjectService> = {}): ProjectService 
           changed_scene_ids: ["scene_home"]
         },
         layout_refresh: {
-          reason: "computed_layout_refresh_not_implemented" as const,
-          status: "skipped" as const
+          measured_node_count: 1,
+          measured_root_ids: ["scene_home"],
+          status: "refreshed" as const
         },
         revision: 2
       })),
@@ -263,8 +264,9 @@ describe("LocalMcpBridge", () => {
           changed_scene_ids: ["scene_home"]
         },
         layout_refresh: {
-          reason: "computed_layout_refresh_not_implemented" as const,
-          status: "skipped" as const
+          measured_node_count: 1,
+          measured_root_ids: ["scene_home"],
+          status: "refreshed" as const
         },
         revision: 2
       })
@@ -472,8 +474,9 @@ describe("LocalMcpBridge", () => {
         changed_scene_ids: ["scene_home"]
       },
       layout_refresh: {
-        reason: "computed_layout_refresh_not_implemented",
-        status: "skipped"
+        measured_node_count: 1,
+        measured_root_ids: ["scene_home"],
+        status: "refreshed"
       },
       ok: true,
       revision: 2

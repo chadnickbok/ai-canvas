@@ -826,7 +826,7 @@ export class LocalMcpBridge {
       "apply_commands",
       {
         description:
-          "Apply a validated command batch to the active project session. Mutations require a live measurement surface and intentionally skip computed-layout refresh in this first pass.",
+          "Apply a validated command batch to the active project session. Mutations require a live measurement surface and refresh computed_layout before persistence.",
         inputSchema: applyCommandsToolInputSchema,
         outputSchema: applyCommandsOutputSchema
       },

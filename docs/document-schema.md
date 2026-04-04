@@ -99,6 +99,7 @@ The separation is intentional:
 
 - `render_style` preserves authored or directly edited layout inputs such as `"100%"`, flex properties, or omitted width/height
 - `computed_layout` stores the last resolved box measured from the browser-backed renderer
+- transient live DOM measurement in the editor is a separate runtime-only surface and must not be conflated with persisted `computed_layout`
 - layout behavior is driven by the input layer, not by the computed output layer
 - `computed_layout` is derived and cacheable, even though it is persisted
 
@@ -388,6 +389,7 @@ type ComputedLayout = {
 ```
 
 `computed_layout` is the resolved border-box geometry in canvas coordinates.
+It is a measured geometry snapshot, not a browser "computed style" dump.
 
 Rules:
 

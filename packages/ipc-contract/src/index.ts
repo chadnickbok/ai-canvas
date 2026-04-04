@@ -103,10 +103,29 @@ export const openExternalUrlInputSchema = z.object({
 
 export const applyCommandsInputSchema = documentCoreApplyCommandsInputSchema;
 
-export const commandLayoutRefreshSchema = z.object({
-  reason: z.literal("computed_layout_refresh_not_implemented"),
-  status: z.literal("skipped")
-});
+export const computedLayoutSchema = z
+  .object({
+    height: z.number(),
+    width: z.number(),
+    x: z.number(),
+    y: z.number()
+  })
+  .strict();
+
+export const commandLayoutRefreshSchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      measured_node_count: z.number().int().nonnegative(),
+      measured_root_ids: z.array(z.string()),
+      status: z.literal("refreshed")
+    })
+    .strict(),
+  z
+    .object({
+      status: z.literal("not_required")
+    })
+    .strict()
+]);
 
 export const appErrorCodeSchema = z.enum([
   "internal_error",
@@ -124,6 +143,31 @@ export const appErrorSchema = z.object({
   code: appErrorCodeSchema,
   message: z.string()
 });
+
+export const layoutMeasurementRequestSchema = z
+  .object({
+    document: rendererDocumentSchema,
+    request_id: z.string(),
+    root_ids: z.array(z.string())
+  })
+  .strict();
+
+export const layoutMeasurementResultSchema = z.discriminatedUnion("ok", [
+  z
+    .object({
+      measured_layouts: z.record(z.string(), computedLayoutSchema),
+      ok: z.literal(true),
+      request_id: z.string()
+    })
+    .strict(),
+  z
+    .object({
+      error: appErrorSchema,
+      ok: z.literal(false),
+      request_id: z.string()
+    })
+    .strict()
+]);
 
 export const okResultSchema = <T extends z.ZodTypeAny>(schema: T) =>
   z.object({
@@ -153,9 +197,11 @@ export const appChannelNames = {
   getActiveProject: "app:getActiveProject",
   getMcpStatus: "app:getMcpStatus",
   getRuntimeCapabilities: "app:getRuntimeCapabilities",
+  layoutMeasurementRequest: "app:layoutMeasurementRequest",
   listProjects: "app:listProjects",
   openExternalUrl: "app:openExternalUrl",
   openProject: "app:openProject",
+  submitLayoutMeasurementResult: "app:submitLayoutMeasurementResult",
   runtimeEvent: "app:runtimeEvent"
 } as const;
 
@@ -177,6 +223,8 @@ export type OpenExternalUrlInput = z.infer<typeof openExternalUrlInputSchema>;
 export type ApplyCommandsInput = z.infer<typeof applyCommandsInputSchema>;
 export type AppErrorCode = z.infer<typeof appErrorCodeSchema>;
 export type AppError = z.infer<typeof appErrorSchema>;
+export type LayoutMeasurementRequest = z.infer<typeof layoutMeasurementRequestSchema>;
+export type LayoutMeasurementResult = z.infer<typeof layoutMeasurementResultSchema>;
 export type CommandResult = z.infer<typeof commandResultSchema>;
 export type EmptyPayload = Record<string, never>;
 
@@ -199,6 +247,10 @@ export interface DesktopApi {
   listProjects(): Promise<AppResult<ProjectSummary[]>>;
   openExternalUrl(input: OpenExternalUrlInput): Promise<AppResult<EmptyPayload>>;
   openProject(input: OpenProjectInput): Promise<AppResult<ActiveProject>>;
+  submitLayoutMeasurementResult(input: LayoutMeasurementResult): Promise<AppResult<EmptyPayload>>;
+  subscribeToLayoutMeasurementRequests(
+    listener: (request: LayoutMeasurementRequest) => void
+  ): () => void;
   subscribeToRuntimeEvents(listener: (event: RuntimeEvent) => void): () => void;
 }
 

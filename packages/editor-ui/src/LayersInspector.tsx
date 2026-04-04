@@ -196,7 +196,7 @@ export function LayersInspector({
                       className={cn(
                         "flex w-full min-w-[220px] items-center gap-2 rounded px-2 py-1 text-left text-[13px] transition",
                         isSelected
-                          ? "bg-[#111111] text-[#f8f5ee] shadow-[0_8px_20px_rgba(0,0,0,0.08)]"
+                          ? "bg-[#111111] text-[var(--chrome-ink-inverse)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]"
                           : "text-[#111111] hover:bg-black/[0.04]"
                       )}
                       data-layer-node-id={row.id}
@@ -217,7 +217,7 @@ export function LayersInspector({
                         aria-hidden="true"
                         className={cn(
                           "flex h-4 w-4 shrink-0 items-center justify-center",
-                          isSelected ? "text-[#f8f5ee]" : "text-black/54"
+                          isSelected ? "text-[var(--chrome-ink-inverse)]" : "text-black/54"
                         )}
                         data-layer-icon-direction={row.frameDirection ?? "none"}
                         data-layer-icon-type={row.presentationKind}

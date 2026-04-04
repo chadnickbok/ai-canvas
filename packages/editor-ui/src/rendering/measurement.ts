@@ -1,4 +1,9 @@
-import { collectSubtreeIds, type ComputedLayout, type RendererDocument } from "@ai-canvas/document-core";
+import {
+  collectSubtreeIds,
+  resolveComputedLayoutRootIds,
+  type ComputedLayout,
+  type RendererDocument
+} from "@ai-canvas/document-core";
 
 type MeasureRenderedSubtreesInput = {
   document: RendererDocument;
@@ -8,53 +13,11 @@ type MeasureRenderedSubtreesInput = {
   zoom: number;
 };
 
-function resolveTopLevelRootId(document: RendererDocument, nodeId: string): string | null {
-  let currentNodeId: string | null = nodeId;
-
-  while (currentNodeId) {
-    const currentNode: RendererDocument["nodes"][string] | undefined =
-      document.nodes[currentNodeId];
-
-    if (!currentNode) {
-      return null;
-    }
-
-    if (currentNode.parent_id === null) {
-      return currentNode.id;
-    }
-
-    currentNodeId = currentNode.parent_id;
-  }
-
-  return null;
-}
-
 export function resolveMeasurementRootIds(
   document: RendererDocument,
   changedNodeIds: string[]
 ): string[] {
-  const rootIds = new Set<string>();
-
-  for (const nodeId of changedNodeIds) {
-    const node = document.nodes[nodeId];
-
-    if (!node) {
-      continue;
-    }
-
-    if (node.scene_id && document.scenes[node.scene_id] && document.nodes[node.scene_id]) {
-      rootIds.add(node.scene_id);
-      continue;
-    }
-
-    const topLevelRootId = resolveTopLevelRootId(document, node.id);
-
-    if (topLevelRootId) {
-      rootIds.add(topLevelRootId);
-    }
-  }
-
-  return [...rootIds];
+  return resolveComputedLayoutRootIds(document, changedNodeIds);
 }
 
 export function measureRenderedSubtrees(

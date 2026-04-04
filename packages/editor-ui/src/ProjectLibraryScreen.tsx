@@ -220,7 +220,7 @@ function ProjectPreview({ projectId }: { projectId: string }) {
   const variant = getPreviewVariant(projectId);
 
   return (
-    <div className="flex h-[60px] w-[108px] shrink-0 overflow-hidden border border-black/12 bg-[#f6f4ef]">
+    <div className="flex h-[60px] w-[108px] shrink-0 overflow-hidden border border-black/12 bg-[var(--chrome-surface-subtle)]">
       {variant === 0 ? (
         <div className="flex h-full w-full flex-col">
           <div className="h-[12px] w-full bg-[#111111]" />
@@ -391,7 +391,7 @@ function GuideSection({
 
       {previewVariant === "codex" ? (
         <div className="flex h-[210px] flex-col overflow-hidden border border-black/16 bg-white">
-          <div className="flex h-[34px] items-center justify-between border-b border-black/10 bg-[#fafafa] px-3">
+          <div className="flex h-[34px] items-center justify-between border-b border-black/10 bg-[var(--chrome-surface-muted)] px-3">
             <span className="ui-mono text-[11px] uppercase tracking-[0.16em] text-black/40">
               Codex app
             </span>

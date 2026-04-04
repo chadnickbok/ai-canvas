@@ -3,10 +3,19 @@ import { fileURLToPath } from "node:url";
 
 import { app, BrowserWindow, dialog } from "electron";
 
+import {
+  collectSubtreeIds,
+  resolveComputedLayoutRootIds,
+  type RendererDocument
+} from "@ai-canvas/document-core";
 import { appChannelNames } from "@ai-canvas/ipc-contract";
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
 import { createProjectService } from "./createProjectService.js";
+import {
+  LayoutMeasurementBridgeError,
+  RendererLayoutMeasurementBridge
+} from "./rendererLayoutMeasurementBridge.js";
 import { resolveRendererLoadTarget } from "./resolveRendererLoadTarget.js";
 import { registerIpc } from "./registerIpc.js";
 import { createProjectRuntime, ProjectStore } from "./runtime/index.js";
@@ -21,7 +30,10 @@ const mcpPort = 9311;
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 
-async function createMainWindow(runtime: ReturnType<typeof createProjectRuntime>) {
+async function createMainWindow(
+  runtime: ReturnType<typeof createProjectRuntime>,
+  layoutMeasurementBridge: RendererLayoutMeasurementBridge
+) {
   if (mainWindow) {
     mainWindow.focus();
     return mainWindow;
@@ -53,6 +65,7 @@ async function createMainWindow(runtime: ReturnType<typeof createProjectRuntime>
 
   browserWindow.on("closed", () => {
     runtime.setMeasurementSurfaceAvailable(false);
+    layoutMeasurementBridge.rejectAll("The renderer measurement surface is not available.");
     mainWindow = null;
   });
 
@@ -75,14 +88,60 @@ async function bootstrap() {
 
   const store = new ProjectStore(path.join(app.getPath("userData"), "app.db"));
   const runtime = createProjectRuntime(store);
+  const layoutMeasurementBridge = new RendererLayoutMeasurementBridge();
   const mcpBridge = new LocalMcpBridge({
     host: mcpHost,
     port: mcpPort,
     projectService: createProjectService(runtime)
   });
 
+  runtime.setComputedLayoutRefresher(async (input) => {
+    const browserWindow = mainWindow;
+
+    if (!browserWindow || browserWindow.isDestroyed()) {
+      throw new LayoutMeasurementBridgeError(
+        "measurement_surface_unavailable",
+        "The renderer measurement surface is not available."
+      );
+    }
+
+    const rootIds = resolveComputedLayoutRootIds(input.document, input.changed_node_ids);
+
+    if (rootIds.length === 0) {
+      return {
+        document: input.document,
+        layoutRefresh: {
+          status: "not_required" as const
+        }
+      };
+    }
+
+    const measuredLayouts = await layoutMeasurementBridge.measureDocumentLayout(browserWindow, {
+      document: input.document,
+      rootIds
+    });
+    const refreshedDocument = structuredClone(input.document);
+    const measuredNodeCount = applyMeasuredLayoutsToDocument(
+      refreshedDocument,
+      input.document,
+      rootIds,
+      measuredLayouts
+    );
+
+    return {
+      document: refreshedDocument,
+      layoutRefresh: {
+        measured_node_count: measuredNodeCount,
+        measured_root_ids: rootIds,
+        status: "refreshed" as const
+      }
+    };
+  });
+
   runtime.attachMcpStatusProvider(mcpBridge);
   const unsubscribeFromRuntimeEvents = registerIpc(runtime, {
+    submitLayoutMeasurementResult: (result) =>
+      layoutMeasurementBridge.submitLayoutMeasurementResult(result),
     sendRuntimeEvent: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         if (!window.isDestroyed()) {
@@ -102,7 +161,7 @@ async function bootstrap() {
     mcpStartError = error;
   }
 
-  await createMainWindow(runtime);
+  await createMainWindow(runtime, layoutMeasurementBridge);
 
   if (mcpStartError) {
     dialog.showErrorBox(
@@ -112,7 +171,7 @@ async function bootstrap() {
   }
 
   app.on("activate", async () => {
-    await createMainWindow(runtime);
+    await createMainWindow(runtime, layoutMeasurementBridge);
   });
 
   app.on("before-quit", () => {
@@ -140,6 +199,37 @@ function formatMcpStartError(error: unknown): string {
 
 function isPortInUseError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error && error.code === "EADDRINUSE";
+}
+
+function applyMeasuredLayoutsToDocument(
+  targetDocument: RendererDocument,
+  sourceDocument: RendererDocument,
+  rootIds: string[],
+  measuredLayouts: Record<string, { height: number; width: number; x: number; y: number }>
+): number {
+  let measuredNodeCount = 0;
+
+  for (const rootId of rootIds) {
+    for (const nodeId of collectSubtreeIds(sourceDocument, rootId)) {
+      const targetNode = targetDocument.nodes[nodeId];
+
+      if (!targetNode) {
+        continue;
+      }
+
+      const measuredLayout = measuredLayouts[nodeId];
+
+      if (!measuredLayout) {
+        delete targetNode.computed_layout;
+        continue;
+      }
+
+      targetNode.computed_layout = measuredLayout;
+      measuredNodeCount += 1;
+    }
+  }
+
+  return measuredNodeCount;
 }
 
 void bootstrap();

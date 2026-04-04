@@ -189,7 +189,7 @@ function createDocumentWithScene(
     name: "Hero",
     parent_id: "scene_home",
     render_style: {
-      backgroundColor: "#f5c04a",
+      backgroundColor: "#d4d4d4",
       borderRadius: 24,
       height: 180,
       width: 320
@@ -245,7 +245,7 @@ function createDocumentWithLooseNode(): RendererDocument {
     name: "Loose Card",
     parent_id: null,
     render_style: {
-      backgroundColor: "#dbeafe",
+      backgroundColor: "#e5e5e5",
       height: 120,
       left: 520,
       top: 160,
@@ -281,6 +281,68 @@ function createDocumentWithInspectorFixtures(): RendererDocument {
       data_uri: "data:image/png;base64,AAAA",
       kind: "data_uri"
     }
+  };
+
+  return document;
+}
+
+function createDocumentWithSelectionInspectorFixtures(): RendererDocument {
+  const document = createDocumentWithInspectorFixtures();
+
+  document.name = "Selection Fixture";
+  document.canvas.authoring.local_values["canvas.background_color"] = "#f5f5f5";
+  document.canvas.background_color = "#f5f5f5";
+  document.variables.collections.tokens = {
+    default_mode_id: "base",
+    id: "tokens",
+    modes: {
+      base: {
+        id: "base",
+        name: "Base"
+      }
+    },
+    name: "Tokens",
+    variables: {
+      color_text: {
+        collection_id: "tokens",
+        group_path: [],
+        id: "color_text",
+        kind: "color",
+        name: "Text",
+        scopes: ["node.text.color"],
+        values_by_mode: {
+          base: {
+            kind: "value",
+            value: "#111111"
+          }
+        }
+      }
+    }
+  };
+  document.styles.paint.card = {
+    id: "card",
+    name: "Card",
+    slots: {
+      "node.paint.background_color": {
+        kind: "value",
+        value: "#ffffff"
+      }
+    }
+  };
+  document.nodes.scene_home.authoring.style_bindings.paint = "card";
+  document.nodes.scene_home.computed_layout = {
+    height: 844,
+    width: 390,
+    x: 80,
+    y: 80
+  };
+  document.nodes.text_title.authoring.local_values["node.typography.font_size"] = 32;
+  document.nodes.text_title.authoring.variable_bindings["node.text.color"] = "color_text";
+  document.nodes.text_title.computed_layout = {
+    height: 38,
+    width: 220,
+    x: 120,
+    y: 300
   };
 
   return document;
@@ -441,11 +503,16 @@ function assignInteractionGeometry(harness: RenderHarness) {
   const rendererRoot = harness.container.querySelector('[data-renderer-root="true"]') as HTMLElement;
   const sceneFrame = harness.container.querySelector('[data-node-id="scene_home"]') as HTMLElement;
   const heroRectangle = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement;
+  const titleText = harness.container.querySelector('[data-node-id="text_title"]') as HTMLElement | null;
   const looseRectangle = harness.container.querySelector('[data-node-id="rect_loose"]') as HTMLElement | null;
 
   assignBoundingRect(rendererRoot, 0, 0, 1600, 1200);
   assignBoundingRect(sceneFrame, 80, 80, 390, 844);
   assignBoundingRect(heroRectangle, 104, 104, 320, 180);
+
+  if (titleText) {
+    assignBoundingRect(titleText, 120, 300, 220, 38);
+  }
 
   if (looseRectangle) {
     assignBoundingRect(looseRectangle, 520, 160, 180, 120);
@@ -474,6 +541,12 @@ function getShowLayersToggle(harness: RenderHarness): HTMLButtonElement | null {
   return harness.container.querySelector(
     '[data-layers-show-toggle="true"]'
   ) as HTMLButtonElement | null;
+}
+
+function getSelectionInspector(harness: RenderHarness): HTMLElement | null {
+  return harness.container.querySelector(
+    '[data-selection-inspector="true"]'
+  ) as HTMLElement | null;
 }
 
 beforeEach(() => {
@@ -586,7 +659,7 @@ describe("DocumentWorkspaceScreen", () => {
       expect(viewportFrame).not.toBeNull();
       expect(sceneFrame.style.left).toBe("80px");
       expect(sceneFrame.style.top).toBe("80px");
-      expect(rectangle.style.backgroundColor).toBe("rgb(245, 192, 74)");
+      expect(rectangle.style.backgroundColor).toBe("rgb(212, 212, 212)");
     } finally {
       harness.cleanup();
     }
@@ -623,6 +696,83 @@ describe("DocumentWorkspaceScreen", () => {
     }
   });
 
+  it("shows a document summary in the right inspector when nothing is selected", () => {
+    const harness = renderIntoDom(
+      createActiveProject(createDocumentWithSelectionInspectorFixtures())
+    );
+
+    try {
+      const inspector = getSelectionInspector(harness) as HTMLElement;
+
+      expect(inspector.getAttribute("data-inspector-state")).toBe("document");
+      expect(inspector.textContent).toContain("Document Summary");
+      expect(inspector.textContent).toContain("Selection Fixture");
+      expect(inspector.textContent).toContain("canvas.background_color");
+      expect(inspector.textContent).toContain("Loose top level");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("shows scene metadata in the right inspector for scene-root selection", async () => {
+    const harness = renderIntoDom(
+      createActiveProject(createDocumentWithSelectionInspectorFixtures())
+    );
+
+    try {
+      assignInteractionGeometry(harness);
+
+      act(() => {
+        getLayerRow(harness, "scene_home")?.click();
+      });
+
+      await act(async () => {
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+
+      const inspector = getSelectionInspector(harness) as HTMLElement;
+      const measuredGeometry = inspector.querySelector(
+        '[data-inspector-geometry="measured"]'
+      ) as HTMLElement;
+
+      expect(inspector.getAttribute("data-inspector-state")).toBe("scene");
+      expect(inspector.textContent).toContain("Scene name");
+      expect(inspector.textContent).toContain("Scene ID");
+      expect(inspector.textContent).toContain("scene_home");
+      expect(measuredGeometry.textContent).toContain("390");
+      expect(measuredGeometry.textContent).toContain("844");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("shows node semantics and content in the right inspector for node selection", () => {
+    const harness = renderIntoDom(
+      createActiveProject(createDocumentWithSelectionInspectorFixtures())
+    );
+
+    try {
+      assignInteractionGeometry(harness);
+
+      act(() => {
+        getLayerRow(harness, "text_title")?.click();
+      });
+
+      const inspector = getSelectionInspector(harness) as HTMLElement;
+
+      expect(inspector.getAttribute("data-inspector-state")).toBe("node");
+      expect(inspector.textContent).toContain("Text content");
+      expect(inspector.textContent).toContain("Hello from MCP");
+      expect(inspector.textContent).toContain("node.typography.font_size");
+      expect(inspector.textContent).toContain("node.text.color");
+      expect(inspector.textContent).toContain("Hierarchy path");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
   it("keeps the workspace shell viewport-locked and the hierarchy self-scrolling", () => {
     const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
 
@@ -633,29 +783,38 @@ describe("DocumentWorkspaceScreen", () => {
       const workspaceBody = harness.container.querySelector(
         '[data-workspace-body="true"]'
       ) as HTMLElement;
-      const overlay = harness.container.querySelector(
+      const canvasRegion = harness.container.querySelector(
+        '[data-workspace-canvas-region="true"]'
+      ) as HTMLElement;
+      const layersOverlay = harness.container.querySelector(
         '[data-layers-overlay="true"]'
       ) as HTMLElement;
-      const overlayPanel = harness.container.querySelector(
+      const layersOverlayPanel = harness.container.querySelector(
         '[data-layers-overlay-panel="true"]'
       ) as HTMLElement;
       const inspector = harness.container.querySelector(
         '[data-layers-inspector="true"]'
       ) as HTMLElement;
+      const selectionInspector = getSelectionInspector(harness) as HTMLElement;
       const scrollRegion = harness.container.querySelector(
         '[data-layers-scroll-region="true"]'
       ) as HTMLElement;
 
       expect(workspaceShell.className).toContain("h-screen");
       expect(workspaceShell.className).toContain("overflow-hidden");
+      expect(workspaceBody.className).toContain("flex");
       expect(workspaceBody.className).toContain("overflow-hidden");
-      expect(overlay.className).toContain("absolute");
-      expect(overlay.className).toContain("inset-0");
-      expect(overlayPanel.className).toContain("absolute");
-      expect(overlayPanel.className).toContain("left-0");
+      expect(canvasRegion.className).toContain("relative");
+      expect(canvasRegion.className).toContain("flex-1");
+      expect(layersOverlay.className).toContain("absolute");
+      expect(layersOverlay.className).toContain("inset-0");
+      expect(layersOverlayPanel.className).toContain("absolute");
+      expect(layersOverlayPanel.className).toContain("left-0");
       expect(inspector.className).toContain("min-h-0");
       expect(inspector.className).toContain("overflow-hidden");
       expect(inspector.className).toContain("bg-white");
+      expect(selectionInspector.className).toContain("shrink-0");
+      expect(selectionInspector.className).toContain("overflow-hidden");
       expect(scrollRegion.className).toContain("overflow-auto");
       expect(scrollRegion.className).toContain("bg-white");
     } finally {
@@ -668,14 +827,14 @@ describe("DocumentWorkspaceScreen", () => {
 
     try {
       const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]');
-      const overlay = harness.container.querySelector('[data-layers-overlay="true"]') as HTMLElement;
+      const layersOverlay = harness.container.querySelector('[data-layers-overlay="true"]') as HTMLElement;
       const hideToggle = getHideLayersToggle(harness);
 
       expect(harness.container.querySelector('[data-layers-inspector="true"]')).not.toBeNull();
       expect(hideToggle?.getAttribute("aria-label")).toBe("Hide layers panel");
       expect(hideToggle?.className).not.toContain("rounded-full");
       expect(viewportFrame).not.toBeNull();
-      expect(overlay.className).toContain("absolute");
+      expect(layersOverlay.className).toContain("absolute");
 
       act(() => {
         hideToggle?.click();
@@ -685,6 +844,7 @@ describe("DocumentWorkspaceScreen", () => {
       expect(harness.container.querySelector('[data-layers-overlay-panel="true"]')).toBeNull();
       expect(getShowLayersToggle(harness)?.getAttribute("aria-label")).toBe("Show layers panel");
       expect(harness.container.querySelector('[data-viewport-frame="true"]')).toBe(viewportFrame);
+      expect(getSelectionInspector(harness)).not.toBeNull();
     } finally {
       harness.cleanup();
     }
@@ -711,6 +871,50 @@ describe("DocumentWorkspaceScreen", () => {
       expect(harness.container.querySelector('[data-layers-inspector="true"]')).not.toBeNull();
       expect(getHideLayersToggle(harness)).not.toBeNull();
       expect(getShowLayersToggle(harness)).toBeNull();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("does not shift the canvas transform when hiding and re-showing the left hierarchy", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
+      const rendererTransform = harness.container.querySelector(
+        '[data-viewport-transform="renderer"]'
+      ) as HTMLElement;
+
+      assignBoundingRect(viewportFrame, 0, 0, 1024, 1024);
+
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      act(() => {
+        viewportFrame.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaY: 320
+          })
+        );
+      });
+
+      const transformBeforeToggle = rendererTransform.style.transform;
+
+      act(() => {
+        getHideLayersToggle(harness)?.click();
+      });
+
+      expect(rendererTransform.style.transform).toBe(transformBeforeToggle);
+
+      act(() => {
+        getShowLayersToggle(harness)?.click();
+      });
+
+      expect(rendererTransform.style.transform).toBe(transformBeforeToggle);
+      expect(harness.container.querySelector('[data-viewport-frame="true"]')).toBe(viewportFrame);
     } finally {
       harness.cleanup();
     }
@@ -1201,8 +1405,9 @@ describe("DocumentWorkspaceScreen", () => {
       ok({
         document_id: input.document_id,
         layout_refresh: {
-          reason: "computed_layout_refresh_not_implemented",
-          status: "skipped"
+          measured_node_count: 1,
+          measured_root_ids: ["scene_home"],
+          status: "refreshed"
         },
         revision: 2
       })
@@ -1282,8 +1487,9 @@ describe("DocumentWorkspaceScreen", () => {
       ok({
         document_id: input.document_id,
         layout_refresh: {
-          reason: "computed_layout_refresh_not_implemented",
-          status: "skipped"
+          measured_node_count: 1,
+          measured_root_ids: ["rect_loose"],
+          status: "refreshed"
         },
         revision: 2
       })
@@ -1381,8 +1587,9 @@ describe("DocumentWorkspaceScreen", () => {
       ok({
         document_id: input.document_id,
         layout_refresh: {
-          reason: "computed_layout_refresh_not_implemented",
-          status: "skipped"
+          measured_node_count: 1,
+          measured_root_ids: ["scene_home"],
+          status: "refreshed"
         },
         revision: 2
       })

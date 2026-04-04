@@ -71,16 +71,16 @@ function createSvgPrimitiveFallback(
       ref={createNodeRef(context, node.id)}
     >
       <rect
-        fill="rgba(243, 244, 246, 0.96)"
+        fill="rgba(242, 242, 242, 0.96)"
         height="24"
         rx="4"
-        stroke="#9ca3af"
+        stroke="#a3a3a3"
         strokeDasharray="4 2"
         width="24"
         x="0"
         y="0"
       />
-      <text fill="#6b7280" fontSize="7" x="4" y="14">
+      <text fill="#6b6b6b" fontSize="7" x="4" y="14">
         svg
       </text>
     </g>
@@ -109,9 +109,9 @@ function renderSvgVisualElementNode(
         ref={createNodeRef(context, node.id)}
         style={{
           alignItems: "center",
-          backgroundColor: "rgba(243, 244, 246, 0.96)",
-          border: "1px dashed #9ca3af",
-          color: "#6b7280",
+          backgroundColor: "rgba(242, 242, 242, 0.96)",
+          border: "1px dashed #a3a3a3",
+          color: "#6b6b6b",
           display: "flex",
           fontFamily: "IBM Plex Mono, monospace",
           fontSize: 10,
