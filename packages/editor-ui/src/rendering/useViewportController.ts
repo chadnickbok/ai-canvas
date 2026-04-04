@@ -82,6 +82,7 @@ export function useViewportController({
   const viewportRef = useCallback((element: HTMLDivElement | null) => {
     viewportElementRef.current = element;
     setViewportElement(element);
+    setViewportSize(measureViewportSize(element));
   }, []);
 
   const fitToContent = useCallback(() => {
@@ -170,7 +171,6 @@ export function useViewportController({
 
   useLayoutEffect(() => {
     if (!viewportElement) {
-      setViewportSize(EMPTY_VIEWPORT_SIZE);
       return;
     }
 
@@ -178,7 +178,7 @@ export function useViewportController({
       setViewportSize(measureViewportSize(viewportElement));
     };
 
-    updateViewportSize();
+    queueMicrotask(updateViewportSize);
 
     if (typeof ResizeObserver === "function") {
       const observer = new ResizeObserver(() => {
@@ -201,9 +201,21 @@ export function useViewportController({
 
   useEffect(() => {
     initializedWorkspaceRef.current = null;
-    stopDragging();
-    setViewport(DEFAULT_VIEWPORT);
-    setHasInteractedWithCanvas(false);
+    let isCancelled = false;
+
+    queueMicrotask(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      stopDragging();
+      setViewport(DEFAULT_VIEWPORT);
+      setHasInteractedWithCanvas(false);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [stopDragging, workspaceIdentity]);
 
   useEffect(() => {
@@ -215,14 +227,26 @@ export function useViewportController({
       return;
     }
 
-    setViewport(
-      createViewportForContentBounds(contentBounds, viewportSize, {
-        maxZoom: 1,
-        padding: fitPadding
-      })
-    );
-    setHasInteractedWithCanvas(false);
-    initializedWorkspaceRef.current = workspaceIdentity;
+    let isCancelled = false;
+
+    queueMicrotask(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      setViewport(
+        createViewportForContentBounds(contentBounds, viewportSize, {
+          maxZoom: 1,
+          padding: fitPadding
+        })
+      );
+      setHasInteractedWithCanvas(false);
+      initializedWorkspaceRef.current = workspaceIdentity;
+    });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [contentBounds, fitPadding, viewportSize, workspaceIdentity]);
 
   useEffect(() => {

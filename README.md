@@ -191,6 +191,18 @@ pnpm dev
 pnpm test
 ```
 
+### Lint
+
+```bash
+pnpm lint
+```
+
+Lint a single workspace package:
+
+```bash
+pnpm --filter @ai-canvas/editor-ui lint
+```
+
 ### Build
 
 ```bash
