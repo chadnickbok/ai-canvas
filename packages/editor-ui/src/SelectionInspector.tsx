@@ -2,74 +2,58 @@ import {
   inspectSelection,
   type BackgroundAssetInspection,
   type DocumentSummaryInspection,
-  type NodeSemanticSlotInspection,
+  type NodeInspectorInspection,
   type RendererDocument,
+  type RendererNode,
   type SelectionInspection
 } from "@ai-canvas/document-core";
-import type { RuntimeCapabilities } from "@ai-canvas/ipc-contract";
 import { useLayoutEffect, useState, type ReactNode, type RefObject } from "react";
 
 import {
-  createCanvasRect,
-  resolveMeasuredNodeCanvasRect,
-  resolveNodeCanvasRectWithSource,
+  parseFiniteCanvasLength,
+  resolveFramePaddingInsets,
+  resolveNodeCanvasRect,
   type CanvasRect,
-  type NodeCanvasRectSource
+  type EdgeInsets
 } from "./interaction/geometry.js";
 import type { RendererMeasurementHandle, ViewportState } from "./rendering/types.js";
 
 type SelectionInspectorProps = {
   document: RendererDocument;
-  projectId: string;
-  projectName: string;
   rendererRef: RefObject<RendererMeasurementHandle | null>;
-  revision: number;
-  runtimeCapabilities: RuntimeCapabilities | null;
   selectedNodeId: string | null;
   viewport: ViewportState;
 };
 
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
+type InspectorMetric = {
+  label: string;
+  value: string;
+};
+
+type InspectorRow = {
+  label: string;
+  value: ReactNode;
+};
 
 export function SelectionInspector({
   document,
-  projectId,
-  projectName,
   rendererRef,
-  revision,
-  runtimeCapabilities,
   selectedNodeId,
   viewport
 }: SelectionInspectorProps) {
   const selection = inspectSelection(document, selectedNodeId);
-  const [measuredCanvasRect, setMeasuredCanvasRect] = useState<CanvasRect | null>(null);
-  const [bestAvailableCanvasRectResolution, setBestAvailableCanvasRectResolution] =
-    useState<{
-      rect: CanvasRect;
-      source: NodeCanvasRectSource;
-    } | null>(null);
+  const [bestAvailableCanvasRect, setBestAvailableCanvasRect] = useState<CanvasRect | null>(null);
   const selectedInspectableNodeId = selection.kind === "document" ? null : selection.node.id;
 
   useLayoutEffect(() => {
     const animationFrameId = requestAnimationFrame(() => {
       if (selectedInspectableNodeId === null) {
-        setMeasuredCanvasRect(null);
-        setBestAvailableCanvasRectResolution(null);
+        setBestAvailableCanvasRect(null);
         return;
       }
 
-      setMeasuredCanvasRect(
-        resolveMeasuredNodeCanvasRect(selectedInspectableNodeId, rendererRef.current, viewport.zoom)
-      );
-      setBestAvailableCanvasRectResolution(
-        resolveNodeCanvasRectWithSource(
-          document,
-          selectedInspectableNodeId,
-          rendererRef.current,
-          viewport.zoom
-        )
+      setBestAvailableCanvasRect(
+        resolveNodeCanvasRect(document, selectedInspectableNodeId, rendererRef.current, viewport.zoom)
       );
     });
 
@@ -84,34 +68,15 @@ export function SelectionInspector({
       data-inspector-state={selection.kind}
       data-selection-inspector="true"
     >
-      <div className="border-b border-black/10 px-4 py-3">
-        <div className="ui-mono text-[11px] uppercase tracking-[0.16em] text-black/42">
-          Inspector
-        </div>
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <h2 className="m-0 min-w-0 truncate text-[16px] font-semibold tracking-[-0.03em] text-[#111111]">
-            {resolveInspectorTitle(selection)}
-          </h2>
-          <span className="ui-mono shrink-0 text-[11px] uppercase tracking-[0.16em] text-black/42">
-            {selection.kind}
-          </span>
-        </div>
-      </div>
+      <InspectorHeader selection={selection} />
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
         {selection.kind === "document" ? (
-          <DocumentSummaryView
-            document={selection.document}
-            projectId={projectId}
-            projectName={projectName}
-            revision={revision}
-            runtimeCapabilities={runtimeCapabilities}
-          />
+          <DocumentSummaryView document={selection.document} />
         ) : (
           <SelectionDetailView
-            bestAvailableCanvasRectResolution={bestAvailableCanvasRectResolution}
-            measuredCanvasRect={measuredCanvasRect}
-            runtimeCapabilities={runtimeCapabilities}
+            bestAvailableCanvasRect={bestAvailableCanvasRect}
+            document={document}
             selection={selection}
           />
         )}
@@ -120,287 +85,261 @@ export function SelectionInspector({
   );
 }
 
-function DocumentSummaryView({
-  document,
-  projectId,
-  projectName,
-  revision,
-  runtimeCapabilities
+function InspectorHeader({
+  selection
 }: {
-  document: DocumentSummaryInspection;
-  projectId: string;
-  projectName: string;
-  revision: number;
-  runtimeCapabilities: RuntimeCapabilities | null;
+  selection: SelectionInspection;
 }) {
   return (
-    <div className="space-y-4">
-      <InspectorSection description="Current workspace context" title="Workspace">
-        <KeyValueList
-          items={[
-            { label: "Project", value: projectName },
-            { label: "Project ID", value: projectId },
-            { label: "Document", value: document.name },
-            { label: "Document ID", value: document.document_id },
-            { label: "Page", value: document.page_name },
-            { label: "Revision", value: String(revision) },
-            {
-              label: "Runtime",
-              value: runtimeCapabilities ? formatRuntimeCapabilities(runtimeCapabilities) : "Loading"
-            }
-          ]}
-        />
-      </InspectorSection>
+    <div className="border-b border-black/10 px-4 py-3">
+      <div className="ui-mono text-[11px] uppercase tracking-[0.16em] text-black/42">
+        Inspector
+      </div>
+      <div className="mt-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="m-0 truncate text-[16px] font-semibold tracking-[-0.03em] text-[#111111]">
+            {resolveInspectorTitle(selection)}
+          </h2>
+          <div className="mt-1 text-[13px] leading-5 text-black/56">
+            {resolveInspectorSubtitle(selection)}
+          </div>
+        </div>
+        <span className="ui-mono shrink-0 rounded border border-black/10 bg-white/92 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-black/54">
+          {resolveInspectorKindLabel(selection)}
+        </span>
+      </div>
+    </div>
+  );
+}
 
-      <InspectorSection description="Semantic canvas state" title="Canvas">
+function DocumentSummaryView({
+  document
+}: {
+  document: DocumentSummaryInspection;
+}) {
+  const pageRows: InspectorRow[] = [
+    { label: "Page", value: document.page_name },
+    ...(document.canvas_background_color
+      ? [
+          {
+            label: "Canvas",
+            value: <ColorValue color={document.canvas_background_color} />
+          }
+        ]
+      : [])
+  ];
+
+  return (
+    <div className="space-y-4">
+      <InspectorSection title="Page">
         <div className="space-y-3">
-          {document.canvas_semantic_slots.map((slotInspection) => (
-            <SemanticValueCard
-              key={slotInspection.slot}
-              label={slotInspection.slot}
-              resolvedSource={slotInspection.resolved.source_kind}
-              resolvedValue={slotInspection.resolved.value}
-              supportingRows={[
-                { label: "Render field", value: slotInspection.render_field },
-                {
-                  label: "Render value",
-                  value: formatOptionalValue(slotInspection.render_value)
-                },
-                {
-                  label: "Local value",
-                  value: formatOptionalValue(slotInspection.local_value)
-                },
-                {
-                  label: "Variable",
-                  value: formatOptionalValue(slotInspection.variable_id)
-                }
-              ]}
-            />
-          ))}
+          <MetricGrid
+            items={[
+              { label: "W", value: String(document.scene_count), metricLabel: "Scenes" },
+              { label: "H", value: String(document.node_count), metricLabel: "Items" },
+              ...(document.loose_top_level_node_count > 0
+                ? [
+                    {
+                      label: "X" as const,
+                      value: String(document.loose_top_level_node_count),
+                      metricLabel: "Loose"
+                    }
+                  ]
+                : [])
+            ]}
+          />
+          <PropertyList rows={pageRows} />
         </div>
       </InspectorSection>
 
-      <InspectorSection description="Current document counts" title="Stats">
-        <KeyValueList
-          items={[
-            { label: "Scenes", value: String(document.scene_count) },
-            { label: "Nodes", value: String(document.node_count) },
-            { label: "Loose top level", value: String(document.loose_top_level_node_count) },
-            { label: "Assets", value: String(document.asset_count) },
-            { label: "Variable collections", value: String(document.variable_collection_count) },
-            { label: "Variables", value: String(document.variable_count) },
-            { label: "Paint styles", value: String(document.paint_style_count) },
-            { label: "Text styles", value: String(document.text_style_count) }
-          ]}
-        />
-      </InspectorSection>
+      <div className="rounded border border-black/10 bg-white/92 px-3 py-3 text-[13px] leading-6 text-black/56">
+        Select a scene or layer to inspect layout and appearance.
+      </div>
     </div>
   );
 }
 
 function SelectionDetailView({
-  bestAvailableCanvasRectResolution,
-  measuredCanvasRect,
-  runtimeCapabilities,
+  bestAvailableCanvasRect,
+  document,
   selection
 }: {
-  bestAvailableCanvasRectResolution: {
-    rect: CanvasRect;
-    source: NodeCanvasRectSource;
-  } | null;
-  measuredCanvasRect: CanvasRect | null;
-  runtimeCapabilities: RuntimeCapabilities | null;
+  bestAvailableCanvasRect: CanvasRect | null;
+  document: RendererDocument;
   selection: Exclude<SelectionInspection, { kind: "document" }>;
 }) {
   const selectedNode = selection.node;
-  const persistedCanvasRect = selectedNode.computed_layout
-    ? createCanvasRect(selectedNode.computed_layout)
-    : null;
+  const rendererNode = document.nodes[selectedNode.id];
+  const parentRendererNode =
+    rendererNode?.parent_id !== null && rendererNode?.parent_id !== undefined
+      ? document.nodes[rendererNode.parent_id]
+      : undefined;
+  const appearanceRows = resolveAppearanceRows(selectedNode);
+
+  if (!rendererNode) {
+    return null;
+  }
 
   return (
     <div className="space-y-4">
-      <InspectorSection description="Current selection identity" title="Selection">
-        <KeyValueList
-          items={[
-            { label: "Name", value: selectedNode.name },
-            { label: "Kind", value: selectedNode.kind },
-            { label: "Node ID", value: selectedNode.id },
-            { label: "Scene", value: selectedNode.scene_name ?? "None" },
-            { label: "Parent", value: selectedNode.parent_name ?? "Top level" },
-            { label: "Visible", value: selectedNode.is_visible ? "Yes" : "No" },
-            { label: "Locked", value: selectedNode.is_locked ? "Yes" : "No" },
-            { label: "Children", value: String(selectedNode.child_count) },
-            {
-              label: "Mutations",
-              value:
-                runtimeCapabilities?.mode === "read_write" &&
-                runtimeCapabilities.measurementSurfaceAvailable
-                  ? "Allowed"
-                  : "Read only"
-            }
-          ]}
-        />
-        {selectedNode.ancestor_path.length > 0 ? (
-          <div className="mt-3">
-            <div className="ui-mono text-[10px] uppercase tracking-[0.16em] text-black/42">
-              Hierarchy path
-            </div>
-            <div
-              className="mt-2 text-[12px] leading-6 text-black/62"
-              data-inspector-hierarchy-path="true"
-            >
-              {selectedNode.ancestor_path
-                .map((pathItem) => `${pathItem.name} (${pathItem.kind})`)
-                .join(" / ")}
-            </div>
-          </div>
-        ) : null}
-      </InspectorSection>
+      <LayoutSection bestAvailableCanvasRect={bestAvailableCanvasRect} node={selectedNode} />
 
-      {selection.kind === "scene" ? (
-        <InspectorSection description="Scene metadata and frame ownership" title="Scene">
-          <KeyValueList
-            items={[
-              { label: "Scene name", value: selection.scene.name },
-              { label: "Scene ID", value: selection.scene.id },
-              { label: "Frame node", value: selection.scene.frame_node_id },
-              { label: "Scene children", value: String(selection.scene.child_count) },
-              {
-                label: "Group",
-                value: formatOptionalValue(selection.scene.metadata.group)
-              },
-              {
-                label: "Role",
-                value: formatOptionalValue(selection.scene.metadata.role)
-              },
-              {
-                label: "Summary",
-                value: formatOptionalValue(selection.scene.metadata.summary)
-              },
-              {
-                label: "Notes",
-                value: formatOptionalValue(selection.scene.metadata.notes)
-              },
-              {
-                label: "Tags",
-                value:
-                  selection.scene.metadata.tags.length > 0
-                    ? selection.scene.metadata.tags.join(", ")
-                    : "None"
-              }
-            ]}
-          />
+      {isFlexContainer(rendererNode) ? <AutoLayoutSection node={rendererNode} /> : null}
+
+      {isFlexContainer(parentRendererNode) ? <FlexItemSection node={rendererNode} /> : null}
+
+      {appearanceRows.length > 0 ? (
+        <InspectorSection title="Appearance">
+          <PropertyList rows={appearanceRows} />
         </InspectorSection>
       ) : null}
 
-      <InspectorSection description="Measured, persisted, and authored geometry" title="Geometry">
-        <div className="space-y-3">
-          <GeometryCard
-            dataAttribute="measured"
-            rect={measuredCanvasRect}
-            status="No live DOM measurement is available for this selection."
-            title="Measured bounds"
-          />
-          <GeometryCard
-            dataAttribute="computed"
-            rect={persistedCanvasRect}
-            status="No persisted computed_layout snapshot is stored for this node."
-            title="Persisted layout snapshot"
-          />
-          <KeyValueList
-            items={[
-              {
-                label: "Best available",
-                value: describeCanvasRectSource(bestAvailableCanvasRectResolution?.source)
-              },
-              {
-                label: "Snapshot delta",
-                value: resolveGeometryDelta(measuredCanvasRect, persistedCanvasRect)
-              },
-              {
-                label: "Authored left",
-                value: formatOptionalValue(selectedNode.raw_render_style.left)
-              },
-              {
-                label: "Authored top",
-                value: formatOptionalValue(selectedNode.raw_render_style.top)
-              },
-              {
-                label: "Authored width",
-                value: formatOptionalValue(selectedNode.raw_render_style.width)
-              },
-              {
-                label: "Authored height",
-                value: formatOptionalValue(selectedNode.raw_render_style.height)
-              }
-            ]}
-          />
-        </div>
-      </InspectorSection>
-
-      {selectedNode.text_content !== undefined || selectedNode.background_asset ? (
-        <InspectorSection description="Type-specific content details" title="Content">
-          <div className="space-y-3">
-            {selectedNode.text_content !== undefined ? (
-              <ValueBlock label="Text content" value={selectedNode.text_content} />
-            ) : null}
-            {selectedNode.background_asset ? (
-              <AssetCard assetInspection={selectedNode.background_asset} />
-            ) : null}
-          </div>
-        </InspectorSection>
-      ) : null}
-
-      <InspectorSection description="Semantic authoring, bindings, and resolved values" title="Semantics">
-        <div className="space-y-3">
-          {selectedNode.semantic_slots.length === 0 ? (
-            <div className="rounded border border-black/10 bg-white/86 px-3 py-3 text-[13px] text-black/52">
-              No semantic slots for this node kind.
-            </div>
-          ) : (
-            selectedNode.semantic_slots.map((slotInspection) => (
-              <SemanticSlotCard
-                key={slotInspection.slot}
-                slotInspection={slotInspection}
-              />
-            ))
-          )}
-        </div>
-      </InspectorSection>
-
-      <details
-        className="rounded border border-black/10 bg-white/92"
-        data-inspector-raw-style="true"
-      >
-        <summary className="cursor-pointer list-none px-3 py-3 text-[13px] font-medium text-[#111111]">
-          Raw render style
-        </summary>
-        <pre className="m-0 overflow-auto border-t border-black/8 px-3 py-3 text-[11px] leading-5 text-black/62">
-          {JSON.stringify(selectedNode.raw_render_style, null, 2)}
-        </pre>
-      </details>
+      {selectedNode.text_content !== undefined ? <TextSection node={selectedNode} /> : null}
     </div>
   );
 }
 
-function resolveInspectorTitle(selection: SelectionInspection): string {
-  switch (selection.kind) {
-    case "document":
-      return "Document Summary";
-    case "scene":
-      return selection.scene.name;
-    case "node":
-      return selection.node.name;
-  }
+function LayoutSection({
+  bestAvailableCanvasRect,
+  node
+}: {
+  bestAvailableCanvasRect: CanvasRect | null;
+  node: NodeInspectorInspection;
+}) {
+  const metrics = resolveLayoutMetrics(node, bestAvailableCanvasRect);
+  const rows: InspectorRow[] = [
+    {
+      label: "Position",
+      value: resolvePositionLabel(node)
+    }
+  ];
+
+  return (
+    <InspectorSection title="Layout">
+      <div className="space-y-3">
+        {metrics.length > 0 ? (
+          <MetricGrid items={metrics} />
+        ) : (
+          <div className="rounded border border-dashed border-black/12 bg-[var(--chrome-surface-subtle)] px-3 py-3 text-[13px] leading-6 text-black/52">
+            Layout details will appear after measurement resolves.
+          </div>
+        )}
+        <PropertyList rows={rows} />
+      </div>
+    </InspectorSection>
+  );
+}
+
+function AutoLayoutSection({
+  node
+}: {
+  node: RendererNode;
+}) {
+  const paddingInsets = resolveFramePaddingInsets(node);
+  const rows: InspectorRow[] = [
+    {
+      label: "Direction",
+      value: resolveFlexDirectionLabel(node.render_style.flexDirection)
+    },
+    {
+      label: "Gap",
+      value: resolveGapSummary(node.render_style)
+    },
+    ...(paddingInsets
+      ? [
+          {
+            label: "Padding",
+            value: formatInsets(paddingInsets)
+          }
+        ]
+      : []),
+    {
+      label: "Align",
+      value: resolveAlignmentLabel(node.render_style.alignItems, "Stretch")
+    },
+    {
+      label: "Distribute",
+      value: resolveAlignmentLabel(node.render_style.justifyContent, "Start")
+    },
+    {
+      label: "Clip",
+      value: resolveClipContentLabel(node.render_style)
+    }
+  ];
+
+  return (
+    <InspectorSection title="Auto Layout">
+      <PropertyList rows={rows} />
+    </InspectorSection>
+  );
+}
+
+function FlexItemSection({
+  node
+}: {
+  node: RendererNode;
+}) {
+  const rows: InspectorRow[] = [
+    {
+      label: "Grow",
+      value: formatStyleValue(node.render_style.flexGrow) ?? "0"
+    },
+    {
+      label: "Shrink",
+      value: formatStyleValue(node.render_style.flexShrink) ?? "1"
+    },
+    {
+      label: "Basis",
+      value: formatStyleValue(node.render_style.flexBasis) ?? "Auto"
+    },
+    {
+      label: "Align",
+      value: resolveAlignmentLabel(node.render_style.alignSelf, "Auto")
+    }
+  ];
+
+  return (
+    <InspectorSection title="Flex Item">
+      <PropertyList rows={rows} />
+    </InspectorSection>
+  );
+}
+
+function TextSection({
+  node
+}: {
+  node: NodeInspectorInspection;
+}) {
+  const rows: InspectorRow[] = [
+    maybeCreateRow("Font", node.raw_render_style.fontFamily),
+    maybeCreateRow("Size", node.raw_render_style.fontSize),
+    maybeCreateRow("Weight", node.raw_render_style.fontWeight),
+    maybeCreateRow("Line height", node.raw_render_style.lineHeight),
+    maybeCreateRow("Letter spacing", node.raw_render_style.letterSpacing),
+    maybeCreateKeywordRow("Align", node.raw_render_style.textAlign),
+    maybeCreateKeywordRow("Transform", node.raw_render_style.textTransform)
+  ].filter((row): row is InspectorRow => row !== null);
+
+  return (
+    <InspectorSection title="Text">
+      <div className="space-y-3">
+        <div
+          className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded border border-black/10 bg-[var(--chrome-surface-subtle)] px-3 py-3 text-[13px] leading-6 text-[#111111]"
+          data-inspector-text-preview="true"
+        >
+          {node.text_content}
+        </div>
+        {rows.length > 0 ? <PropertyList rows={rows} /> : null}
+      </div>
+    </InspectorSection>
+  );
 }
 
 function InspectorSection({
   children,
-  description,
   title
 }: {
   children: ReactNode;
-  description: string;
   title: string;
 }) {
   return (
@@ -408,31 +347,55 @@ function InspectorSection({
       className="rounded border border-black/10 bg-white/92"
       data-inspector-section={title.toLowerCase().replace(/\s+/g, "-")}
     >
-      <div className="border-b border-black/8 px-3 py-3">
+      <div className="border-b border-black/8 px-3 py-2.5">
         <div className="ui-mono text-[10px] uppercase tracking-[0.16em] text-black/42">
           {title}
         </div>
-        <div className="mt-1 text-[12px] leading-5 text-black/56">{description}</div>
       </div>
       <div className="px-3 py-3">{children}</div>
     </section>
   );
 }
 
-function KeyValueList({
+function MetricGrid({
   items
 }: {
-  items: Array<{ label: string; value: string }>;
+  items: Array<InspectorMetric | (InspectorMetric & { metricLabel: string })>;
 }) {
   return (
-    <dl className="grid grid-cols-[minmax(0,120px)_minmax(0,1fr)] gap-x-3 gap-y-2">
+    <div className="grid grid-cols-2 gap-2" data-inspector-metrics="true">
       {items.map((item) => (
-        <div className="contents" key={item.label}>
-          <dt className="ui-mono text-[10px] uppercase tracking-[0.16em] text-black/42">
-            {item.label}
-          </dt>
-          <dd className="m-0 break-words text-[13px] leading-5 text-[#111111]">
+        <div
+          className="rounded border border-black/10 bg-[var(--chrome-surface-subtle)] px-3 py-2.5"
+          data-inspector-metric={item.label.toLowerCase()}
+          key={`${item.label}-${item.value}`}
+        >
+          <div className="ui-mono text-[10px] uppercase tracking-[0.14em] text-black/42">
+            {"metricLabel" in item ? item.metricLabel : item.label}
+          </div>
+          <div className="mt-1 text-[16px] font-semibold tracking-[-0.03em] text-[#111111]">
             {item.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PropertyList({
+  rows
+}: {
+  rows: InspectorRow[];
+}) {
+  return (
+    <dl className="space-y-2.5">
+      {rows.map((row) => (
+        <div className="flex items-start justify-between gap-3" key={row.label}>
+          <dt className="ui-mono pt-0.5 text-[10px] uppercase tracking-[0.16em] text-black/42">
+            {row.label}
+          </dt>
+          <dd className="m-0 min-w-0 text-right text-[13px] leading-5 text-[#111111]">
+            {row.value}
           </dd>
         </div>
       ))}
@@ -440,230 +403,343 @@ function KeyValueList({
   );
 }
 
-function SemanticSlotCard({
-  slotInspection
+function ColorValue({
+  color
 }: {
-  slotInspection: NodeSemanticSlotInspection;
+  color: string;
 }) {
-  const rows = [
-    {
-      label: "Render key",
-      value: slotInspection.render_key
-    },
-    {
-      label: "Render value",
-      value: formatOptionalValue(slotInspection.render_value)
-    },
-    {
-      label: "Local value",
-      value: formatOptionalValue(slotInspection.local_value)
-    },
-    {
-      label: "Variable",
-      value: formatOptionalValue(slotInspection.variable_id)
-    },
-    {
-      label: "Style family",
-      value: formatOptionalValue(slotInspection.style_family)
-    },
-    {
-      label: "Style",
-      value: formatOptionalValue(slotInspection.style_id)
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span
+        aria-hidden="true"
+        className="h-3 w-3 rounded-[3px] border border-black/14"
+        style={{
+          backgroundColor: color
+        }}
+      />
+      <span>{color}</span>
+    </span>
+  );
+}
+
+function maybeCreateRow(label: string, value: unknown): InspectorRow | null {
+  const formattedValue = formatStyleValue(value);
+
+  return formattedValue ? { label, value: formattedValue } : null;
+}
+
+function maybeCreateKeywordRow(label: string, value: unknown): InspectorRow | null {
+  const formattedValue = typeof value === "string" ? formatKeywordValue(value) : null;
+
+  return formattedValue ? { label, value: formattedValue } : null;
+}
+
+function resolveLayoutMetrics(
+  node: NodeInspectorInspection,
+  bestAvailableCanvasRect: CanvasRect | null
+): InspectorMetric[] {
+  const metrics: InspectorMetric[] = [];
+  const shouldShowPositionMetrics = node.parent_id === null || node.raw_render_style.position === "absolute";
+  const x = shouldShowPositionMetrics
+    ? bestAvailableCanvasRect?.x ?? parseFiniteCanvasLength(node.raw_render_style.left)
+    : null;
+  const y = shouldShowPositionMetrics
+    ? bestAvailableCanvasRect?.y ?? parseFiniteCanvasLength(node.raw_render_style.top)
+    : null;
+  const width =
+    bestAvailableCanvasRect?.width ?? parseFiniteCanvasLength(node.raw_render_style.width);
+  const height =
+    bestAvailableCanvasRect?.height ?? parseFiniteCanvasLength(node.raw_render_style.height);
+
+  if (x !== null) {
+    metrics.push({ label: "X", value: formatRoundedNumber(x) });
+  }
+
+  if (y !== null) {
+    metrics.push({ label: "Y", value: formatRoundedNumber(y) });
+  }
+
+  if (width !== null) {
+    metrics.push({ label: "W", value: formatRoundedNumber(width) });
+  }
+
+  if (height !== null) {
+    metrics.push({ label: "H", value: formatRoundedNumber(height) });
+  }
+
+  return metrics;
+}
+
+function resolveAppearanceRows(node: NodeInspectorInspection): InspectorRow[] {
+  const rows: InspectorRow[] = [];
+  const backgroundColor =
+    typeof node.raw_render_style.backgroundColor === "string"
+      ? node.raw_render_style.backgroundColor
+      : null;
+  const radius = formatStyleValue(node.raw_render_style.borderRadius);
+  const opacity = formatOpacityValue(node.raw_render_style.opacity);
+
+  if (backgroundColor) {
+    rows.push({
+      label: "Fill",
+      value: <ColorValue color={backgroundColor} />
+    });
+  }
+
+  if (node.background_asset) {
+    rows.push({
+      label: "Image",
+      value: describeBackgroundAsset(node.background_asset)
+    });
+  }
+
+  if (radius) {
+    rows.push({
+      label: "Radius",
+      value: radius
+    });
+  }
+
+  if (opacity) {
+    rows.push({
+      label: "Opacity",
+      value: opacity
+    });
+  }
+
+  return rows;
+}
+
+function resolveInspectorTitle(selection: SelectionInspection): string {
+  switch (selection.kind) {
+    case "document":
+      return selection.document.name;
+    case "scene":
+      return selection.scene.name;
+    case "node":
+      return selection.node.name;
+  }
+}
+
+function resolveInspectorSubtitle(selection: SelectionInspection): string {
+  switch (selection.kind) {
+    case "document":
+      return "Nothing selected";
+    case "scene":
+      return "Scene frame";
+    case "node": {
+      const labels = [selection.node.parent_name ? `Inside ${selection.node.parent_name}` : "Top level"];
+
+      if (!selection.node.is_visible) {
+        labels.push("Hidden");
+      }
+
+      if (selection.node.is_locked) {
+        labels.push("Locked");
+      }
+
+      return labels.join(" · ");
     }
-  ];
-
-  return (
-    <SemanticValueCard
-      label={slotInspection.slot}
-      resolvedSource={slotInspection.resolved.source_kind}
-      resolvedValue={slotInspection.resolved.value}
-      supportingRows={rows}
-    />
-  );
+  }
 }
 
-function SemanticValueCard({
-  label,
-  resolvedSource,
-  resolvedValue,
-  supportingRows
-}: {
-  label: string;
-  resolvedSource: string;
-  resolvedValue: unknown;
-  supportingRows: Array<{ label: string; value: string }>;
-}) {
-  return (
-    <div className="rounded border border-black/10 bg-[var(--chrome-surface-subtle)] px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[13px] font-medium text-[#111111]">{label}</div>
-          <div className="mt-1 text-[12px] leading-5 text-black/56">
-            Resolved to {formatOptionalValue(resolvedValue)}
-          </div>
-        </div>
-        <span
-          className={cn(
-            "ui-mono shrink-0 rounded px-2 py-1 text-[10px] uppercase tracking-[0.14em]",
-            resolveSourceClassName(resolvedSource)
-          )}
-        >
-          {resolvedSource}
-        </span>
-      </div>
-      <div className="mt-3">
-        <KeyValueList items={supportingRows} />
-      </div>
-    </div>
-  );
+function resolveInspectorKindLabel(selection: SelectionInspection): string {
+  switch (selection.kind) {
+    case "document":
+      return "Page";
+    case "scene":
+      return "Scene";
+    case "node":
+      return resolveNodeKindLabel(selection.node);
+  }
 }
 
-function GeometryCard({
-  dataAttribute,
-  rect,
-  status,
-  title
-}: {
-  dataAttribute: string;
-  rect: CanvasRect | null;
-  status: string;
-  title: string;
-}) {
-  return (
-    <div
-      className="rounded border border-black/10 bg-[var(--chrome-surface-subtle)] px-3 py-3"
-      data-inspector-geometry={dataAttribute}
-    >
-      <div className="text-[13px] font-medium text-[#111111]">{title}</div>
-      <div className="mt-2">
-        <KeyValueList
-          items={
-            rect
-              ? [
-                  { label: "X", value: formatRoundedNumber(rect.x) },
-                  { label: "Y", value: formatRoundedNumber(rect.y) },
-                  { label: "Width", value: formatRoundedNumber(rect.width) },
-                  { label: "Height", value: formatRoundedNumber(rect.height) }
-                ]
-              : [{ label: "Status", value: status }]
-          }
-        />
-      </div>
-    </div>
-  );
+function resolveNodeKindLabel(node: NodeInspectorInspection): string {
+  if (node.background_asset && node.kind !== "text") {
+    return "Image";
+  }
+
+  switch (node.kind) {
+    case "frame":
+      return "Frame";
+    case "rectangle":
+      return "Rectangle";
+    case "text":
+      return "Text";
+    case "svg":
+      return "SVG";
+    case "svg-visual-element":
+      return "Vector";
+  }
 }
 
-function AssetCard({
-  assetInspection
-}: {
-  assetInspection: BackgroundAssetInspection;
-}) {
+function resolvePositionLabel(node: NodeInspectorInspection): string {
+  if (node.parent_id === null) {
+    return "Top level";
+  }
+
+  if (node.raw_render_style.position === "absolute") {
+    return "Absolute";
+  }
+
+  return "In flow";
+}
+
+function isFlexContainer(node: RendererNode | undefined): node is RendererNode {
+  return node?.kind === "frame" && node.render_style.display === "flex";
+}
+
+function resolveFlexDirectionLabel(value: unknown): string {
+  if (value === "column") {
+    return "Vertical";
+  }
+
+  if (value === "row") {
+    return "Horizontal";
+  }
+
+  return "Default";
+}
+
+function resolveGapSummary(renderStyle: RendererNode["render_style"]): string {
+  const gap = formatStyleValue(renderStyle.gap);
+
+  if (gap) {
+    return gap;
+  }
+
+  const rowGap = formatStyleValue(renderStyle.rowGap);
+  const columnGap = formatStyleValue(renderStyle.columnGap);
+
+  if (rowGap && columnGap) {
+    return rowGap === columnGap ? rowGap : `${rowGap} / ${columnGap}`;
+  }
+
+  return rowGap ?? columnGap ?? "0";
+}
+
+function resolveAlignmentLabel(value: unknown, fallback: string): string {
+  return typeof value === "string" ? formatKeywordValue(value) ?? fallback : fallback;
+}
+
+function resolveClipContentLabel(renderStyle: RendererNode["render_style"]): string {
+  const overflowValues = [renderStyle.overflow, renderStyle.overflowX, renderStyle.overflowY];
+
+  return overflowValues.some((value) => value !== undefined && value !== "visible") ? "On" : "Off";
+}
+
+function describeBackgroundAsset(assetInspection: BackgroundAssetInspection): string {
   const asset = assetInspection.asset;
+  const parts = ["Image fill"];
+  const mimeLabel = asset.mime_type.split("/")[1];
 
-  return (
-    <div className="rounded border border-black/10 bg-[var(--chrome-surface-subtle)] px-3 py-3">
-      <div className="text-[13px] font-medium text-[#111111]">Background asset</div>
-      <div className="mt-2">
-        <KeyValueList
-          items={[
-            { label: "Asset ID", value: assetInspection.asset_id },
-            { label: "Kind", value: asset.kind },
-            { label: "Mime", value: asset.mime_type },
-            { label: "Source", value: assetInspection.source_kind },
-            { label: "Width", value: formatOptionalValue(asset.width) },
-            { label: "Height", value: formatOptionalValue(asset.height) }
-          ]}
-        />
-      </div>
-    </div>
-  );
+  if (mimeLabel) {
+    parts.push(mimeLabel.toUpperCase());
+  }
+
+  if (typeof asset.width === "number" && typeof asset.height === "number") {
+    parts.push(`${formatRoundedNumber(asset.width)} × ${formatRoundedNumber(asset.height)}`);
+  }
+
+  return parts.join(" · ");
 }
 
-function ValueBlock({
-  label,
-  value
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div>
-      <div className="ui-mono text-[10px] uppercase tracking-[0.16em] text-black/42">{label}</div>
-      <div className="mt-2 whitespace-pre-wrap rounded border border-black/10 bg-[var(--chrome-surface-subtle)] px-3 py-3 text-[13px] leading-6 text-[#111111]">
-        {value}
-      </div>
-    </div>
-  );
+function formatOpacityValue(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `${formatRoundedNumber(value * 100)}%`;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const numericValue = Number.parseFloat(trimmedValue);
+
+  if (trimmedValue.endsWith("%") || Number.isNaN(numericValue)) {
+    return trimmedValue;
+  }
+
+  return `${formatRoundedNumber(numericValue * 100)}%`;
 }
 
-function formatRuntimeCapabilities(runtimeCapabilities: RuntimeCapabilities): string {
-  return `${runtimeCapabilities.mode === "read_write" ? "Read/write" : "Read only"} / ${runtimeCapabilities.runtimeState}`;
-}
-
-function formatOptionalValue(value: unknown): string {
+function formatStyleValue(value: unknown): string | null {
   if (value === undefined || value === null) {
-    return "Unset";
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return formatRoundedNumber(value);
   }
 
   if (typeof value === "string") {
-    return value.length > 0 ? value : "Empty";
+    const trimmedValue = value.trim();
+    return trimmedValue.length > 0 ? trimmedValue : null;
   }
 
   return String(value);
 }
 
+function formatKeywordValue(value: string): string | null {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  switch (normalizedValue) {
+    case "flex-start":
+      return "Start";
+    case "flex-end":
+      return "End";
+    case "space-between":
+      return "Space Between";
+    case "space-around":
+      return "Space Around";
+    case "space-evenly":
+      return "Space Evenly";
+    default:
+      return normalizedValue
+        .split(/[-_]/)
+        .map((part) => {
+          if (!part) {
+            return part;
+          }
+
+          return `${part[0].toUpperCase()}${part.slice(1)}`;
+        })
+        .join(" ");
+  }
+}
+
+function formatInsets(insets: EdgeInsets): string {
+  const top = formatRoundedNumber(insets.top);
+  const right = formatRoundedNumber(insets.right);
+  const bottom = formatRoundedNumber(insets.bottom);
+  const left = formatRoundedNumber(insets.left);
+
+  if (top === right && top === bottom && top === left) {
+    return top;
+  }
+
+  if (top === bottom && right === left) {
+    return `${top} ${right}`;
+  }
+
+  if (right === left) {
+    return `${top} ${right} ${bottom}`;
+  }
+
+  return `${top} ${right} ${bottom} ${left}`;
+}
+
 function formatRoundedNumber(value: number): string {
-  return `${Math.round(value * 100) / 100}`;
-}
+  const roundedValue = Math.round(value * 100) / 100;
 
-function describeCanvasRectSource(source: NodeCanvasRectSource | undefined): string {
-  switch (source) {
-    case "measured_dom":
-      return "Live DOM measurement";
-    case "computed_layout":
-      return "Persisted computed_layout snapshot";
-    case "authored_render_style":
-      return "Authored pixel inputs";
-    default:
-      return "Unavailable";
-  }
-}
-
-function resolveGeometryDelta(
-  measuredRect: CanvasRect | null,
-  persistedRect: CanvasRect | null
-): string {
-  if (!measuredRect || !persistedRect) {
-    return "Unavailable";
-  }
-
-  const deltaX = measuredRect.x - persistedRect.x;
-  const deltaY = measuredRect.y - persistedRect.y;
-  const deltaWidth = measuredRect.width - persistedRect.width;
-  const deltaHeight = measuredRect.height - persistedRect.height;
-  const deltaValues = [deltaX, deltaY, deltaWidth, deltaHeight];
-
-  if (deltaValues.every((value) => Math.abs(value) < 0.01)) {
-    return "Matches current DOM measurement";
-  }
-
-  return `dx ${formatRoundedNumber(deltaX)}, dy ${formatRoundedNumber(deltaY)}, dw ${formatRoundedNumber(deltaWidth)}, dh ${formatRoundedNumber(deltaHeight)}`;
-}
-
-function resolveSourceClassName(sourceKind: string): string {
-  switch (sourceKind) {
-    case "local":
-      return "border border-black/10 bg-black/[0.05] text-black/62";
-    case "variable":
-    case "style-variable":
-      return "border border-black/12 bg-black/[0.10] text-black/70";
-    case "style":
-      return "border border-black/14 bg-black/[0.16] text-black/78";
-    case "unset":
-      return "border border-black/10 bg-black/[0.06] text-black/52";
-    case "unresolved":
-      return "bg-[var(--chrome-surface-strong)] text-[var(--chrome-ink-inverse)]";
-    default:
-      return "border border-black/10 bg-black/[0.06] text-black/52";
-  }
+  return Number.isInteger(roundedValue) ? String(roundedValue) : `${roundedValue}`;
 }

@@ -100,6 +100,14 @@ function countMatches(value: string, pattern: RegExp): number {
   return value.match(pattern)?.length ?? 0;
 }
 
+async function flushAnimationFrame() {
+  await act(async () => {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 const runtimeCapabilities: RuntimeCapabilities = {
   measurementSurfaceAvailable: true,
   mode: "read_write",
@@ -263,24 +271,41 @@ function createDocumentWithInspectorFixtures(): RendererDocument {
   document.nodes.scene_home.render_style.backgroundImage = "url(asset://asset_scene)";
   document.nodes.scene_home.render_style.display = "flex";
   document.nodes.scene_home.render_style.flexDirection = "row";
+  document.nodes.scene_home.render_style.gap = 24;
+  document.nodes.scene_home.render_style.paddingTop = 32;
+  document.nodes.scene_home.render_style.paddingRight = 24;
+  document.nodes.scene_home.render_style.paddingBottom = 32;
+  document.nodes.scene_home.render_style.paddingLeft = 24;
+  document.nodes.scene_home.render_style.justifyContent = "space-between";
+  document.nodes.scene_home.render_style.alignItems = "center";
+  document.nodes.scene_home.render_style.overflow = "hidden";
+  document.nodes.scene_home.render_style.borderRadius = 28;
+  document.nodes.scene_home.render_style.opacity = 0.96;
   document.nodes.rect_loose.render_style.backgroundImage = "url(asset://asset_loose)";
+  document.nodes.rect_loose.render_style.position = "absolute";
+  document.nodes.rect_loose.render_style.borderRadius = 16;
+  document.nodes.rect_loose.render_style.opacity = 0.72;
   document.assets.asset_scene = {
     id: "asset_scene",
     kind: "image",
     mime_type: "image/png",
+    height: 900,
     source: {
       data_uri: "data:image/png;base64,AAAA",
       kind: "data_uri"
-    }
+    },
+    width: 1440
   };
   document.assets.asset_loose = {
     id: "asset_loose",
     kind: "image",
     mime_type: "image/png",
+    height: 1200,
     source: {
       data_uri: "data:image/png;base64,AAAA",
       kind: "data_uri"
-    }
+    },
+    width: 1600
   };
 
   return document;
@@ -338,6 +363,13 @@ function createDocumentWithSelectionInspectorFixtures(): RendererDocument {
   };
   document.nodes.text_title.authoring.local_values["node.typography.font_size"] = 32;
   document.nodes.text_title.authoring.variable_bindings["node.text.color"] = "color_text";
+  document.nodes.text_title.render_style.flexGrow = 1;
+  document.nodes.text_title.render_style.flexShrink = 0;
+  document.nodes.text_title.render_style.flexBasis = 160;
+  document.nodes.text_title.render_style.alignSelf = "stretch";
+  document.nodes.text_title.render_style.lineHeight = 40;
+  document.nodes.text_title.render_style.letterSpacing = 0.25;
+  document.nodes.text_title.render_style.textAlign = "left";
   document.nodes.text_title.computed_layout = {
     height: 38,
     width: 220,
@@ -549,6 +581,18 @@ function getSelectionInspector(harness: RenderHarness): HTMLElement | null {
   ) as HTMLElement | null;
 }
 
+function getInspectorSection(harness: RenderHarness, sectionName: string): HTMLElement | null {
+  return harness.container.querySelector(
+    `[data-inspector-section="${sectionName}"]`
+  ) as HTMLElement | null;
+}
+
+function getInspectorMetric(section: Element | null, metric: string): HTMLElement | null {
+  return section?.querySelector(
+    `[data-inspector-metric="${metric}"]`
+  ) as HTMLElement | null;
+}
+
 beforeEach(() => {
   scrollIntoViewMock = vi.fn();
 
@@ -703,18 +747,24 @@ describe("DocumentWorkspaceScreen", () => {
 
     try {
       const inspector = getSelectionInspector(harness) as HTMLElement;
+      const pageSection = getInspectorSection(harness, "page") as HTMLElement;
 
       expect(inspector.getAttribute("data-inspector-state")).toBe("document");
-      expect(inspector.textContent).toContain("Document Summary");
       expect(inspector.textContent).toContain("Selection Fixture");
-      expect(inspector.textContent).toContain("canvas.background_color");
-      expect(inspector.textContent).toContain("Loose top level");
+      expect(inspector.textContent).toContain("Nothing selected");
+      expect(pageSection.textContent).toContain("Scenes");
+      expect(pageSection.textContent).toContain("Items");
+      expect(pageSection.textContent).toContain("Loose");
+      expect(pageSection.textContent).toContain("#f5f5f5");
+      expect(inspector.textContent).not.toContain("canvas.background_color");
+      expect(inspector.textContent).not.toContain("Project ID");
+      expect(inspector.textContent).not.toContain("Variable collections");
     } finally {
       harness.cleanup();
     }
   });
 
-  it("shows scene metadata in the right inspector for scene-root selection", async () => {
+  it("shows layout and auto layout details for scene-root selection", async () => {
     const harness = renderIntoDom(
       createActiveProject(createDocumentWithSelectionInspectorFixtures())
     );
@@ -726,29 +776,33 @@ describe("DocumentWorkspaceScreen", () => {
         getLayerRow(harness, "scene_home")?.click();
       });
 
-      await act(async () => {
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => resolve());
-        });
-      });
+      await flushAnimationFrame();
 
       const inspector = getSelectionInspector(harness) as HTMLElement;
-      const measuredGeometry = inspector.querySelector(
-        '[data-inspector-geometry="measured"]'
-      ) as HTMLElement;
+      const layoutSection = getInspectorSection(harness, "layout") as HTMLElement;
+      const autoLayoutSection = getInspectorSection(harness, "auto-layout") as HTMLElement;
 
       expect(inspector.getAttribute("data-inspector-state")).toBe("scene");
-      expect(inspector.textContent).toContain("Scene name");
-      expect(inspector.textContent).toContain("Scene ID");
-      expect(inspector.textContent).toContain("scene_home");
-      expect(measuredGeometry.textContent).toContain("390");
-      expect(measuredGeometry.textContent).toContain("844");
+      expect(inspector.textContent).toContain("Scene frame");
+      expect(getInspectorMetric(layoutSection, "x")?.textContent).toContain("80");
+      expect(getInspectorMetric(layoutSection, "y")?.textContent).toContain("80");
+      expect(getInspectorMetric(layoutSection, "w")?.textContent).toContain("390");
+      expect(getInspectorMetric(layoutSection, "h")?.textContent).toContain("844");
+      expect(layoutSection.textContent).toContain("Top level");
+      expect(autoLayoutSection.textContent).toContain("Horizontal");
+      expect(autoLayoutSection.textContent).toContain("24");
+      expect(autoLayoutSection.textContent).toContain("32 24");
+      expect(autoLayoutSection.textContent).toContain("Space Between");
+      expect(autoLayoutSection.textContent).toContain("On");
+      expect(inspector.textContent).not.toContain("Scene ID");
+      expect(inspector.textContent).not.toContain("Raw render style");
+      expect(inspector.textContent).not.toContain("Semantics");
     } finally {
       harness.cleanup();
     }
   });
 
-  it("shows node semantics and content in the right inspector for node selection", () => {
+  it("shows flex item and text details for in-flow child selection", async () => {
     const harness = renderIntoDom(
       createActiveProject(createDocumentWithSelectionInspectorFixtures())
     );
@@ -760,14 +814,65 @@ describe("DocumentWorkspaceScreen", () => {
         getLayerRow(harness, "text_title")?.click();
       });
 
+      await flushAnimationFrame();
+
       const inspector = getSelectionInspector(harness) as HTMLElement;
+      const layoutSection = getInspectorSection(harness, "layout") as HTMLElement;
+      const flexItemSection = getInspectorSection(harness, "flex-item") as HTMLElement;
+      const textSection = getInspectorSection(harness, "text") as HTMLElement;
 
       expect(inspector.getAttribute("data-inspector-state")).toBe("node");
-      expect(inspector.textContent).toContain("Text content");
-      expect(inspector.textContent).toContain("Hello from MCP");
-      expect(inspector.textContent).toContain("node.typography.font_size");
-      expect(inspector.textContent).toContain("node.text.color");
-      expect(inspector.textContent).toContain("Hierarchy path");
+      expect(inspector.textContent).toContain("Inside Home");
+      expect(layoutSection.textContent).toContain("In flow");
+      expect(getInspectorMetric(layoutSection, "x")).toBeNull();
+      expect(getInspectorMetric(layoutSection, "y")).toBeNull();
+      expect(getInspectorMetric(layoutSection, "w")?.textContent).toContain("220");
+      expect(getInspectorMetric(layoutSection, "h")?.textContent).toContain("38");
+      expect(flexItemSection.textContent).toContain("Grow");
+      expect(flexItemSection.textContent).toContain("1");
+      expect(flexItemSection.textContent).toContain("Shrink");
+      expect(flexItemSection.textContent).toContain("0");
+      expect(flexItemSection.textContent).toContain("160");
+      expect(textSection.textContent).toContain("Hello from MCP");
+      expect(textSection.textContent).toContain("IBM Plex Sans");
+      expect(textSection.textContent).toContain("Line height");
+      expect(textSection.textContent).toContain("Letter spacing");
+      expect(inspector.textContent).not.toContain("Hierarchy path");
+      expect(inspector.textContent).not.toContain("node.text.color");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("shows x, y, width, and height for absolute selections without debug fields", async () => {
+    const harness = renderIntoDom(
+      createActiveProject(createDocumentWithSelectionInspectorFixtures())
+    );
+
+    try {
+      assignInteractionGeometry(harness);
+
+      act(() => {
+        getLayerRow(harness, "rect_loose")?.click();
+      });
+
+      await flushAnimationFrame();
+
+      const inspector = getSelectionInspector(harness) as HTMLElement;
+      const layoutSection = getInspectorSection(harness, "layout") as HTMLElement;
+      const appearanceSection = getInspectorSection(harness, "appearance") as HTMLElement;
+
+      expect(inspector.getAttribute("data-inspector-state")).toBe("node");
+      expect(inspector.textContent).toContain("Top level");
+      expect(getInspectorMetric(layoutSection, "x")?.textContent).toContain("520");
+      expect(getInspectorMetric(layoutSection, "y")?.textContent).toContain("160");
+      expect(getInspectorMetric(layoutSection, "w")?.textContent).toContain("180");
+      expect(getInspectorMetric(layoutSection, "h")?.textContent).toContain("120");
+      expect(appearanceSection.textContent).toContain("Image fill");
+      expect(appearanceSection.textContent).toContain("PNG");
+      expect(appearanceSection.textContent).toContain("72%");
+      expect(inspector.textContent).not.toContain("Asset ID");
+      expect(inspector.textContent).not.toContain("Raw render style");
     } finally {
       harness.cleanup();
     }

@@ -558,11 +558,7 @@ export function DocumentWorkspaceScreen({
 
         <SelectionInspector
           document={activeProject.document}
-          projectId={activeProject.project.id}
-          projectName={activeProject.project.name}
           rendererRef={rendererRef}
-          revision={activeProject.revision}
-          runtimeCapabilities={runtimeCapabilities}
           selectedNodeId={selectedNodeId}
           viewport={viewport}
         />
