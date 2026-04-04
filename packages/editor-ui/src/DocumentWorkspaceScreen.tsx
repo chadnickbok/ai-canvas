@@ -169,7 +169,6 @@ export function DocumentWorkspaceScreen({
   const sceneCount = Object.keys(activeProject.document.scenes).length;
   const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
   const rendererRef = useRef<RendererMeasurementHandle | null>(null);
-  const latestRevisionRef = useRef(activeProject.revision);
   const [selectionState, setSelectionState] = useState<{
     nodeId: string | null;
     sequence: number;
@@ -278,10 +277,6 @@ export function DocumentWorkspaceScreen({
       : formatViewportZoomPercent(viewport.zoom);
 
   useEffect(() => {
-    latestRevisionRef.current = activeProject.revision;
-  }, [activeProject.revision]);
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         event.repeat ||
@@ -354,39 +349,21 @@ export function DocumentWorkspaceScreen({
         };
       }
 
-      const applyFillUpdate = (baseRevision: number) =>
-        onApplyCommands({
-          base_revision: baseRevision,
-          commands: [
-            {
-              node_id: nodeId,
-              patch: {
-                render_style: {
-                  backgroundColor: color
-                }
-              },
-              type: "update_node"
-            }
-          ],
-          document_id: activeProject.document.document_id
-        });
-
-      const initialRevision = latestRevisionRef.current;
-      let result = await applyFillUpdate(initialRevision);
-
-      const isBaseRevisionMismatch =
-        !result.ok &&
-        typeof result.error.message === "string" &&
-        result.error.message.toLowerCase().includes("base_revision");
-
-      if (isBaseRevisionMismatch) {
-        // Runtime events can advance revision in parallel; retry once with the freshest known revision.
-        const retryRevision = latestRevisionRef.current;
-
-        if (retryRevision !== initialRevision) {
-          result = await applyFillUpdate(retryRevision);
-        }
-      }
+      const result = await onApplyCommands({
+        base_revision: activeProject.revision,
+        commands: [
+          {
+            node_id: nodeId,
+            patch: {
+              render_style: {
+                backgroundColor: color
+              }
+            },
+            type: "update_node"
+          }
+        ],
+        document_id: activeProject.document.document_id
+      });
 
       if (!result.ok) {
         return {
@@ -399,7 +376,7 @@ export function DocumentWorkspaceScreen({
         ok: true as const
       };
     },
-    [activeProject.document.document_id, onApplyCommands]
+    [activeProject.document.document_id, activeProject.revision, onApplyCommands]
   );
 
   const commitZoomInput = () => {
