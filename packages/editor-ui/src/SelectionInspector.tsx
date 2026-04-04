@@ -19,7 +19,12 @@ import {
 import type { RendererMeasurementHandle, ViewportState } from "./rendering/types.js";
 
 type SelectionInspectorProps = {
+  canEditAppearance?: boolean;
   document: RendererDocument;
+  onUpdateNodeFillColor?: (
+    nodeId: string,
+    color: string
+  ) => Promise<{ errorMessage?: string; ok: boolean }>;
   rendererRef: RefObject<RendererMeasurementHandle | null>;
   selectedNodeId: string | null;
   viewport: ViewportState;
@@ -36,7 +41,9 @@ type InspectorRow = {
 };
 
 export function SelectionInspector({
+  canEditAppearance = false,
   document,
+  onUpdateNodeFillColor,
   rendererRef,
   selectedNodeId,
   viewport
@@ -76,7 +83,9 @@ export function SelectionInspector({
         ) : (
           <SelectionDetailView
             bestAvailableCanvasRect={bestAvailableCanvasRect}
+            canEditAppearance={canEditAppearance}
             document={document}
+            onUpdateNodeFillColor={onUpdateNodeFillColor}
             selection={selection}
           />
         )}
@@ -161,11 +170,18 @@ function DocumentSummaryView({
 
 function SelectionDetailView({
   bestAvailableCanvasRect,
+  canEditAppearance,
   document,
+  onUpdateNodeFillColor,
   selection
 }: {
   bestAvailableCanvasRect: CanvasRect | null;
+  canEditAppearance: boolean;
   document: RendererDocument;
+  onUpdateNodeFillColor?: (
+    nodeId: string,
+    color: string
+  ) => Promise<{ errorMessage?: string; ok: boolean }>;
   selection: Exclude<SelectionInspection, { kind: "document" }>;
 }) {
   const selectedNode = selection.node;
@@ -174,6 +190,10 @@ function SelectionDetailView({
     rendererNode?.parent_id !== null && rendererNode?.parent_id !== undefined
       ? document.nodes[rendererNode.parent_id]
       : undefined;
+  const fillColor =
+    typeof selectedNode.raw_render_style.backgroundColor === "string"
+      ? selectedNode.raw_render_style.backgroundColor
+      : null;
   const appearanceRows = resolveAppearanceRows(selectedNode);
 
   if (!rendererNode) {
@@ -188,9 +208,19 @@ function SelectionDetailView({
 
       {isFlexContainer(parentRendererNode) ? <FlexItemSection node={rendererNode} /> : null}
 
-      {appearanceRows.length > 0 ? (
+      {fillColor || appearanceRows.length > 0 ? (
         <InspectorSection title="Appearance">
-          <PropertyList rows={appearanceRows} />
+          <div className="space-y-3">
+            {fillColor ? (
+              <FillColorControl
+                canEdit={canEditAppearance}
+                color={fillColor}
+                nodeId={selectedNode.id}
+                onUpdateNodeFillColor={onUpdateNodeFillColor}
+              />
+            ) : null}
+            {appearanceRows.length > 0 ? <PropertyList rows={appearanceRows} /> : null}
+          </div>
         </InspectorSection>
       ) : null}
 
@@ -422,6 +452,71 @@ function ColorValue({
   );
 }
 
+function FillColorControl({
+  canEdit,
+  color,
+  nodeId,
+  onUpdateNodeFillColor
+}: {
+  canEdit: boolean;
+  color: string;
+  nodeId: string;
+  onUpdateNodeFillColor?: (
+    nodeId: string,
+    color: string
+  ) => Promise<{ errorMessage?: string; ok: boolean }>;
+}) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const inputColor = resolveColorInputValue(color);
+  const isDisabled = !canEdit || !onUpdateNodeFillColor || isSaving;
+
+  const handleChange = async (nextColor: string) => {
+    if (!onUpdateNodeFillColor || !canEdit || nextColor === inputColor) {
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const result = await onUpdateNodeFillColor(nodeId, nextColor);
+
+      if (!result.ok) {
+        setSaveError(result.errorMessage ?? "Failed to update fill color.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="ui-mono pt-0.5 text-[10px] uppercase tracking-[0.16em] text-black/42">
+          Fill
+        </span>
+        <div className="flex items-center gap-2">
+          <input
+            aria-label="Fill color"
+            className="h-6 w-9 cursor-pointer border border-black/18 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={isDisabled}
+            onChange={(event) => {
+              void handleChange(event.currentTarget.value);
+            }}
+            type="color"
+            value={inputColor}
+          />
+          <span className="ui-mono text-[12px] uppercase tracking-[0.08em] text-[#111111]">
+            {color}
+          </span>
+        </div>
+      </div>
+      {saveError ? <div className="text-[12px] leading-5 text-black/62">{saveError}</div> : null}
+    </div>
+  );
+}
+
 function maybeCreateRow(label: string, value: unknown): InspectorRow | null {
   const formattedValue = formatStyleValue(value);
 
@@ -472,19 +567,8 @@ function resolveLayoutMetrics(
 
 function resolveAppearanceRows(node: NodeInspectorInspection): InspectorRow[] {
   const rows: InspectorRow[] = [];
-  const backgroundColor =
-    typeof node.raw_render_style.backgroundColor === "string"
-      ? node.raw_render_style.backgroundColor
-      : null;
   const radius = formatStyleValue(node.raw_render_style.borderRadius);
   const opacity = formatOpacityValue(node.raw_render_style.opacity);
-
-  if (backgroundColor) {
-    rows.push({
-      label: "Fill",
-      value: <ColorValue color={backgroundColor} />
-    });
-  }
 
   if (node.background_asset) {
     rows.push({
@@ -742,4 +826,19 @@ function formatRoundedNumber(value: number): string {
   const roundedValue = Math.round(value * 100) / 100;
 
   return Number.isInteger(roundedValue) ? String(roundedValue) : `${roundedValue}`;
+}
+
+function resolveColorInputValue(color: string): string {
+  const normalizedColor = color.trim();
+
+  if (/^#[0-9a-fA-F]{6}$/.test(normalizedColor)) {
+    return normalizedColor.toLowerCase();
+  }
+
+  if (/^#[0-9a-fA-F]{3}$/.test(normalizedColor)) {
+    const [r, g, b] = normalizedColor.slice(1).split("");
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+
+  return "#111111";
 }

@@ -338,7 +338,33 @@ export function App() {
     }
 
     try {
-      return await api.applyCommands(input);
+      let result = await api.applyCommands(input);
+
+      const isBaseRevisionMismatch =
+        !result.ok &&
+        typeof result.error.message === "string" &&
+        result.error.message.toLowerCase().includes("base_revision");
+
+      if (!isBaseRevisionMismatch) {
+        return result;
+      }
+
+      const activeProjectResult = await api.getActiveProject();
+
+      if (!activeProjectResult.ok || !activeProjectResult.data) {
+        return result;
+      }
+
+      if (activeProjectResult.data.revision === input.base_revision) {
+        return result;
+      }
+
+      result = await api.applyCommands({
+        ...input,
+        base_revision: activeProjectResult.data.revision
+      });
+
+      return result;
     } catch (error) {
       return err(
         "internal_error",
