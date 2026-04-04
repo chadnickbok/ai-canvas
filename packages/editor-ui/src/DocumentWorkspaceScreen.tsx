@@ -334,7 +334,7 @@ export function DocumentWorkspaceScreen({
         revealCanvasRect(selectionRect);
       }
     },
-    [activeProject.document, revealCanvasRect, viewport.zoom, workspaceIdentity]
+    [activeProject.document, activeProject.revision, revealCanvasRect, viewport.zoom, workspaceIdentity]
   );
 
   const commitZoomInput = () => {
@@ -575,7 +575,6 @@ export function DocumentWorkspaceScreen({
                   documentRevision={activeProject.revision}
                   hoveredNodeId={hoveredNodeId}
                   preview={preview}
-                  rendererRef={rendererRef}
                   selectionRectOverride={selectionRectOverride}
                   selectedNodeId={selectedNodeId}
                   viewport={viewport}

@@ -1,12 +1,11 @@
 import type { RendererDocument, RendererNode } from "@ai-canvas/document-core";
-import { Fragment, type RefObject, useMemo } from "react";
+import { Fragment, useMemo } from "react";
 
-import type { RendererMeasurementHandle, ViewportState } from "../rendering/types.js";
+import type { ViewportState } from "../rendering/types.js";
 import {
   insetCanvasRect,
   isNodeDirectlyManipulable,
   type CanvasRect,
-  createCanvasRect,
   resolveFlexAxis,
   resolveFramePaddingInsets,
   resolveNodeCanvasRect,
@@ -26,7 +25,6 @@ export type InteractionOverlayProps = {
   documentRevision: number;
   hoveredNodeId: string | null;
   preview: InteractionPreview | null;
-  rendererRef: RefObject<RendererMeasurementHandle | null>;
   selectionRectOverride: CanvasRect | null;
   selectedNodeId: string | null;
   viewport: ViewportState;
@@ -51,7 +49,6 @@ export function InteractionOverlay({
   documentRevision,
   hoveredNodeId,
   preview,
-  rendererRef,
   selectionRectOverride,
   selectedNodeId,
   viewport
@@ -65,7 +62,7 @@ export function InteractionOverlay({
       ? resolveNodeCanvasRect(
           document,
           selectedNode.id,
-          rendererRef.current,
+          null,
           viewport.zoom,
           documentRevision
         )
@@ -76,7 +73,7 @@ export function InteractionOverlay({
       ? resolveNodeCanvasRect(
           document,
           hoveredNode.id,
-          rendererRef.current,
+          null,
           viewport.zoom,
           documentRevision
         )
@@ -90,7 +87,7 @@ export function InteractionOverlay({
       ? resolveNodeCanvasRect(
           document,
           parentNode.id,
-          rendererRef.current,
+          null,
           viewport.zoom,
           documentRevision
         )
@@ -110,7 +107,6 @@ export function InteractionOverlay({
             selectedRect,
             parentNode,
             parentRect,
-            rendererRef,
             viewport.zoom
           )
         : [],
@@ -119,7 +115,6 @@ export function InteractionOverlay({
       documentRevision,
       parentNode,
       parentRect,
-      rendererRef,
       selectedNode,
       selectedRect,
       viewport.zoom
@@ -311,7 +306,6 @@ function buildSpacingMeasures(
   selectedRect: CanvasRect,
   parentNode: RendererNode,
   parentRect: CanvasRect,
-  rendererRef: RefObject<RendererMeasurementHandle | null>,
   zoom: number
 ): MeasureSpec[] {
   const measures: MeasureSpec[] = [];
@@ -388,7 +382,7 @@ function buildSpacingMeasures(
       ? resolveNodeCanvasRect(
           document,
           previousSiblingId,
-          rendererRef.current,
+          null,
           zoom,
           documentRevision
         )
@@ -398,7 +392,7 @@ function buildSpacingMeasures(
       ? resolveNodeCanvasRect(
           document,
           nextSiblingId,
-          rendererRef.current,
+          null,
           zoom,
           documentRevision
         )

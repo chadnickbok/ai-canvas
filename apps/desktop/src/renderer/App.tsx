@@ -7,7 +7,6 @@ import {
   err,
   type ActiveProject,
   type ApplyCommandsInput,
-  type CommandResult,
   type CreateProjectInput,
   type HistoryState,
   type McpStatus,
