@@ -137,7 +137,8 @@ export function useInteractionController({
       document,
       selectionRectOverride.nodeId,
       rendererRef.current,
-      viewport.zoom
+      viewport.zoom,
+      revision
     );
 
     if (measuredRect && areCanvasRectsClose(measuredRect, selectionRectOverride.rect)) {
@@ -193,7 +194,8 @@ export function useInteractionController({
         document,
         node.id,
         rendererRef.current,
-        viewport.zoom
+        viewport.zoom,
+        revision
       );
 
       if (!originalRect) {
@@ -224,7 +226,7 @@ export function useInteractionController({
 
       return true;
     },
-    [document, rendererRef, viewport]
+    [document, rendererRef, revision, viewport]
   );
 
   const commitGesture = useCallback(

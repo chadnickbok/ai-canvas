@@ -30,6 +30,7 @@ import type {
 export type DocumentRendererProps = {
   className?: string;
   document: RendererDocument;
+  documentRevision: number;
   resolvedAssetsById: ResolvedAssetsById;
   viewportZoom?: number;
 };
@@ -305,7 +306,7 @@ function renderNode(
 
 export const DocumentRenderer = forwardRef<RendererMeasurementHandle, DocumentRendererProps>(
   function DocumentRenderer(
-    { className, document, resolvedAssetsById, viewportZoom = 1 },
+    { className, document, documentRevision, resolvedAssetsById, viewportZoom = 1 },
     ref
   ) {
     const rootElementRef = useRef<HTMLDivElement | null>(null);
@@ -314,6 +315,7 @@ export const DocumentRenderer = forwardRef<RendererMeasurementHandle, DocumentRe
     useImperativeHandle(
       ref,
       () => ({
+        getDocumentRevision: () => documentRevision,
         getNodeElement: (nodeId) => nodeElementsById.get(nodeId) ?? null,
         getRootElement: () => rootElementRef.current,
         measureSubtrees: ({ rootIds }) =>
@@ -325,7 +327,7 @@ export const DocumentRenderer = forwardRef<RendererMeasurementHandle, DocumentRe
             zoom: viewportZoom
           })
       }),
-      [document, nodeElementsById, viewportZoom]
+      [document, documentRevision, nodeElementsById, viewportZoom]
     );
 
     const context: RenderContext = {
@@ -345,6 +347,7 @@ export const DocumentRenderer = forwardRef<RendererMeasurementHandle, DocumentRe
       <div
         className={cn(className)}
         data-document-id={document.document_id}
+        data-document-revision={String(documentRevision)}
         data-renderer-root="true"
         ref={rootElementRef}
         style={{

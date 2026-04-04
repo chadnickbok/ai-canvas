@@ -13,6 +13,7 @@ export type ViewportState = {
 };
 
 export type RendererMeasurementHandle = {
+  getDocumentRevision: () => number | null;
   getNodeElement: (nodeId: string) => Element | null;
   getRootElement: () => HTMLDivElement | null;
   measureSubtrees: (input: { rootIds: string[] }) => Record<string, ComputedLayout>;

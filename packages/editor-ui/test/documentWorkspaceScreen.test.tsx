@@ -114,6 +114,13 @@ const runtimeCapabilities: RuntimeCapabilities = {
   runtimeState: "editor_open_clean"
 };
 
+const emptyHistoryState = {
+  canRedo: false,
+  canUndo: false,
+  redoDepth: 0,
+  undoDepth: 0
+};
+
 const mcpStatus: McpStatus = {
   connectedSessions: 0,
   enabled: true,
@@ -125,7 +132,7 @@ const mcpStatus: McpStatus = {
   state: "running"
 };
 
-function createActiveProject(document: RendererDocument): ActiveProject {
+function createActiveProject(document: RendererDocument, revision = 1): ActiveProject {
   return {
     document,
     project: {
@@ -136,7 +143,7 @@ function createActiveProject(document: RendererDocument): ActiveProject {
       name: document.name,
       updatedAt: "2026-03-31T00:00:00.000Z"
     },
-    revision: 1
+    revision
   };
 }
 
@@ -228,6 +235,15 @@ function createDocumentWithScene(
       content: "Hello from MCP"
     }
   };
+
+  return document;
+}
+
+function createMovedSceneDocument(): RendererDocument {
+  const document = createDocumentWithScene();
+
+  document.nodes.scene_home.render_style.left = 120;
+  document.nodes.scene_home.render_style.top = 110;
 
   return document;
 }
@@ -496,7 +512,10 @@ function createDocumentWithDeepHierarchy(): RendererDocument {
 function renderIntoDom(
   activeProject: ActiveProject,
   options: {
+    historyState?: typeof emptyHistoryState;
     onApplyCommands?: (input: ApplyCommandsInput) => Promise<ReturnType<typeof ok<CommandResult>>>;
+    onRedo?: () => Promise<void> | void;
+    onUndo?: () => Promise<void> | void;
     runtimeCapabilities?: RuntimeCapabilities;
   } = {}
 ): RenderHarness {
@@ -511,9 +530,12 @@ function renderIntoDom(
     root.render(
       <DocumentWorkspaceScreen
         activeProject={activeProject}
+        historyState={options.historyState ?? emptyHistoryState}
         mcpStatus={mcpStatus}
         onApplyCommands={options.onApplyCommands}
         onBackToLibrary={() => {}}
+        onRedo={options.onRedo}
+        onUndo={options.onUndo}
         runtimeCapabilities={options.runtimeCapabilities ?? runtimeCapabilities}
       />
     );
@@ -1587,6 +1609,60 @@ describe("DocumentWorkspaceScreen", () => {
     }
   });
 
+  it("repositions the selected outline from document geometry after an external revision moves the node back", () => {
+    const movedDocument = createMovedSceneDocument();
+    const harness = renderIntoDom(createActiveProject(movedDocument, 2));
+
+    try {
+      const rendererRoot = harness.container.querySelector(
+        '[data-renderer-root="true"]'
+      ) as HTMLElement;
+      const sceneFrame = harness.container.querySelector('[data-node-id="scene_home"]') as HTMLElement;
+
+      assignBoundingRect(rendererRoot, 0, 0, 1600, 1200);
+      assignBoundingRect(sceneFrame, 120, 110, 390, 844);
+
+      act(() => {
+        sceneFrame.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            button: 0
+          })
+        );
+      });
+
+      const movedOutline = harness.container.querySelector(
+        '[data-interaction-outline="selected"][data-node-id="scene_home"]'
+      ) as SVGRectElement;
+
+      expect(movedOutline.getAttribute("x")).toBe("120");
+      expect(movedOutline.getAttribute("y")).toBe("110");
+
+      const undoneDocument = createDocumentWithScene();
+
+      act(() => {
+        harness.root.render(
+          <DocumentWorkspaceScreen
+            activeProject={createActiveProject(undoneDocument, 3)}
+            historyState={emptyHistoryState}
+            mcpStatus={mcpStatus}
+            onBackToLibrary={() => {}}
+            runtimeCapabilities={runtimeCapabilities}
+          />
+        );
+      });
+
+      const undoneOutline = harness.container.querySelector(
+        '[data-interaction-outline="selected"][data-node-id="scene_home"]'
+      ) as SVGRectElement;
+
+      expect(undoneOutline.getAttribute("x")).toBe("80");
+      expect(undoneOutline.getAttribute("y")).toBe("80");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
   it("commits southeast resize drags for loose top-level nodes through update_node", async () => {
     const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
       ok({
@@ -1737,6 +1813,106 @@ describe("DocumentWorkspaceScreen", () => {
       });
 
       expect(onApplyCommands).not.toHaveBeenCalled();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("enables undo and redo controls from shared history state and invokes callbacks", () => {
+    const onUndo = vi.fn();
+    const onRedo = vi.fn();
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      historyState: {
+        canRedo: true,
+        canUndo: true,
+        redoDepth: 1,
+        undoDepth: 2
+      },
+      onRedo,
+      onUndo
+    });
+
+    try {
+      const undoButton = harness.container.querySelector(
+        '[data-history-action="undo"]'
+      ) as HTMLButtonElement;
+      const redoButton = harness.container.querySelector(
+        '[data-history-action="redo"]'
+      ) as HTMLButtonElement;
+
+      expect(undoButton.disabled).toBe(false);
+      expect(redoButton.disabled).toBe(false);
+
+      act(() => {
+        undoButton.click();
+        redoButton.click();
+      });
+
+      expect(onUndo).toHaveBeenCalledTimes(1);
+      expect(onRedo).toHaveBeenCalledTimes(1);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("handles undo and redo keyboard shortcuts outside editable inputs", () => {
+    const onUndo = vi.fn();
+    const onRedo = vi.fn();
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      historyState: {
+        canRedo: true,
+        canUndo: true,
+        redoDepth: 1,
+        undoDepth: 2
+      },
+      onRedo,
+      onUndo
+    });
+
+    try {
+      const zoomInput = harness.container.querySelector(
+        'input[aria-label="Zoom percentage"]'
+      ) as HTMLInputElement;
+
+      act(() => {
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            ctrlKey: true,
+            key: "z"
+          })
+        );
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            ctrlKey: true,
+            key: "y"
+          })
+        );
+      });
+
+      expect(onUndo).toHaveBeenCalledTimes(1);
+      expect(onRedo).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        zoomInput.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            ctrlKey: true,
+            key: "z"
+          })
+        );
+        zoomInput.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            ctrlKey: true,
+            key: "y"
+          })
+        );
+      });
+
+      expect(onUndo).toHaveBeenCalledTimes(1);
+      expect(onRedo).toHaveBeenCalledTimes(1);
     } finally {
       harness.cleanup();
     }

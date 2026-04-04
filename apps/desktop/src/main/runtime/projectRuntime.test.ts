@@ -12,7 +12,7 @@ import {
   resolveComputedLayoutRootIds,
   type RendererDocument
 } from "@ai-canvas/document-core";
-import type { RuntimeEvent } from "@ai-canvas/ipc-contract";
+import { err, ok, type RuntimeEvent } from "@ai-canvas/ipc-contract";
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
 import { createProjectService } from "../createProjectService.js";
@@ -150,6 +150,7 @@ describe("ProjectRuntime", () => {
     expect(events.map((event) => event.type)).toEqual([
       "projects_changed",
       "active_project_changed",
+      "history_state_changed",
       "runtime_capabilities_changed"
     ]);
     expect(events[0]).toMatchObject({
@@ -164,6 +165,15 @@ describe("ProjectRuntime", () => {
       }
     });
     expect(events[2]).toEqual({
+      historyState: {
+        canRedo: false,
+        canUndo: false,
+        redoDepth: 0,
+        undoDepth: 0
+      },
+      type: "history_state_changed"
+    });
+    expect(events[3]).toEqual({
       type: "runtime_capabilities_changed",
       runtimeCapabilities: {
         measurementSurfaceAvailable: false,
@@ -354,7 +364,8 @@ describe("ProjectRuntime", () => {
     expect(events.map((event) => event.type)).toEqual([
       "projects_changed",
       "active_project_changed",
-      "document_changed"
+      "document_changed",
+      "history_state_changed"
     ]);
     expect(events[2]).toMatchObject({
       type: "document_changed",
@@ -363,6 +374,165 @@ describe("ProjectRuntime", () => {
       },
       revision: 2
     });
+    expect(events[3]).toEqual({
+      historyState: {
+        canRedo: false,
+        canUndo: true,
+        redoDepth: 0,
+        undoDepth: 1
+      },
+      type: "history_state_changed"
+    });
+
+    store.close();
+  });
+
+  it("records MCP mutations in shared history, supports undo/redo, and persists history across reopen", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-history-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store);
+    const created = runtime.createProject("History Project");
+
+    if (!created.ok) {
+      throw new Error(created.error.message);
+    }
+
+    attachTestComputedLayoutRefresher(runtime);
+    runtime.setMeasurementSurfaceAvailable(true);
+
+    const applyResult = await runtime.applyProjectCommands({
+      base_revision: 1,
+      commands: [
+        {
+          type: "create_scene",
+          scene: {
+            height: 844,
+            id: "scene_home",
+            left: 40,
+            name: "Home",
+            top: 60,
+            width: 390
+          }
+        }
+      ]
+    });
+
+    expect(applyResult.ok).toBe(true);
+    expect(runtime.getHistoryState()).toEqual(
+      ok({
+        canRedo: false,
+        canUndo: true,
+        redoDepth: 0,
+        undoDepth: 1
+      })
+    );
+
+    const undoResult = await runtime.undo();
+
+    expect(undoResult.ok).toBe(true);
+    expect(undoResult.ok && undoResult.data.revision).toBe(3);
+    expect(runtime.getHistoryState()).toEqual(
+      ok({
+        canRedo: true,
+        canUndo: false,
+        redoDepth: 1,
+        undoDepth: 0
+      })
+    );
+
+    const activeAfterUndo = runtime.getActiveProject();
+
+    expect(activeAfterUndo.ok && activeAfterUndo.data?.document.scenes).toEqual({});
+
+    const redoResult = await runtime.redo();
+
+    expect(redoResult.ok).toBe(true);
+    expect(redoResult.ok && redoResult.data.revision).toBe(4);
+    expect(runtime.getHistoryState()).toEqual(
+      ok({
+        canRedo: false,
+        canUndo: true,
+        redoDepth: 0,
+        undoDepth: 1
+      })
+    );
+
+    store.close();
+
+    const reopenedStore = new ProjectStore(path.join(tempDir, "app.db"));
+    const reopenedRuntime = createProjectRuntime(reopenedStore);
+    const reopenedProject = reopenedRuntime.openProject(created.data.id);
+
+    expect(reopenedProject.ok).toBe(true);
+    expect(reopenedRuntime.getHistoryState()).toEqual(
+      ok({
+        canRedo: false,
+        canUndo: true,
+        redoDepth: 0,
+        undoDepth: 1
+      })
+    );
+
+    attachTestComputedLayoutRefresher(reopenedRuntime);
+    reopenedRuntime.setMeasurementSurfaceAvailable(true);
+
+    const reopenedUndoResult = await reopenedRuntime.undo();
+
+    expect(reopenedUndoResult.ok).toBe(true);
+    expect(reopenedUndoResult.ok && reopenedUndoResult.data.revision).toBe(5);
+
+    const reopenedActiveProject = reopenedRuntime.getActiveProject();
+
+    expect(reopenedActiveProject.ok && reopenedActiveProject.data?.document.scenes).toEqual({});
+
+    reopenedStore.close();
+  });
+
+  it("fails undo while the runtime is read-only", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-undo-readonly-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store);
+    const created = runtime.createProject("Read Only History");
+
+    if (!created.ok) {
+      throw new Error(created.error.message);
+    }
+
+    attachTestComputedLayoutRefresher(runtime);
+    runtime.setMeasurementSurfaceAvailable(true);
+
+    const applyResult = await runtime.applyCommands({
+      base_revision: 1,
+      commands: [
+        {
+          type: "create_scene",
+          scene: {
+            height: 844,
+            id: "scene_home",
+            left: 40,
+            name: "Home",
+            top: 60,
+            width: 390
+          }
+        }
+      ],
+      document_id: created.data.documentId
+    });
+
+    expect(applyResult.ok).toBe(true);
+
+    runtime.setMeasurementSurfaceAvailable(false);
+
+    await expect(runtime.undo()).resolves.toEqual(
+      err(
+        "measurement_surface_unavailable",
+        "Write-capable command execution requires an available renderer measurement surface"
+      )
+    );
 
     store.close();
   });

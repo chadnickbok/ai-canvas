@@ -305,7 +305,11 @@ describe("DocumentRenderer", () => {
       }
     };
     const harness = renderIntoDom(
-      <DocumentRenderer document={document} resolvedAssetsById={resolvedAssetsById} />
+      <DocumentRenderer
+        document={document}
+        documentRevision={1}
+        resolvedAssetsById={resolvedAssetsById}
+      />
     );
 
     try {
@@ -340,7 +344,7 @@ describe("DocumentRenderer", () => {
   it("sanitizes svg payloads and renders a degraded fallback for detached primitives", () => {
     const document = createFixtureDocument();
     const harness = renderIntoDom(
-      <DocumentRenderer document={document} resolvedAssetsById={{}} />
+      <DocumentRenderer document={document} documentRevision={1} resolvedAssetsById={{}} />
     );
 
     try {
@@ -365,7 +369,7 @@ describe("DocumentRenderer", () => {
     document.nodes.title_1.render_style.lineHeight = 32;
 
     const harness = renderIntoDom(
-      <DocumentRenderer document={document} resolvedAssetsById={{}} />
+      <DocumentRenderer document={document} documentRevision={1} resolvedAssetsById={{}} />
     );
 
     try {

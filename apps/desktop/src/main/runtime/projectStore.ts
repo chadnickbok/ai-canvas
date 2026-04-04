@@ -18,10 +18,30 @@ type ProjectRow = {
   last_opened_at: string | null;
 };
 
+type ProjectHistoryRow = {
+  project_id: string;
+  redo_json: string;
+  undo_json: string;
+};
+
 export type StoredProject = {
   document: RendererDocument;
   project: ProjectSummary;
   revision: number;
+};
+
+export type HistoryMutationSource = "mcp" | "ui";
+
+export type ProjectHistoryEntry = {
+  committed_at: string;
+  document: RendererDocument;
+  source: HistoryMutationSource;
+  source_revision: number;
+};
+
+export type ProjectHistory = {
+  redo: ProjectHistoryEntry[];
+  undo: ProjectHistoryEntry[];
 };
 
 export type PersistProjectDocumentResult =
@@ -41,6 +61,10 @@ export type PersistProjectDocumentResult =
     };
 
 const INITIAL_PROJECT_REVISION = 1;
+const EMPTY_PROJECT_HISTORY: ProjectHistory = {
+  redo: [],
+  undo: []
+};
 
 type TableInfoRow = {
   name: string;
@@ -82,49 +106,59 @@ export class ProjectStore {
       createdAt: now
     });
 
-    this.database
-      .prepare(
-        `
-          INSERT INTO projects (
-            id,
-            name,
-            document_id,
-            schema_version,
-            current_document_json,
-            revision,
-            created_at,
-            updated_at,
-            last_opened_at,
-            archived_at,
-            source_kind,
-            source_metadata_json
-          )
-          VALUES (
-            @id,
-            @name,
-            @document_id,
-            1,
-            @current_document_json,
-            @revision,
-            @created_at,
-            @updated_at,
-            @last_opened_at,
-            NULL,
-            'new',
-            NULL
-          )
-        `
-      )
-      .run({
-        created_at: now,
-        current_document_json: JSON.stringify(document),
-        document_id: documentId,
-        id: projectId,
-        last_opened_at: now,
-        name,
-        revision: INITIAL_PROJECT_REVISION,
-        updated_at: now
-      });
+    this.database.exec("BEGIN IMMEDIATE;");
+
+    try {
+      this.database
+        .prepare(
+          `
+            INSERT INTO projects (
+              id,
+              name,
+              document_id,
+              schema_version,
+              current_document_json,
+              revision,
+              created_at,
+              updated_at,
+              last_opened_at,
+              archived_at,
+              source_kind,
+              source_metadata_json
+            )
+            VALUES (
+              @id,
+              @name,
+              @document_id,
+              1,
+              @current_document_json,
+              @revision,
+              @created_at,
+              @updated_at,
+              @last_opened_at,
+              NULL,
+              'new',
+              NULL
+            )
+          `
+        )
+        .run({
+          created_at: now,
+          current_document_json: JSON.stringify(document),
+          document_id: documentId,
+          id: projectId,
+          last_opened_at: now,
+          name,
+          revision: INITIAL_PROJECT_REVISION,
+          updated_at: now
+        });
+
+      this.saveHistoryRow(projectId, EMPTY_PROJECT_HISTORY, now);
+      this.database.exec("COMMIT;");
+    } catch (error) {
+      this.database.exec("ROLLBACK;");
+      throw error;
+    }
 
     const row = this.getRow(projectId);
 
@@ -161,41 +195,55 @@ export class ProjectStore {
   saveProjectDocument(
     projectId: string,
     document: RendererDocument,
-    expectedRevision: number
+    expectedRevision: number,
+    history?: ProjectHistory
   ): PersistProjectDocumentResult {
     const now = new Date().toISOString();
-    const updateResult = this.database
-      .prepare(
-        `
-          UPDATE projects
-          SET current_document_json = @current_document_json,
-              revision = revision + 1,
-              updated_at = @updated_at
-          WHERE id = @project_id AND archived_at IS NULL AND revision = @expected_revision
-        `
-      )
-      .run({
-        current_document_json: JSON.stringify(document),
-        expected_revision: expectedRevision,
-        project_id: projectId,
-        updated_at: now
-      });
+    this.database.exec("BEGIN IMMEDIATE;");
 
-    if (updateResult.changes === 0) {
-      const currentRow = this.getRow(projectId);
+    try {
+      const updateResult = this.database
+        .prepare(
+          `
+            UPDATE projects
+            SET current_document_json = @current_document_json,
+                revision = revision + 1,
+                updated_at = @updated_at
+            WHERE id = @project_id AND archived_at IS NULL AND revision = @expected_revision
+          `
+        )
+        .run({
+          current_document_json: JSON.stringify(document),
+          expected_revision: expectedRevision,
+          project_id: projectId,
+          updated_at: now
+        });
 
-      if (!currentRow) {
+      if (updateResult.changes === 0) {
+        this.database.exec("ROLLBACK;");
+        const currentRow = this.getRow(projectId);
+
+        if (!currentRow) {
+          return {
+            code: "not_found",
+            ok: false
+          };
+        }
+
         return {
-          code: "not_found",
-          ok: false
+          code: "revision_conflict",
+          ok: false,
+          revision: currentRow.revision
         };
       }
 
-      return {
-        code: "revision_conflict",
-        ok: false,
-        revision: currentRow.revision
-      };
+      if (history) {
+        this.saveHistoryRow(projectId, history, now);
+      }
+      this.database.exec("COMMIT;");
+    } catch (error) {
+      this.database.exec("ROLLBACK;");
+      throw error;
     }
 
     const updatedRow = this.getRow(projectId);
@@ -242,6 +290,27 @@ export class ProjectStore {
     this.database.close();
   }
 
+  getProjectHistory(projectId: string): ProjectHistory {
+    const row = this.database
+      .prepare(
+        `
+          SELECT project_id, undo_json, redo_json
+          FROM project_history
+          WHERE project_id = ?
+        `
+      )
+      .get(projectId) as ProjectHistoryRow | undefined;
+
+    if (!row) {
+      return createEmptyProjectHistory();
+    }
+
+    return {
+      redo: this.parseHistoryEntries(row.redo_json),
+      undo: this.parseHistoryEntries(row.undo_json)
+    };
+  }
+
   private getRow(projectId: string): ProjectRow | undefined {
     return this.database
       .prepare(
@@ -273,6 +342,15 @@ export class ProjectStore {
       );
     `);
 
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS project_history (
+        project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+        undo_json TEXT NOT NULL,
+        redo_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+
     const tableInfo = this.database
       .prepare("PRAGMA table_info(projects)")
       .all() as TableInfoRow[];
@@ -294,4 +372,97 @@ export class ProjectStore {
       updatedAt: row.updated_at
     };
   }
+
+  private parseHistoryEntries(serializedEntries: string): ProjectHistoryEntry[] {
+    let parsedEntries: unknown;
+
+    try {
+      parsedEntries = JSON.parse(serializedEntries);
+    } catch {
+      return [];
+    }
+
+    if (!Array.isArray(parsedEntries)) {
+      return [];
+    }
+
+    return parsedEntries.flatMap((entry) => {
+      if (
+        typeof entry !== "object" ||
+        entry === null ||
+        !("document" in entry) ||
+        !("committed_at" in entry) ||
+        !("source" in entry) ||
+        !("source_revision" in entry)
+      ) {
+        return [];
+      }
+
+      const source = (entry as { source?: unknown }).source;
+
+      if (source !== "ui" && source !== "mcp") {
+        return [];
+      }
+
+      const committedAt = (entry as { committed_at?: unknown }).committed_at;
+      const sourceRevision = (entry as { source_revision?: unknown }).source_revision;
+      const rawDocument = (entry as { document?: unknown }).document;
+
+      if (
+        typeof committedAt !== "string" ||
+        !Number.isInteger(sourceRevision) ||
+        typeof rawDocument !== "object" ||
+        rawDocument === null
+      ) {
+        return [];
+      }
+
+      const document = normalizeDocument(rawDocument, {
+        fallbackDocumentId:
+          typeof (rawDocument as { document_id?: unknown }).document_id === "string"
+            ? (rawDocument as { document_id: string }).document_id
+            : "doc_unknown",
+        fallbackName:
+          typeof (rawDocument as { name?: unknown }).name === "string"
+            ? (rawDocument as { name: string }).name
+            : "Untitled Project"
+      });
+
+      return [
+        {
+          committed_at: committedAt,
+          document,
+          source,
+          source_revision: sourceRevision as number
+        }
+      ];
+    });
+  }
+
+  private saveHistoryRow(projectId: string, history: ProjectHistory, updatedAt: string): void {
+    this.database
+      .prepare(
+        `
+          INSERT INTO project_history (project_id, undo_json, redo_json, updated_at)
+          VALUES (@project_id, @undo_json, @redo_json, @updated_at)
+          ON CONFLICT(project_id) DO UPDATE SET
+            undo_json = excluded.undo_json,
+            redo_json = excluded.redo_json,
+            updated_at = excluded.updated_at
+        `
+      )
+      .run({
+        project_id: projectId,
+        redo_json: JSON.stringify(history.redo),
+        undo_json: JSON.stringify(history.undo),
+        updated_at: updatedAt
+      });
+  }
+}
+
+function createEmptyProjectHistory(): ProjectHistory {
+  return {
+    redo: [...EMPTY_PROJECT_HISTORY.redo],
+    undo: [...EMPTY_PROJECT_HISTORY.undo]
+  };
 }

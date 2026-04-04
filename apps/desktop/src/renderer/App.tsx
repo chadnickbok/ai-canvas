@@ -9,6 +9,7 @@ import {
   type ApplyCommandsInput,
   type CommandResult,
   type CreateProjectInput,
+  type HistoryState,
   type McpStatus,
   type ProjectSummary,
   runtimeEventSchema,
@@ -25,6 +26,7 @@ type ScreenState = {
   activeProject: ActiveProject | null;
   bootState: BootState;
   errorMessage: string | null;
+  historyState: HistoryState | null;
   isBusy: boolean;
   mcpStatus: McpStatus | null;
   projects: ProjectSummary[];
@@ -36,6 +38,7 @@ const initialState: ScreenState = {
   activeProject: null,
   bootState: "booting",
   errorMessage: null,
+  historyState: null,
   isBusy: true,
   mcpStatus: null,
   projects: [],
@@ -50,16 +53,19 @@ function getDesktopApi(): DesktopApi | null {
 async function loadScreenState(
   api: DesktopApi
 ): Promise<Omit<ScreenState, "bootState" | "errorMessage" | "isBusy">> {
-  const [projectsResult, activeProjectResult, runtimeResult, mcpResult] = await Promise.all([
-    api.listProjects(),
-    api.getActiveProject(),
-    api.getRuntimeCapabilities(),
-    api.getMcpStatus()
-  ]);
+  const [projectsResult, activeProjectResult, historyResult, runtimeResult, mcpResult] =
+    await Promise.all([
+      api.listProjects(),
+      api.getActiveProject(),
+      api.getHistoryState(),
+      api.getRuntimeCapabilities(),
+      api.getMcpStatus()
+    ]);
   const activeProject = assertOk(activeProjectResult);
 
   return {
     activeProject,
+    historyState: assertOk(historyResult),
     mcpStatus: assertOk(mcpResult),
     projects: assertOk(projectsResult),
     runtimeCapabilities: assertOk(runtimeResult),
@@ -84,6 +90,11 @@ function applyRuntimeEvent(state: ScreenState, event: RuntimeEvent): ScreenState
       return {
         ...state,
         runtimeCapabilities: event.runtimeCapabilities
+      };
+    case "history_state_changed":
+      return {
+        ...state,
+        historyState: event.historyState
       };
     case "mcp_status_changed":
       return {
@@ -125,7 +136,7 @@ export function App() {
         bootState: current.bootState === "ready" ? "ready" : "boot_error",
         errorMessage: error instanceof Error ? error.message : "Failed to load the project library",
         isBusy: false
-        }));
+      }));
     }
   };
 
@@ -337,6 +348,66 @@ export function App() {
     }
   };
 
+  const handleUndo = async () => {
+    const api = getDesktopApi();
+
+    if (!api || state.bootState !== "ready") {
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      errorMessage: null,
+      isBusy: true
+    }));
+
+    try {
+      const result = await api.undo();
+
+      setState((current) => ({
+        ...current,
+        errorMessage: result.ok ? null : result.error.message,
+        isBusy: false
+      }));
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        errorMessage: error instanceof Error ? error.message : "Failed to undo",
+        isBusy: false
+      }));
+    }
+  };
+
+  const handleRedo = async () => {
+    const api = getDesktopApi();
+
+    if (!api || state.bootState !== "ready") {
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      errorMessage: null,
+      isBusy: true
+    }));
+
+    try {
+      const result = await api.redo();
+
+      setState((current) => ({
+        ...current,
+        errorMessage: result.ok ? null : result.error.message,
+        isBusy: false
+      }));
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        errorMessage: error instanceof Error ? error.message : "Failed to redo",
+        isBusy: false
+      }));
+    }
+  };
+
   const measurementHost = api ? <CommitLayoutMeasurementHost api={api} /> : null;
 
   if (state.bootState === "ready" && state.screen === "workspace" && state.activeProject) {
@@ -345,6 +416,7 @@ export function App() {
         <DocumentWorkspaceScreen
           activeProject={state.activeProject}
           errorMessage={state.errorMessage}
+          historyState={state.historyState}
           isBusy={state.isBusy}
           mcpStatus={state.mcpStatus}
           onApplyCommands={handleApplyCommands}
@@ -354,6 +426,8 @@ export function App() {
               screen: "library"
             }));
           }}
+          onRedo={handleRedo}
+          onUndo={handleUndo}
           runtimeCapabilities={state.runtimeCapabilities}
         />
         {measurementHost}

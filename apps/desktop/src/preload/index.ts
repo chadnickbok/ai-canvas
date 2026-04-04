@@ -10,13 +10,16 @@ const appChannelNames = {
   applyCommands: "app:applyCommands",
   createProject: "app:createProject",
   getActiveProject: "app:getActiveProject",
+  getHistoryState: "app:getHistoryState",
   getMcpStatus: "app:getMcpStatus",
   getRuntimeCapabilities: "app:getRuntimeCapabilities",
   layoutMeasurementRequest: "app:layoutMeasurementRequest",
   listProjects: "app:listProjects",
   openExternalUrl: "app:openExternalUrl",
   openProject: "app:openProject",
+  redo: "app:redo",
   submitLayoutMeasurementResult: "app:submitLayoutMeasurementResult",
+  undo: "app:undo",
   runtimeEvent: "app:runtimeEvent"
 } as const;
 
@@ -29,6 +32,9 @@ const api: DesktopApi = {
   },
   async getActiveProject() {
     return ipcRenderer.invoke(appChannelNames.getActiveProject);
+  },
+  async getHistoryState() {
+    return ipcRenderer.invoke(appChannelNames.getHistoryState, {});
   },
   async getMcpStatus() {
     return ipcRenderer.invoke(appChannelNames.getMcpStatus);
@@ -44,6 +50,9 @@ const api: DesktopApi = {
   },
   async openProject(input) {
     return ipcRenderer.invoke(appChannelNames.openProject, input);
+  },
+  async redo() {
+    return ipcRenderer.invoke(appChannelNames.redo, {});
   },
   async submitLayoutMeasurementResult(input) {
     return ipcRenderer.invoke(appChannelNames.submitLayoutMeasurementResult, input);
@@ -72,6 +81,9 @@ const api: DesktopApi = {
     return () => {
       ipcRenderer.off(appChannelNames.runtimeEvent, wrappedListener);
     };
+  },
+  async undo() {
+    return ipcRenderer.invoke(appChannelNames.undo, {});
   }
 };
 

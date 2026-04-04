@@ -130,9 +130,16 @@ export function resolveNodeCanvasRect(
   document: RendererDocument,
   nodeId: string,
   measurementHandle: RendererMeasurementHandle | null,
-  zoom: number
+  zoom: number,
+  currentDocumentRevision?: number
 ): CanvasRect | null {
-  const resolvedRect = resolveNodeCanvasRectWithSource(document, nodeId, measurementHandle, zoom);
+  const resolvedRect = resolveNodeCanvasRectWithSource(
+    document,
+    nodeId,
+    measurementHandle,
+    zoom,
+    currentDocumentRevision
+  );
 
   return resolvedRect?.rect ?? null;
 }
@@ -150,18 +157,25 @@ export type NodeCanvasRectResolution = {
 export function resolveMeasuredNodeCanvasRect(
   nodeId: string,
   measurementHandle: RendererMeasurementHandle | null,
-  zoom: number
+  zoom: number,
+  currentDocumentRevision?: number
 ): CanvasRect | null {
-  return resolveMeasuredCanvasRect(nodeId, measurementHandle, zoom);
+  return resolveMeasuredCanvasRect(nodeId, measurementHandle, zoom, currentDocumentRevision);
 }
 
 export function resolveNodeCanvasRectWithSource(
   document: RendererDocument,
   nodeId: string,
   measurementHandle: RendererMeasurementHandle | null,
-  zoom: number
+  zoom: number,
+  currentDocumentRevision?: number
 ): NodeCanvasRectResolution | null {
-  const measuredRect = resolveMeasuredCanvasRect(nodeId, measurementHandle, zoom);
+  const measuredRect = resolveMeasuredCanvasRect(
+    nodeId,
+    measurementHandle,
+    zoom,
+    currentDocumentRevision
+  );
 
   if (measuredRect) {
     return {
@@ -306,8 +320,16 @@ export function resolveFlexAxis(node: RendererNode): "x" | "y" | null {
 function resolveMeasuredCanvasRect(
   nodeId: string,
   measurementHandle: RendererMeasurementHandle | null,
-  zoom: number
+  zoom: number,
+  currentDocumentRevision?: number
 ): CanvasRect | null {
+  if (
+    currentDocumentRevision !== undefined &&
+    measurementHandle?.getDocumentRevision() !== currentDocumentRevision
+  ) {
+    return null;
+  }
+
   const rootElement = measurementHandle?.getRootElement() ?? null;
   const nodeElement = measurementHandle?.getNodeElement(nodeId) ?? null;
 

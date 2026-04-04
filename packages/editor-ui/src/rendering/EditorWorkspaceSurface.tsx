@@ -22,7 +22,16 @@ export const EditorWorkspaceSurface = forwardRef<
   RendererMeasurementHandle,
   EditorWorkspaceSurfaceProps
 >(function EditorWorkspaceSurface(
-  { backdropLayer, className, document, interactionLayer, resolvedAssetsById, uiLayer, viewport },
+  {
+    backdropLayer,
+    className,
+    document,
+    documentRevision,
+    interactionLayer,
+    resolvedAssetsById,
+    uiLayer,
+    viewport
+  },
   ref
 ) {
   const layerStyle = {
@@ -61,6 +70,7 @@ export const EditorWorkspaceSurface = forwardRef<
         <div data-viewport-transform="renderer" style={viewportTransformStyle}>
           <DocumentRenderer
             document={document}
+            documentRevision={documentRevision}
             ref={ref}
             resolvedAssetsById={resolvedAssetsById}
             viewportZoom={viewport.zoom}

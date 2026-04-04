@@ -28,6 +28,13 @@ const runtimeCapabilities = {
   runtimeState: "editor_open_clean"
 };
 
+const historyState = {
+  canRedo: false,
+  canUndo: false,
+  redoDepth: 0,
+  undoDepth: 0
+};
+
 const mcpStatus = {
   connectedSessions: 0,
   enabled: true,
@@ -172,6 +179,7 @@ function createDesktopApiMock(overrides: Partial<DesktopApi> = {}) {
       ),
     getActiveProject:
       overrides.getActiveProject ?? vi.fn(async () => ok<ActiveProject | null>(null)),
+    getHistoryState: overrides.getHistoryState ?? vi.fn(async () => ok(historyState)),
     getMcpStatus: overrides.getMcpStatus ?? vi.fn(async () => ok(mcpStatus)),
     getRuntimeCapabilities:
       overrides.getRuntimeCapabilities ?? vi.fn(async () => ok(runtimeCapabilities)),
@@ -187,6 +195,7 @@ function createDesktopApiMock(overrides: Partial<DesktopApi> = {}) {
           })
         )
       ),
+    redo: overrides.redo ?? vi.fn(async () => ok({} as never)),
     submitLayoutMeasurementResult:
       overrides.submitLayoutMeasurementResult ?? vi.fn(async () => ok({})),
     subscribeToLayoutMeasurementRequests:
@@ -203,7 +212,8 @@ function createDesktopApiMock(overrides: Partial<DesktopApi> = {}) {
             runtimeListener = null;
           }
         };
-      })
+      }),
+    undo: overrides.undo ?? vi.fn(async () => ok({} as never))
   };
 
   return {
@@ -421,6 +431,48 @@ describe("App", () => {
       expect(harness.container.textContent).toContain("Hello from MCP");
       expect(harness.container.textContent).toContain("Revision 2");
       expect(harness.container.querySelector('[data-node-id="scene_home"]')).not.toBeNull();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("applies history_state_changed events to the visible workspace controls", async () => {
+    const activeProject = createActiveProject({
+      name: "History Workspace",
+      projectId: "project_history"
+    });
+    const desktopApi = createDesktopApiMock({
+      getActiveProject: vi.fn(async () => ok(activeProject))
+    });
+    const harness = renderApp(desktopApi.api);
+
+    try {
+      await flushAsyncWork();
+
+      const undoButtonBefore = harness.container.querySelector(
+        '[data-history-action="undo"]'
+      ) as HTMLButtonElement;
+
+      expect(undoButtonBefore.disabled).toBe(true);
+
+      act(() => {
+        desktopApi.emitRuntimeEvent({
+          historyState: {
+            canRedo: false,
+            canUndo: true,
+            redoDepth: 0,
+            undoDepth: 1
+          },
+          type: "history_state_changed"
+        });
+      });
+      await flushAsyncWork();
+
+      const undoButtonAfter = harness.container.querySelector(
+        '[data-history-action="undo"]'
+      ) as HTMLButtonElement;
+
+      expect(undoButtonAfter.disabled).toBe(false);
     } finally {
       harness.cleanup();
     }

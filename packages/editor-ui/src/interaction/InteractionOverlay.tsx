@@ -23,6 +23,7 @@ type InteractionPreview = {
 export type InteractionOverlayProps = {
   allowMutation: boolean;
   document: RendererDocument;
+  documentRevision: number;
   hoveredNodeId: string | null;
   preview: InteractionPreview | null;
   rendererRef: RefObject<RendererMeasurementHandle | null>;
@@ -47,6 +48,7 @@ const RESIZE_HANDLE_ORDER: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "s
 export function InteractionOverlay({
   allowMutation,
   document,
+  documentRevision,
   hoveredNodeId,
   preview,
   rendererRef,
@@ -59,18 +61,40 @@ export function InteractionOverlay({
   const selectedRect =
     preview?.previewRect ??
     selectionRectOverride ??
-    (selectedNode ? resolveNodeCanvasRect(document, selectedNode.id, rendererRef.current, viewport.zoom) : null);
+    (selectedNode
+      ? resolveNodeCanvasRect(
+          document,
+          selectedNode.id,
+          rendererRef.current,
+          viewport.zoom,
+          documentRevision
+        )
+      : null);
   const originalSelectedRect = preview?.originalRect ?? selectedRect;
   const hoveredRect =
     hoveredNode && hoveredNode.id !== selectedNode?.id
-      ? resolveNodeCanvasRect(document, hoveredNode.id, rendererRef.current, viewport.zoom)
+      ? resolveNodeCanvasRect(
+          document,
+          hoveredNode.id,
+          rendererRef.current,
+          viewport.zoom,
+          documentRevision
+        )
       : null;
   const canManipulateSelection =
     selectedNode !== null && isNodeDirectlyManipulable(document, selectedNode, allowMutation);
   const parentNode =
     selectedNode && selectedNode.parent_id ? document.nodes[selectedNode.parent_id] ?? null : null;
   const parentRect =
-    parentNode ? resolveNodeCanvasRect(document, parentNode.id, rendererRef.current, viewport.zoom) : null;
+    parentNode
+      ? resolveNodeCanvasRect(
+          document,
+          parentNode.id,
+          rendererRef.current,
+          viewport.zoom,
+          documentRevision
+        )
+      : null;
   const parentPaddingRect =
     parentNode && parentRect
       ? insetCanvasRect(parentRect, resolveFramePaddingInsets(parentNode) ?? { bottom: 0, left: 0, right: 0, top: 0 })
@@ -79,9 +103,27 @@ export function InteractionOverlay({
   const spacingMeasures = useMemo(
     () =>
       selectedNode && selectedRect && parentNode && parentRect
-        ? buildSpacingMeasures(document, selectedNode, selectedRect, parentNode, parentRect, rendererRef, viewport.zoom)
+        ? buildSpacingMeasures(
+            document,
+            documentRevision,
+            selectedNode,
+            selectedRect,
+            parentNode,
+            parentRect,
+            rendererRef,
+            viewport.zoom
+          )
         : [],
-    [document, parentNode, parentRect, rendererRef, selectedNode, selectedRect, viewport.zoom]
+    [
+      document,
+      documentRevision,
+      parentNode,
+      parentRect,
+      rendererRef,
+      selectedNode,
+      selectedRect,
+      viewport.zoom
+    ]
   );
   const labelScale = viewport.zoom > 0 ? 1 / viewport.zoom : 1;
   const outlineThickness = 1 / Math.max(viewport.zoom, 0.0001);
@@ -264,6 +306,7 @@ export function InteractionOverlay({
 
 function buildSpacingMeasures(
   document: RendererDocument,
+  documentRevision: number,
   selectedNode: RendererNode,
   selectedRect: CanvasRect,
   parentNode: RendererNode,
@@ -341,9 +384,25 @@ function buildSpacingMeasures(
   const previousSiblingId = selectedIndex > 0 ? siblingIds[selectedIndex - 1] : null;
   const nextSiblingId = selectedIndex < siblingIds.length - 1 ? siblingIds[selectedIndex + 1] : null;
   const previousRect =
-    previousSiblingId ? resolveNodeCanvasRect(document, previousSiblingId, rendererRef.current, zoom) : null;
+    previousSiblingId
+      ? resolveNodeCanvasRect(
+          document,
+          previousSiblingId,
+          rendererRef.current,
+          zoom,
+          documentRevision
+        )
+      : null;
   const nextRect =
-    nextSiblingId ? resolveNodeCanvasRect(document, nextSiblingId, rendererRef.current, zoom) : null;
+    nextSiblingId
+      ? resolveNodeCanvasRect(
+          document,
+          nextSiblingId,
+          rendererRef.current,
+          zoom,
+          documentRevision
+        )
+      : null;
 
   if (layoutAxis === "x" && previousRect && previousRect.right <= selectedRect.x) {
     measures.push({

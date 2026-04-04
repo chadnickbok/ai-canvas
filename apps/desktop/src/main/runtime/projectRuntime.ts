@@ -1,5 +1,6 @@
 import {
   applyCommands as applyDocumentCommands,
+  finalizeCommittedDocument,
   type RefreshComputedLayoutInput,
   inspectDesignSystem as inspectDocumentDesignSystem,
   inspectDocument,
@@ -18,6 +19,7 @@ import type {
   AppErrorCode,
   AppResult,
   CommandResult,
+  HistoryState,
   McpStatus,
   ProjectSummary,
   RuntimeCapabilities,
@@ -25,7 +27,12 @@ import type {
 } from "@ai-canvas/ipc-contract";
 import { err, ok } from "@ai-canvas/ipc-contract";
 
-import type { ProjectStore } from "./projectStore.js";
+import type {
+  HistoryMutationSource,
+  ProjectHistory,
+  ProjectHistoryEntry,
+  ProjectStore
+} from "./projectStore.js";
 
 type McpStatusProvider = {
   getStatus: () => McpStatus;
@@ -96,7 +103,16 @@ type ComputedLayoutRefresher = (
   input: RefreshComputedLayoutInput
 ) => Promise<ComputedLayoutRefreshResult>;
 
+const MAX_HISTORY_ENTRY_COUNT = 50;
+const EMPTY_HISTORY_STATE: HistoryState = {
+  canRedo: false,
+  canUndo: false,
+  redoDepth: 0,
+  undoDepth: 0
+};
+
 export class ProjectRuntime {
+  private activeHistory: ProjectHistory = createEmptyHistory();
   private activeSession: ActiveProject | null = null;
   private commandQueue: Promise<void> = Promise.resolve();
   private computedLayoutRefresher: ComputedLayoutRefresher | null = null;
@@ -126,8 +142,10 @@ export class ProjectRuntime {
     try {
       const storedProject = this.store.createProject(name);
       this.activeSession = storedProject;
+      this.activeHistory = this.store.getProjectHistory(storedProject.project.id);
       this.emitProjectsChanged();
       this.emitActiveProjectChanged();
+      this.emitHistoryStateChanged();
       this.emitRuntimeCapabilitiesChanged();
       return ok(storedProject.project);
     } catch (error) {
@@ -140,6 +158,7 @@ export class ProjectRuntime {
 
   openProject(projectId: string): AppResult<ActiveProject> {
     const previousSession = this.activeSession;
+    const previousHistory = this.activeHistory;
 
     try {
       const storedProject = this.store.getProject(projectId);
@@ -159,14 +178,17 @@ export class ProjectRuntime {
         project: openedProject,
         revision: storedProject.revision
       };
+      this.activeHistory = this.store.getProjectHistory(openedProject.id);
 
       this.emitProjectsChanged();
       this.emitActiveProjectChanged();
+      this.emitHistoryStateChanged();
       this.emitRuntimeCapabilitiesChanged();
 
       return ok(this.activeSession);
     } catch (error) {
       this.activeSession = previousSession;
+      this.activeHistory = previousHistory;
       return err(
         "internal_error",
         error instanceof Error ? error.message : "Failed to open the project"
@@ -176,6 +198,10 @@ export class ProjectRuntime {
 
   getActiveProject(): AppResult<ActiveProject | null> {
     return ok(this.activeSession);
+  }
+
+  getHistoryState(): AppResult<HistoryState> {
+    return ok(this.buildHistoryState());
   }
 
   getRuntimeCapabilities(): AppResult<RuntimeCapabilities> {
@@ -290,7 +316,7 @@ export class ProjectRuntime {
   }
 
   async applyCommands(input: ApplyCommandsInput): Promise<AppResult<CommandResult>> {
-    return this.enqueueCommand(() => this.applyCommandsInternal(input));
+    return this.enqueueCommand(() => this.applyCommandsInternal(input, "ui"));
   }
 
   async applyProjectCommands(input: ApplyProjectCommandsInput): Promise<AppResult<CommandResult>> {
@@ -300,11 +326,24 @@ export class ProjectRuntime {
       return writableSession;
     }
 
-    return this.applyCommands({
-      base_revision: input.base_revision,
-      commands: input.commands,
-      document_id: writableSession.data.document.document_id
-    });
+    return this.enqueueCommand(() =>
+      this.applyCommandsInternal(
+        {
+          base_revision: input.base_revision,
+          commands: input.commands,
+          document_id: writableSession.data.document.document_id
+        },
+        "mcp"
+      )
+    );
+  }
+
+  async undo(): Promise<AppResult<CommandResult>> {
+    return this.enqueueCommand(() => this.applyHistoryTraversalInternal("undo"));
+  }
+
+  async redo(): Promise<AppResult<CommandResult>> {
+    return this.enqueueCommand(() => this.applyHistoryTraversalInternal("redo"));
   }
 
   setMeasurementSurfaceAvailable(value: boolean): void {
@@ -336,7 +375,10 @@ export class ProjectRuntime {
     this.store.close();
   }
 
-  private async applyCommandsInternal(input: ApplyCommandsInput): Promise<AppResult<CommandResult>> {
+  private async applyCommandsInternal(
+    input: ApplyCommandsInput,
+    source: HistoryMutationSource
+  ): Promise<AppResult<CommandResult>> {
     if (!this.activeSession) {
       return err("not_found", "No active project session is open");
     }
@@ -352,6 +394,11 @@ export class ProjectRuntime {
       );
     }
 
+    const preEditSnapshot = this.createHistoryEntry(
+      this.activeSession.document,
+      source,
+      this.activeSession.revision
+    );
     let layoutRefresh: CommandResult["layout_refresh"] = {
       status: "not_required"
     };
@@ -378,10 +425,24 @@ export class ProjectRuntime {
       return err(commandResult.error.code, commandResult.error.message);
     }
 
+    if (commandResult.revision === this.activeSession.revision) {
+      return ok({
+        document_id: commandResult.document_id,
+        ...(commandResult.effects === undefined ? {} : { effects: commandResult.effects }),
+        layout_refresh: layoutRefresh,
+        revision: this.activeSession.revision
+      });
+    }
+
+    const nextHistory = trimHistory({
+      redo: [],
+      undo: [...this.activeHistory.undo, preEditSnapshot]
+    });
     const persistedProject = this.store.saveProjectDocument(
       this.activeSession.project.id,
       commandResult.document,
-      this.activeSession.revision
+      this.activeSession.revision,
+      nextHistory
     );
 
     if (!persistedProject.ok) {
@@ -400,10 +461,12 @@ export class ProjectRuntime {
       project: persistedProject.project,
       revision: persistedProject.revision
     };
+    this.activeHistory = nextHistory;
 
     this.emitProjectsChanged();
     this.emitActiveProjectChanged();
     this.emitDocumentChanged();
+    this.emitHistoryStateChanged();
 
     return ok({
       document_id: commandResult.document_id,
@@ -411,6 +474,128 @@ export class ProjectRuntime {
       layout_refresh: layoutRefresh,
       revision: persistedProject.revision
     });
+  }
+
+  private async applyHistoryTraversalInternal(
+    operation: "undo" | "redo"
+  ): Promise<AppResult<CommandResult>> {
+    if (!this.activeSession) {
+      return err("not_found", "No active project session is open");
+    }
+
+    if (!this.hasMeasurementSurface()) {
+      return err(
+        "measurement_surface_unavailable",
+        "Write-capable command execution requires an available renderer measurement surface"
+      );
+    }
+
+    const sourceStack = operation === "undo" ? this.activeHistory.undo : this.activeHistory.redo;
+
+    if (sourceStack.length === 0) {
+      return err("validation_failed", `No ${operation} history is available`);
+    }
+
+    const targetEntry = sourceStack[sourceStack.length - 1];
+    const currentSnapshotEntry = this.createHistoryEntry(
+      this.activeSession.document,
+      "ui",
+      this.activeSession.revision
+    );
+    const computedLayoutRefresher = this.computedLayoutRefresher;
+    let layoutRefresh: CommandResult["layout_refresh"] = {
+      status: "not_required"
+    };
+
+    let restoredDocument: ActiveProject["document"];
+
+    try {
+      restoredDocument = await finalizeCommittedDocument(targetEntry.document, {
+        currentRevision: this.activeSession.revision,
+        measurementSurfaceAvailable: true,
+        refreshComputedLayout: computedLayoutRefresher
+          ? async (refreshInput) => {
+              const refreshedDocument = await computedLayoutRefresher(refreshInput);
+              layoutRefresh = refreshedDocument.layoutRefresh;
+              return refreshedDocument.document;
+            }
+          : undefined
+      });
+    } catch (error) {
+      return err(resolveRuntimeErrorCode(error), resolveRuntimeErrorMessage(error));
+    }
+
+    const nextHistory =
+      operation === "undo"
+        ? {
+            redo: [...this.activeHistory.redo, currentSnapshotEntry],
+            undo: this.activeHistory.undo.slice(0, -1)
+          }
+        : {
+            redo: this.activeHistory.redo.slice(0, -1),
+            undo: [...this.activeHistory.undo, currentSnapshotEntry]
+          };
+    const persistedProject = this.store.saveProjectDocument(
+      this.activeSession.project.id,
+      restoredDocument,
+      this.activeSession.revision,
+      nextHistory
+    );
+
+    if (!persistedProject.ok) {
+      if (persistedProject.code === "not_found") {
+        return err("not_found", `Project ${this.activeSession.project.id} no longer exists`);
+      }
+
+      return err(
+        "revision_conflict",
+        `Project ${this.activeSession.project.id} changed while applying ${operation}`
+      );
+    }
+
+    this.activeSession = {
+      document: restoredDocument,
+      project: persistedProject.project,
+      revision: persistedProject.revision
+    };
+    this.activeHistory = nextHistory;
+
+    this.emitProjectsChanged();
+    this.emitActiveProjectChanged();
+    this.emitDocumentChanged();
+    this.emitHistoryStateChanged();
+
+    return ok({
+      document_id: restoredDocument.document_id,
+      layout_refresh: layoutRefresh,
+      revision: persistedProject.revision
+    });
+  }
+
+  private createHistoryEntry(
+    document: ActiveProject["document"],
+    source: HistoryMutationSource,
+    sourceRevision: number
+  ): ProjectHistoryEntry {
+    return {
+      committed_at: new Date().toISOString(),
+      document: structuredClone(document),
+      source,
+      source_revision: sourceRevision
+    };
+  }
+
+  private buildHistoryState(): HistoryState {
+    if (!this.activeSession) {
+      return EMPTY_HISTORY_STATE;
+    }
+
+    return {
+      canRedo: this.activeHistory.redo.length > 0,
+      canUndo: this.activeHistory.undo.length > 0,
+      redoDepth: this.activeHistory.redo.length,
+      undoDepth: this.activeHistory.undo.length
+    };
   }
 
   private buildRuntimeCapabilities(): RuntimeCapabilities {
@@ -453,6 +638,13 @@ export class ProjectRuntime {
       revision: this.activeSession.revision,
       runtimeCapabilities: this.buildRuntimeCapabilities(),
       type: "document_changed"
+    });
+  }
+
+  private emitHistoryStateChanged(): void {
+    this.emitRuntimeEvent({
+      historyState: this.buildHistoryState(),
+      type: "history_state_changed"
     });
   }
 
@@ -557,4 +749,29 @@ function resolveRuntimeErrorCode(error: unknown): AppErrorCode {
 
 function resolveRuntimeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Failed to refresh computed layout";
+}
+
+function createEmptyHistory(): ProjectHistory {
+  return {
+    redo: [],
+    undo: []
+  };
+}
+
+function trimHistory(history: ProjectHistory): ProjectHistory {
+  const trimmedHistory: ProjectHistory = {
+    redo: [...history.redo],
+    undo: [...history.undo]
+  };
+
+  while (trimmedHistory.undo.length + trimmedHistory.redo.length > MAX_HISTORY_ENTRY_COUNT) {
+    if (trimmedHistory.undo.length > 0) {
+      trimmedHistory.undo.shift();
+      continue;
+    }
+
+    trimmedHistory.redo.shift();
+  }
+
+  return trimmedHistory;
 }

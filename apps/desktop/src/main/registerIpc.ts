@@ -32,6 +32,14 @@ export function registerIpc(runtime: ProjectRuntime, options: RegisterIpcOptions
 
   ipcMain.handle(appChannelNames.listProjects, async () => runtime.listProjects());
   ipcMain.handle(appChannelNames.getActiveProject, async () => runtime.getActiveProject());
+  ipcMain.handle(appChannelNames.getHistoryState, async (_event, input) => {
+    try {
+      emptyPayloadSchema.parse(input ?? {});
+      return runtime.getHistoryState();
+    } catch (error) {
+      return toValidationError(error);
+    }
+  });
   ipcMain.handle(appChannelNames.getMcpStatus, async () => runtime.getMcpStatus());
 
   ipcMain.handle(appChannelNames.createProject, async (_event, input) => {
@@ -75,6 +83,24 @@ export function registerIpc(runtime: ProjectRuntime, options: RegisterIpcOptions
     try {
       emptyPayloadSchema.parse(input ?? {});
       return runtime.getRuntimeCapabilities();
+    } catch (error) {
+      return toValidationError(error);
+    }
+  });
+
+  ipcMain.handle(appChannelNames.undo, async (_event, input) => {
+    try {
+      emptyPayloadSchema.parse(input ?? {});
+      return runtime.undo();
+    } catch (error) {
+      return toValidationError(error);
+    }
+  });
+
+  ipcMain.handle(appChannelNames.redo, async (_event, input) => {
+    try {
+      emptyPayloadSchema.parse(input ?? {});
+      return runtime.redo();
     } catch (error) {
       return toValidationError(error);
     }

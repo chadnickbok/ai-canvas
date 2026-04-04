@@ -4,11 +4,12 @@ import type {
   AppResult,
   ApplyCommandsInput,
   CommandResult,
+  HistoryState,
   McpStatus,
   RuntimeCapabilities
 } from "@ai-canvas/ipc-contract";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { resolveNodeCanvasRect } from "./interaction/geometry.js";
 import { InteractionOverlay } from "./interaction/InteractionOverlay.js";
@@ -27,10 +28,13 @@ import { WorkspaceGridBackdrop } from "./rendering/workspaceGrid.js";
 export type DocumentWorkspaceScreenProps = {
   activeProject: ActiveProject;
   errorMessage?: string | null;
+  historyState?: HistoryState | null;
   isBusy?: boolean;
   mcpStatus: McpStatus | null;
   onApplyCommands?: (input: ApplyCommandsInput) => Promise<AppResult<CommandResult>>;
   onBackToLibrary: () => void;
+  onRedo?: () => Promise<void> | void;
+  onUndo?: () => Promise<void> | void;
   runtimeCapabilities: RuntimeCapabilities | null;
 };
 
@@ -38,6 +42,16 @@ type SelectionSource = "canvas" | "hierarchy";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement)
+  );
 }
 
 function formatMcpStatusLine(status: McpStatus | null): string {
@@ -142,10 +156,13 @@ function WorkspaceOverlay({
 export function DocumentWorkspaceScreen({
   activeProject,
   errorMessage,
+  historyState,
   isBusy = false,
   mcpStatus,
   onApplyCommands,
   onBackToLibrary,
+  onRedo,
+  onUndo,
   runtimeCapabilities
 }: DocumentWorkspaceScreenProps) {
   const resolvedAssetsById = resolveDocumentAssets(activeProject);
@@ -247,11 +264,54 @@ export function DocumentWorkspaceScreen({
     lastCommittedZoom: viewport.zoom
   }));
   const canAdjustViewport = viewportSize.width > 0 && viewportSize.height > 0;
+  const canTraverseHistory = runtimeCapabilities?.mode === "read_write" && !isBusy;
+  const canRedo = canTraverseHistory && historyState?.canRedo === true;
+  const canUndo = canTraverseHistory && historyState?.canUndo === true;
   const effectiveErrorMessage = errorMessage ?? commandError;
   const zoomInputValue =
     zoomInputState.lastCommittedZoom === viewport.zoom
       ? zoomInputState.draft
       : formatViewportZoomPercent(viewport.zoom);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.repeat ||
+        event.altKey ||
+        isEditableEventTarget(event.target) ||
+        (!event.metaKey && !event.ctrlKey)
+      ) {
+        return;
+      }
+
+      const normalizedKey = event.key.toLowerCase();
+
+      if (normalizedKey === "z" && !event.shiftKey) {
+        if (!canUndo) {
+          return;
+        }
+
+        event.preventDefault();
+        void onUndo?.();
+        return;
+      }
+
+      if ((normalizedKey === "z" && event.shiftKey) || normalizedKey === "y") {
+        if (!canRedo) {
+          return;
+        }
+
+        event.preventDefault();
+        void onRedo?.();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [canRedo, canUndo, onRedo, onUndo]);
 
   const handleLayerSelection = useCallback(
     (nodeId: string) => {
@@ -266,7 +326,8 @@ export function DocumentWorkspaceScreen({
         activeProject.document,
         nodeId,
         rendererRef.current,
-        viewport.zoom
+        viewport.zoom,
+        activeProject.revision
       );
 
       if (selectionRect) {
@@ -337,6 +398,36 @@ export function DocumentWorkspaceScreen({
             </div>
 
             <div className="flex items-center gap-2 border border-black/12 bg-white/86 px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.04)]">
+              <button
+                className={cn(
+                  "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
+                  !canUndo && "cursor-not-allowed opacity-45 hover:border-black/12"
+                )}
+                data-history-action="undo"
+                disabled={!canUndo}
+                onClick={() => {
+                  void onUndo?.();
+                }}
+                type="button"
+              >
+                Undo
+              </button>
+
+              <button
+                className={cn(
+                  "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
+                  !canRedo && "cursor-not-allowed opacity-45 hover:border-black/12"
+                )}
+                data-history-action="redo"
+                disabled={!canRedo}
+                onClick={() => {
+                  void onRedo?.();
+                }}
+                type="button"
+              >
+                Redo
+              </button>
+
               <button
                 className={cn(
                   "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
@@ -473,6 +564,7 @@ export function DocumentWorkspaceScreen({
               backdropLayer={<WorkspaceGridBackdrop viewport={viewport} viewportSize={viewportSize} />}
               className="h-full w-full"
               document={activeProject.document}
+              documentRevision={activeProject.revision}
               interactionLayer={
                 <InteractionOverlay
                   allowMutation={
@@ -480,6 +572,7 @@ export function DocumentWorkspaceScreen({
                     runtimeCapabilities.measurementSurfaceAvailable === true
                   }
                   document={activeProject.document}
+                  documentRevision={activeProject.revision}
                   hoveredNodeId={hoveredNodeId}
                   preview={preview}
                   rendererRef={rendererRef}

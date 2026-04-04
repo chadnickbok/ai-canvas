@@ -106,6 +106,7 @@ export function CommitLayoutMeasurementHost({ api }: { api: DesktopApi }) {
     >
       <DocumentRenderer
         document={activeRequest.document}
+        documentRevision={0}
         ref={rendererRef}
         resolvedAssetsById={EMPTY_RESOLVED_ASSETS}
       />

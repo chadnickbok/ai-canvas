@@ -23,6 +23,13 @@ export const runtimeCapabilitiesSchema = z.object({
   runtimeState: z.string()
 });
 
+export const historyStateSchema = z.object({
+  canRedo: z.boolean(),
+  canUndo: z.boolean(),
+  redoDepth: z.number().int().nonnegative(),
+  undoDepth: z.number().int().nonnegative()
+});
+
 export const mcpStatusStateSchema = z.enum(["running", "error"]);
 export const mcpStatusErrorCodeSchema = z.enum(["port_in_use", "startup_failed"]);
 
@@ -58,6 +65,11 @@ export const runtimeCapabilitiesChangedEventSchema = z.object({
   runtimeCapabilities: runtimeCapabilitiesSchema
 });
 
+export const historyStateChangedEventSchema = z.object({
+  type: z.literal("history_state_changed"),
+  historyState: historyStateSchema
+});
+
 export const mcpStatusChangedEventSchema = z.object({
   type: z.literal("mcp_status_changed"),
   mcpStatus: mcpStatusSchema
@@ -75,6 +87,7 @@ export const runtimeEventSchema = z.discriminatedUnion("type", [
   projectsChangedEventSchema,
   activeProjectChangedEventSchema,
   runtimeCapabilitiesChangedEventSchema,
+  historyStateChangedEventSchema,
   mcpStatusChangedEventSchema,
   documentChangedEventSchema
 ]);
@@ -195,18 +208,22 @@ export const appChannelNames = {
   applyCommands: "app:applyCommands",
   createProject: "app:createProject",
   getActiveProject: "app:getActiveProject",
+  getHistoryState: "app:getHistoryState",
   getMcpStatus: "app:getMcpStatus",
   getRuntimeCapabilities: "app:getRuntimeCapabilities",
   layoutMeasurementRequest: "app:layoutMeasurementRequest",
   listProjects: "app:listProjects",
   openExternalUrl: "app:openExternalUrl",
   openProject: "app:openProject",
+  redo: "app:redo",
   submitLayoutMeasurementResult: "app:submitLayoutMeasurementResult",
+  undo: "app:undo",
   runtimeEvent: "app:runtimeEvent"
 } as const;
 
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 export type RuntimeCapabilities = z.infer<typeof runtimeCapabilitiesSchema>;
+export type HistoryState = z.infer<typeof historyStateSchema>;
 export type McpStatus = z.infer<typeof mcpStatusSchema>;
 export type McpStatusState = z.infer<typeof mcpStatusStateSchema>;
 export type McpStatusErrorCode = z.infer<typeof mcpStatusErrorCodeSchema>;
@@ -214,6 +231,7 @@ export type ActiveProject = z.infer<typeof activeProjectSchema>;
 export type ProjectsChangedEvent = z.infer<typeof projectsChangedEventSchema>;
 export type ActiveProjectChangedEvent = z.infer<typeof activeProjectChangedEventSchema>;
 export type RuntimeCapabilitiesChangedEvent = z.infer<typeof runtimeCapabilitiesChangedEventSchema>;
+export type HistoryStateChangedEvent = z.infer<typeof historyStateChangedEventSchema>;
 export type McpStatusChangedEvent = z.infer<typeof mcpStatusChangedEventSchema>;
 export type DocumentChangedEvent = z.infer<typeof documentChangedEventSchema>;
 export type RuntimeEvent = z.infer<typeof runtimeEventSchema>;
@@ -242,16 +260,19 @@ export interface DesktopApi {
   applyCommands(input: ApplyCommandsInput): Promise<AppResult<CommandResult>>;
   createProject(input: CreateProjectInput): Promise<AppResult<ProjectSummary>>;
   getActiveProject(): Promise<AppResult<ActiveProject | null>>;
+  getHistoryState(): Promise<AppResult<HistoryState>>;
   getMcpStatus(): Promise<AppResult<McpStatus>>;
   getRuntimeCapabilities(): Promise<AppResult<RuntimeCapabilities>>;
   listProjects(): Promise<AppResult<ProjectSummary[]>>;
   openExternalUrl(input: OpenExternalUrlInput): Promise<AppResult<EmptyPayload>>;
   openProject(input: OpenProjectInput): Promise<AppResult<ActiveProject>>;
+  redo(): Promise<AppResult<CommandResult>>;
   submitLayoutMeasurementResult(input: LayoutMeasurementResult): Promise<AppResult<EmptyPayload>>;
   subscribeToLayoutMeasurementRequests(
     listener: (request: LayoutMeasurementRequest) => void
   ): () => void;
   subscribeToRuntimeEvents(listener: (event: RuntimeEvent) => void): () => void;
+  undo(): Promise<AppResult<CommandResult>>;
 }
 
 export function ok<T>(data: T): AppResult<T> {
