@@ -165,37 +165,89 @@ fixtures
 
 ## Getting started
 
-The workspace has not been scaffolded yet. The commands below describe the intended development workflow once the initial Electron/TypeScript workspace exists.
+This workspace is an active pnpm monorepo.
 
-### Planned requirements
+### Requirements
 
-- Node.js 20+
-- pnpm 9+
+- Node.js 24+
+- pnpm 10+
 - a recent macOS, Windows, or Linux environment capable of running Electron
 
-### Planned install command
+### Install
 
 ```bash
 pnpm install
 ```
 
-### Planned desktop app command
+### Start desktop app
 
 ```bash
 pnpm dev
 ```
 
-### Planned test command
+### Test
 
 ```bash
 pnpm test
 ```
 
-### Planned build command
+### Lint
+
+```bash
+pnpm lint
+```
+
+Lint a single workspace package:
+
+```bash
+pnpm --filter @ai-canvas/editor-ui lint
+```
+
+### Build
 
 ```bash
 pnpm build
 ```
+
+### Verify local MCP bridge
+
+Run the desktop app and keep it open, then run:
+
+```bash
+pnpm --filter @ai-canvas/desktop mcp:demo-slice
+```
+
+Expected result:
+
+- JSON output with `"status": "ok"`
+- an `endpoint` like `http://127.0.0.1:9311/mcp`
+- a `project_id` and `document_id`
+
+If that command succeeds, the local MCP bridge is reachable.
+
+### Verify Codex can connect to MCP
+
+1. In AI Canvas Desktop, confirm MCP status is running and note the endpoint (include `/mcp`).
+2. In Codex MCP/connectors settings, add a server using that exact endpoint.
+3. Verify connection in one of these ways:
+
+- run `pnpm --filter @ai-canvas/desktop mcp:demo-slice` and confirm `"status": "ok"`
+- or, from a shell, confirm the listener exists:
+
+```bash
+lsof -nP -iTCP:9311 -sTCP:LISTEN
+```
+
+If nothing is listening on port `9311`, MCP is not running in the desktop app.
+
+### MCP troubleshooting
+
+- `Cannot find package '@tailwindcss/vite'`
+  Install dependencies: `pnpm install`
+- `No electron app entry file found: .../out/main/index.js`
+  Build workspace packages first: `pnpm build:packages`, then start app again
+- Codex cannot connect but app appears open
+  Verify endpoint includes `/mcp` and the app reports MCP as running
 
 ## Local storage
 
