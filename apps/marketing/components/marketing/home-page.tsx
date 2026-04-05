@@ -1,8 +1,12 @@
-import heroProjectLibraryImage from "./assets/screenshots/hero-project-library.png";
-import mcpInstallationImage from "./assets/screenshots/mcp-installation.png";
-import workflowSceneImage from "./assets/screenshots/workflow-scene.png";
+import Image from "next/image";
 
-import { siteConfig } from "./siteConfig.js";
+import heroProjectLibraryImage from "../../src/assets/screenshots/hero-project-library.png";
+import mcpInstallationImage from "../../src/assets/screenshots/mcp-installation.png";
+import workflowSceneImage from "../../src/assets/screenshots/workflow-scene.png";
+import { siteConfig } from "../../lib/site-config";
+import { LinkButton } from "./link-button";
+import { MarketingLink } from "./marketing-link";
+import { SectionHeading } from "./section-heading";
 
 const navigationItems = [
   { href: "#why", label: "Why" },
@@ -154,49 +158,14 @@ const designSystemRows = [
   "provenance: command batch / revision 12"
 ] as const;
 
-type LinkButtonProps = {
-  href: string;
-  kind?: "ghost" | "primary" | "secondary";
-  label: string;
-};
-
-function LinkButton({ href, kind = "secondary", label }: LinkButtonProps) {
-  return (
-    <a
-      className={`button button-${kind}`}
-      href={href}
-      rel="noreferrer"
-      target="_blank"
-    >
-      {label}
-    </a>
-  );
-}
-
-type SectionHeadingProps = {
-  body: string;
-  eyebrow: string;
-  title: string;
-};
-
-function SectionHeading({ body, eyebrow, title }: SectionHeadingProps) {
-  return (
-    <div className="section-heading">
-      <span className="section-eyebrow">{eyebrow}</span>
-      <h2>{title}</h2>
-      <p>{body}</p>
-    </div>
-  );
-}
-
-export function App() {
+export function MarketingHomePage() {
   return (
     <div className="site-shell">
-      <div className="site-background" aria-hidden="true" />
+      <div aria-hidden="true" className="site-background" />
 
       <header className="site-header">
         <a className="brand-lockup" href="#top">
-          <span className="brand-mark" aria-hidden="true" />
+          <span aria-hidden="true" className="brand-mark" />
           <span className="brand-text">
             <strong>AI Canvas</strong>
             <span>Desktop + MCP</span>
@@ -213,7 +182,7 @@ export function App() {
 
         <div className="header-actions">
           <LinkButton href={siteConfig.githubUrl} kind="ghost" label="GitHub" />
-          <LinkButton href={siteConfig.downloadUrl} kind="primary" label="Download Desktop" />
+          <LinkButton href={siteConfig.downloadPath} kind="primary" label="Download Desktop" />
         </div>
       </header>
 
@@ -229,8 +198,8 @@ export function App() {
             </p>
 
             <div className="hero-actions">
-              <LinkButton href={siteConfig.downloadUrl} kind="primary" label="Download Desktop" />
-              <LinkButton href={siteConfig.docsUrl} kind="secondary" label="Read the Docs" />
+              <LinkButton href={siteConfig.downloadPath} kind="primary" label="Download Desktop" />
+              <LinkButton href={siteConfig.docsPath} kind="secondary" label="Read the Docs" />
             </div>
 
             <p className="hero-note">
@@ -246,9 +215,12 @@ export function App() {
                 <span className="ui-mono">active project: homeflow</span>
               </div>
               <div className="panel-media-frame">
-                <img
+                <Image
                   alt="AI Canvas Desktop project library with MCP status and installation guidance"
                   className="panel-image"
+                  placeholder="blur"
+                  priority
+                  sizes="(min-width: 1180px) 640px, (min-width: 900px) calc(100vw - 32px), 100vw"
                   src={heroProjectLibraryImage}
                 />
               </div>
@@ -264,7 +236,7 @@ export function App() {
           </div>
         </section>
 
-        <section className="proof-strip section" aria-label="Product proof points">
+        <section aria-label="Product proof points" className="proof-strip section">
           {proofPoints.map((point) => (
             <div className="proof-pill" key={point}>
               {point}
@@ -311,7 +283,7 @@ export function App() {
 
               <div className="inline-cta">
                 <LinkButton
-                  href={siteConfig.downloadUrl}
+                  href={siteConfig.downloadPath}
                   kind="primary"
                   label="Download Desktop and Try MCP"
                 />
@@ -325,10 +297,11 @@ export function App() {
                   <span className="ui-mono">canvas + layers + inspector</span>
                 </div>
                 <div className="panel-media-frame panel-media-frame-shot">
-                  <img
+                  <Image
                     alt="AI Canvas document workspace showing a multi-screen flow with the layers panel on the left and the inspector on the right"
                     className="panel-image panel-image-workflow"
-                    loading="lazy"
+                    placeholder="blur"
+                    sizes="(min-width: 1180px) 556px, (min-width: 900px) calc(100vw - 32px), 100vw"
                     src={workflowSceneImage}
                   />
                 </div>
@@ -384,10 +357,11 @@ export function App() {
                 <span className="ui-mono">endpoint + client buttons</span>
               </div>
               <div className="panel-media-frame panel-media-frame-shot panel-media-frame-mcp">
-                <img
+                <Image
                   alt="AI Canvas MCP installation panel showing the localhost endpoint and setup buttons for Claude, Codex, and Gemini"
                   className="panel-image panel-image-mcp"
-                  loading="lazy"
+                  placeholder="blur"
+                  sizes="(min-width: 1180px) 420px, (min-width: 900px) calc(50vw - 32px), 100vw"
                   src={mcpInstallationImage}
                 />
               </div>
@@ -493,7 +467,7 @@ export function App() {
               of truth.
             </p>
             <div className="status-actions">
-              <LinkButton href={siteConfig.docsUrl} kind="secondary" label="Read Docs" />
+              <LinkButton href={siteConfig.docsPath} kind="secondary" label="Read Docs" />
               <LinkButton href={siteConfig.githubUrl} kind="ghost" label="View GitHub" />
             </div>
           </article>
@@ -528,9 +502,9 @@ export function App() {
             </div>
 
             <div className="download-actions">
-              <LinkButton href={siteConfig.downloadUrl} kind="primary" label="Download Desktop" />
+              <LinkButton href={siteConfig.downloadPath} kind="primary" label="Download Desktop" />
               <LinkButton href={siteConfig.githubUrl} kind="secondary" label="View GitHub" />
-              <LinkButton href={siteConfig.docsUrl} kind="ghost" label="Read Docs" />
+              <LinkButton href={siteConfig.docsPath} kind="ghost" label="Read Docs" />
             </div>
           </article>
         </section>
@@ -539,18 +513,12 @@ export function App() {
       <footer className="site-footer">
         <p>Local-first, scene-first mockup editing for humans and AI agents.</p>
         <div className="footer-links">
-          <a href={siteConfig.githubUrl} rel="noreferrer" target="_blank">
-            GitHub
-          </a>
-          <a href={siteConfig.docsUrl} rel="noreferrer" target="_blank">
+          <MarketingLink href={siteConfig.githubUrl}>GitHub</MarketingLink>
+          <MarketingLink href={siteConfig.docsPath} newTab={false}>
             Docs
-          </a>
-          <a href={siteConfig.releasesUrl} rel="noreferrer" target="_blank">
-            Releases
-          </a>
-          <a href={siteConfig.licenseUrl} rel="noreferrer" target="_blank">
-            License
-          </a>
+          </MarketingLink>
+          <MarketingLink href={siteConfig.releasesUrl}>Releases</MarketingLink>
+          <MarketingLink href={siteConfig.licenseUrl}>License</MarketingLink>
         </div>
       </footer>
     </div>

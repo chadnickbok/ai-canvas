@@ -5,9 +5,11 @@ function resolveUrl(value: string | undefined, fallback: string): string {
 }
 
 export const siteConfig = {
-  docsUrl: resolveUrl(import.meta.env.VITE_DOCS_URL, `${REPOSITORY_URL}/tree/main/docs`),
-  downloadUrl: resolveUrl(import.meta.env.VITE_DOWNLOAD_URL, `${REPOSITORY_URL}/releases`),
-  githubUrl: resolveUrl(import.meta.env.VITE_GITHUB_URL, REPOSITORY_URL),
+  docsPath: "/docs",
+  downloadPath: "/download",
+  docsUrl: resolveUrl(process.env.NEXT_PUBLIC_DOCS_URL, `${REPOSITORY_URL}/tree/main/docs`),
+  downloadUrl: resolveUrl(process.env.NEXT_PUBLIC_DOWNLOAD_URL, `${REPOSITORY_URL}/releases`),
+  githubUrl: resolveUrl(process.env.NEXT_PUBLIC_GITHUB_URL, REPOSITORY_URL),
   licenseUrl: `${REPOSITORY_URL}/blob/main/LICENSE.md`,
   releasesUrl: `${REPOSITORY_URL}/releases`
-};
+} as const;

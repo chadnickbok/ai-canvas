@@ -32,8 +32,7 @@ html {
 }
 
 html,
-body,
-#root {
+body {
   margin: 0;
   min-height: 100%;
 }
@@ -413,13 +412,9 @@ main,
 .section-heading {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-bottom: 26px;
-  max-width: 840px;
-}
-
-.section-heading h2 {
-  max-width: 14ch;
+  gap: 16px;
+  margin-bottom: 24px;
+  max-width: 760px;
 }
 
 .value-grid,
@@ -434,19 +429,17 @@ main,
 }
 
 .value-card,
-.trust-card,
 .faq-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-height: 100%;
-  padding: 22px;
+  gap: 18px;
+  padding: 24px;
 }
 
 .card-index,
-.step-number,
-.stat-label,
 .mode-label,
+.stat-label,
+.step-number,
 .status-badge {
   color: var(--ink-soft);
   font-size: 12px;
