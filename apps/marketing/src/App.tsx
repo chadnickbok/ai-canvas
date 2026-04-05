@@ -1,4 +1,6 @@
-import aiCanvasSidebarImage from "../../../screenshots/ai_canvas_sidebar.png";
+import heroProjectLibraryImage from "./assets/screenshots/hero-project-library.png";
+import mcpInstallationImage from "./assets/screenshots/mcp-installation.png";
+import workflowSceneImage from "./assets/screenshots/workflow-scene.png";
 
 import { siteConfig } from "./siteConfig.js";
 
@@ -134,11 +136,6 @@ commands:
 
 mode: read_write`;
 
-const installSnippet = `endpoint: http://localhost:PORT/mcp
-status: running
-window_open: true
-mode: read_write`;
-
 const treeRows = [
   "project: homeflow",
   "document: current_document_json",
@@ -252,7 +249,7 @@ export function App() {
                 <img
                   alt="AI Canvas Desktop project library with MCP status and installation guidance"
                   className="panel-image"
-                  src={aiCanvasSidebarImage}
+                  src={heroProjectLibraryImage}
                 />
               </div>
             </article>
@@ -322,27 +319,23 @@ export function App() {
             </div>
 
             <div className="workflow-proof">
-              <article className="info-card">
+              <article className="info-card screenshot-card screenshot-card-workflow">
                 <div className="panel-chrome">
-                  <span>demo slice</span>
-                  <span className="ui-mono">scene_home</span>
+                  <span>workflow scene</span>
+                  <span className="ui-mono">canvas + layers + inspector</span>
                 </div>
-                <pre className="code-panel">
-{`create_scene
-  id: scene_home
-  left: 80
-  top: 80
-  width: 390
-  height: 844
-
-create_node
-  id: rect_hero
-  kind: rectangle
-
-create_node
-  id: text_title
-  kind: text`}
-                </pre>
+                <div className="panel-media-frame panel-media-frame-shot">
+                  <img
+                    alt="AI Canvas document workspace showing a multi-screen flow with the layers panel on the left and the inspector on the right"
+                    className="panel-image panel-image-workflow"
+                    loading="lazy"
+                    src={workflowSceneImage}
+                  />
+                </div>
+                <p className="card-footnote">
+                  One screenshot now carries the full product shape: scene-first canvas, visible
+                  structure, and inspector-backed editing in the same workspace.
+                </p>
               </article>
 
               <article className="info-card info-card-accent">
@@ -387,13 +380,21 @@ create_node
 
             <article className="info-card">
               <div className="panel-chrome">
-                <span>install shape</span>
-                <span className="ui-mono">localhost only</span>
+                <span>installation</span>
+                <span className="ui-mono">endpoint + client buttons</span>
               </div>
-              <pre className="code-panel">{installSnippet}</pre>
+              <div className="panel-media-frame panel-media-frame-shot panel-media-frame-mcp">
+                <img
+                  alt="AI Canvas MCP installation panel showing the localhost endpoint and setup buttons for Claude, Codex, and Gemini"
+                  className="panel-image panel-image-mcp"
+                  loading="lazy"
+                  src={mcpInstallationImage}
+                />
+              </div>
               <p className="card-footnote">
                 Works with clients such as Claude, Codex, and Gemini through their MCP or tools
-                configuration screens. Use the full endpoint, including the <span>/mcp</span> path.
+                configuration screens. Use the full endpoint, including the <span>/mcp</span> path,
+                and keep the editor window open for write-capable actions.
               </p>
             </article>
 

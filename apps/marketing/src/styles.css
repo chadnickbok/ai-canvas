@@ -353,12 +353,32 @@ main,
   overflow: hidden;
 }
 
+.panel-media-frame-shot {
+  background: linear-gradient(180deg, rgba(17, 17, 17, 0.03), transparent);
+  max-height: none;
+}
+
+.panel-media-frame-mcp {
+  padding: 20px 20px 0;
+}
+
 .panel-image {
   display: block;
   height: auto;
   object-fit: cover;
   object-position: top center;
   width: 100%;
+}
+
+.panel-image-workflow,
+.panel-image-mcp {
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 16px 46px rgba(20, 17, 9, 0.08);
+}
+
+.panel-image-mcp {
+  background: rgba(255, 252, 246, 0.9);
 }
 
 .code-panel {
@@ -494,6 +514,10 @@ main,
 
 .info-card-wide {
   grid-column: 1 / -1;
+}
+
+.screenshot-card .card-footnote {
+  padding-top: 16px;
 }
 
 .stat-row {
@@ -656,6 +680,10 @@ main,
 
   .workflow-layout {
     align-items: start;
+  }
+
+  .workflow-proof {
+    grid-column: 1 / -1;
   }
 
   .status-card,

@@ -4,4 +4,4 @@ out
 .DS_Store
 .electron-vite
 coverage
-screenshots/
+/screenshots/
