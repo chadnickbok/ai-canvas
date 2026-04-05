@@ -50,3 +50,6 @@ This file is a map to the docs set, not a source-of-truth contract. If behavior 
 
 - [testing-and-release.md](testing-and-release.md)
   Defines the validation strategy, release gates, and manual verification bar for the desktop app.
+
+- [release-distribution.md](release-distribution.md)
+  Defines the v1 build, packaging, distribution, promotion, and auto-update model for the desktop app.
