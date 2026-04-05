@@ -69,35 +69,87 @@ export function useViewportController({
   isPanModePinned = false,
   workspaceIdentity
 }: UseViewportControllerInput) {
-  const [viewport, setViewport] = useState<ViewportState>(DEFAULT_VIEWPORT);
+  const [viewportState, setViewportState] = useState<{
+    hasInteractedWithCanvas: boolean;
+    viewport: ViewportState | null;
+    workspaceIdentity: string;
+  }>(() => ({
+    hasInteractedWithCanvas: false,
+    viewport: null,
+    workspaceIdentity
+  }));
   const [viewportSize, setViewportSize] = useState<ViewportSize>(EMPTY_VIEWPORT_SIZE);
   const [isDragging, setIsDragging] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const [hasInteractedWithCanvas, setHasInteractedWithCanvas] = useState(false);
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
-  const viewportElementRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
-  const initializedWorkspaceRef = useRef<string | null>(null);
 
   const contentBounds = useMemo(() => resolveTopLevelContentBounds(document), [document]);
+  const initialViewport = useMemo(
+    () =>
+      viewportSize.width === 0 || viewportSize.height === 0
+        ? DEFAULT_VIEWPORT
+        : createViewportForContentBounds(contentBounds, viewportSize, {
+            maxZoom: 1,
+            padding: fitPadding
+          }),
+    [contentBounds, fitPadding, viewportSize]
+  );
+  const isCurrentWorkspaceViewport = viewportState.workspaceIdentity === workspaceIdentity;
+  const viewport = isCurrentWorkspaceViewport && viewportState.viewport ? viewportState.viewport : initialViewport;
+  const hasInteractedWithCanvas = isCurrentWorkspaceViewport
+    ? viewportState.hasInteractedWithCanvas
+    : false;
 
   const viewportRef = useCallback((element: HTMLDivElement | null) => {
-    viewportElementRef.current = element;
     setViewportElement(element);
+    setViewportSize(measureViewportSize(element));
   }, []);
+
+  const updateViewport = useCallback(
+    (
+      nextViewportOrUpdater: ViewportState | ((currentViewport: ViewportState) => ViewportState),
+      options?: {
+        markInteracted?: boolean;
+      }
+    ) => {
+      setViewportState((currentViewportState) => {
+        const currentViewport =
+          currentViewportState.workspaceIdentity === workspaceIdentity && currentViewportState.viewport
+            ? currentViewportState.viewport
+            : initialViewport;
+        const nextViewport =
+          typeof nextViewportOrUpdater === "function"
+            ? nextViewportOrUpdater(currentViewport)
+            : nextViewportOrUpdater;
+
+        return {
+          hasInteractedWithCanvas:
+            options?.markInteracted === true
+              ? true
+              : currentViewportState.workspaceIdentity === workspaceIdentity
+                ? currentViewportState.hasInteractedWithCanvas
+                : false,
+          viewport: nextViewport,
+          workspaceIdentity
+        };
+      });
+    },
+    [initialViewport, workspaceIdentity]
+  );
 
   const fitToContent = useCallback(() => {
     if (viewportSize.width === 0 || viewportSize.height === 0) {
       return;
     }
 
-    setViewport(
+    updateViewport(
       createViewportForContentBounds(contentBounds, viewportSize, {
         maxZoom: 1,
         padding: fitPadding
       })
     );
-  }, [contentBounds, fitPadding, viewportSize]);
+  }, [contentBounds, fitPadding, updateViewport, viewportSize]);
 
   const resetToActualSize = useCallback(() => {
     if (viewportSize.width === 0 || viewportSize.height === 0) {
@@ -111,8 +163,8 @@ export function useViewportController({
         }
       : { x: 0, y: 0 };
 
-    setViewport(centerViewportOnPoint(targetCenter, viewportSize, 1));
-  }, [contentBounds, viewportSize]);
+    updateViewport(centerViewportOnPoint(targetCenter, viewportSize, 1));
+  }, [contentBounds, updateViewport, viewportSize]);
 
   const setZoomAtViewportCenter = useCallback(
     (nextZoom: number) => {
@@ -125,11 +177,11 @@ export function useViewportController({
         y: viewportSize.height / 2
       };
 
-      setViewport((currentViewport) =>
+      updateViewport((currentViewport) =>
         zoomViewportAroundPoint(currentViewport, centerPoint, clampViewportZoom(nextZoom))
       );
     },
-    [viewportSize]
+    [updateViewport, viewportSize]
   );
 
   const revealCanvasRect = useCallback(
@@ -154,15 +206,17 @@ export function useViewportController({
         return false;
       }
 
-      setViewport((currentViewport) =>
+      updateViewport((currentViewport) =>
         revealCanvasBounds(currentViewport, rect, viewportSize, {
           padding: options?.padding ?? fitPadding
-        })
+        }),
+        {
+          markInteracted: true
+        }
       );
-      setHasInteractedWithCanvas(true);
       return true;
     },
-    [fitPadding, viewport, viewportSize]
+    [fitPadding, updateViewport, viewport, viewportSize]
   );
 
   const stopDragging = useCallback(() => {
@@ -172,15 +226,12 @@ export function useViewportController({
 
   useLayoutEffect(() => {
     if (!viewportElement) {
-      setViewportSize(EMPTY_VIEWPORT_SIZE);
       return;
     }
 
     const updateViewportSize = () => {
       setViewportSize(measureViewportSize(viewportElement));
     };
-
-    updateViewportSize();
 
     if (typeof ResizeObserver === "function") {
       const observer = new ResizeObserver(() => {
@@ -200,32 +251,6 @@ export function useViewportController({
       window.removeEventListener("resize", updateViewportSize);
     };
   }, [viewportElement]);
-
-  useEffect(() => {
-    initializedWorkspaceRef.current = null;
-    stopDragging();
-    setViewport(DEFAULT_VIEWPORT);
-    setHasInteractedWithCanvas(false);
-  }, [stopDragging, workspaceIdentity]);
-
-  useEffect(() => {
-    if (initializedWorkspaceRef.current === workspaceIdentity) {
-      return;
-    }
-
-    if (viewportSize.width === 0 || viewportSize.height === 0) {
-      return;
-    }
-
-    setViewport(
-      createViewportForContentBounds(contentBounds, viewportSize, {
-        maxZoom: 1,
-        padding: fitPadding
-      })
-    );
-    setHasInteractedWithCanvas(false);
-    initializedWorkspaceRef.current = workspaceIdentity;
-  }, [contentBounds, fitPadding, viewportSize, workspaceIdentity]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -286,24 +311,30 @@ export function useViewportController({
         };
         const zoomFactor = Math.exp(-input.deltaY * MODIFIED_WHEEL_ZOOM_SENSITIVITY);
 
-        setViewport((currentViewport) =>
+        updateViewport((currentViewport) =>
           zoomViewportAroundPoint(
             currentViewport,
             pointer,
             clampViewportZoom(currentViewport.zoom * zoomFactor)
-          )
+          ),
+          {
+            markInteracted: true
+          }
         );
       } else {
-        setViewport((currentViewport) => ({
-          ...currentViewport,
-          panX: currentViewport.panX - input.deltaX,
-          panY: currentViewport.panY - input.deltaY
-        }));
+        updateViewport(
+          (currentViewport) => ({
+            ...currentViewport,
+            panX: currentViewport.panX - input.deltaX,
+            panY: currentViewport.panY - input.deltaY
+          }),
+          {
+            markInteracted: true
+          }
+        );
       }
-
-      setHasInteractedWithCanvas(true);
     },
-    [viewportSize]
+    [updateViewport, viewportSize]
   );
 
   useEffect(() => {
@@ -369,10 +400,12 @@ export function useViewportController({
         pointerId: event.pointerId
       };
       event.currentTarget.setPointerCapture(event.pointerId);
-      setHasInteractedWithCanvas(true);
+      updateViewport((currentViewport) => currentViewport, {
+        markInteracted: true
+      });
       setIsDragging(true);
     },
-    [isPanModePinned, isSpacePressed]
+    [isPanModePinned, isSpacePressed, updateViewport]
   );
 
   const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -391,12 +424,17 @@ export function useViewportController({
       lastClientY: event.clientY
     };
 
-    setViewport((currentViewport) => ({
-      ...currentViewport,
-      panX: currentViewport.panX + deltaX,
-      panY: currentViewport.panY + deltaY
-    }));
-  }, []);
+    updateViewport(
+      (currentViewport) => ({
+        ...currentViewport,
+        panX: currentViewport.panX + deltaX,
+        panY: currentViewport.panY + deltaY
+      }),
+      {
+        markInteracted: true
+      }
+    );
+  }, [updateViewport]);
 
   const handlePointerUp = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {

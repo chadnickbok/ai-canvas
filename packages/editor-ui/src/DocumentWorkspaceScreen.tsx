@@ -269,6 +269,7 @@ export function DocumentWorkspaceScreen({
   const sceneCount = Object.keys(activeProject.document.scenes).length;
   const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
   const rendererRef = useRef<RendererMeasurementHandle | null>(null);
+  const [rendererHandle, setRendererHandle] = useState<RendererMeasurementHandle | null>(null);
   const [selectionState, setSelectionState] = useState<{
     nodeId: string | null;
     sequence: number;
@@ -287,11 +288,34 @@ export function DocumentWorkspaceScreen({
     isVisible: true,
     workspaceIdentity
   }));
-  const [activeCanvasTool, setActiveCanvasTool] = useState<CanvasTool>("selection");
   const canCreateNodes =
     runtimeCapabilities?.mode === "read_write" &&
     runtimeCapabilities.measurementSurfaceAvailable === true;
+  const [canvasToolState, setCanvasToolState] = useState<{
+    tool: CanvasTool;
+    workspaceIdentity: string;
+  }>(() => ({
+    tool: "selection",
+    workspaceIdentity
+  }));
+  const requestedCanvasTool =
+    canvasToolState.workspaceIdentity === workspaceIdentity ? canvasToolState.tool : "selection";
+  const activeCanvasTool =
+    canCreateNodes || !isCreateCanvasTool(requestedCanvasTool) ? requestedCanvasTool : "selection";
   const isGrabToolActive = activeCanvasTool === "grab";
+  const handleCanvasToolChange = useCallback(
+    (tool: CanvasTool) => {
+      setCanvasToolState({
+        tool,
+        workspaceIdentity
+      });
+    },
+    [workspaceIdentity]
+  );
+  const handleRendererRef = useCallback((handle: RendererMeasurementHandle | null) => {
+    rendererRef.current = handle;
+    setRendererHandle(handle);
+  }, []);
   const {
     fitToContent,
     hasInteractedWithCanvas,
@@ -332,18 +356,6 @@ export function DocumentWorkspaceScreen({
       ? layersInspectorVisibilityState.isVisible
       : true;
 
-  useEffect(() => {
-    setActiveCanvasTool("selection");
-  }, [workspaceIdentity]);
-
-  useEffect(() => {
-    if (canCreateNodes || !isCreateCanvasTool(activeCanvasTool)) {
-      return;
-    }
-
-    setActiveCanvasTool("selection");
-  }, [activeCanvasTool, canCreateNodes]);
-
   const {
     commandError,
     handleClick: handleInteractionClick,
@@ -364,7 +376,7 @@ export function DocumentWorkspaceScreen({
       runtimeCapabilities.measurementSurfaceAvailable === true,
     document: activeProject.document,
     isPanModifierActive: isSpacePressed || isGrabToolActive,
-    onCanvasToolChange: setActiveCanvasTool,
+    onCanvasToolChange: handleCanvasToolChange,
     onSelectedNodeIdChange: (nodeId) => {
       setSelectionState((currentSelectionState) => ({
         nodeId,
@@ -455,7 +467,7 @@ export function DocumentWorkspaceScreen({
         revealCanvasRect(selectionRect);
       }
     },
-    [activeProject.document, revealCanvasRect, viewport.zoom, workspaceIdentity]
+    [activeProject.document, activeProject.revision, revealCanvasRect, viewport.zoom, workspaceIdentity]
   );
 
   const commitZoomInput = () => {
@@ -698,14 +710,14 @@ export function DocumentWorkspaceScreen({
                   documentRevision={activeProject.revision}
                   hoveredNodeId={hoveredNodeId}
                   preview={preview}
-                  rendererRef={rendererRef}
+                  rendererHandle={rendererHandle}
                   selectionRectOverride={selectionRectOverride}
                   selectedNodeId={selectedNodeId}
                   showHandles={activeCanvasTool === "selection"}
                   viewport={viewport}
                 />
               }
-              ref={rendererRef}
+              ref={handleRendererRef}
               resolvedAssetsById={resolvedAssetsById}
               uiLayer={
                 <WorkspaceOverlay
@@ -713,7 +725,7 @@ export function DocumentWorkspaceScreen({
                     <CanvasToolBar
                       activeTool={activeCanvasTool}
                       canCreateNodes={canCreateNodes}
-                      onToolChange={setActiveCanvasTool}
+                      onToolChange={handleCanvasToolChange}
                     />
                   }
                   hasInteractedWithCanvas={hasInteractedWithCanvas}

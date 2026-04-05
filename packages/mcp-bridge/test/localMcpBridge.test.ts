@@ -256,7 +256,7 @@ describe("LocalMcpBridge", () => {
   });
 
   it("opens, inspects, and applies commands with structured MCP payloads", async () => {
-    const applyCommands = vi.fn(async (input) =>
+    const applyCommands = vi.fn(async () =>
       createOk({
         document_id: "doc_123",
         effects: {

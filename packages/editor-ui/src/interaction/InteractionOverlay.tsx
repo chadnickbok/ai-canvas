@@ -1,12 +1,13 @@
 import type { RendererDocument, RendererNode } from "@ai-canvas/document-core";
-import { Fragment, type RefObject, useMemo } from "react";
+import { Fragment, useMemo } from "react";
 
 import type { RendererMeasurementHandle, ViewportState } from "../rendering/types.js";
 import {
   insetCanvasRect,
   isNodeDirectlyManipulable,
   type CanvasRect,
-  createCanvasRect,
+  isSceneFrameNode,
+  resolveDocumentNodeCanvasRectWithSource,
   resolveFlexAxis,
   resolveFramePaddingInsets,
   resolveNodeCanvasRect,
@@ -26,7 +27,7 @@ export type InteractionOverlayProps = {
   documentRevision: number;
   hoveredNodeId: string | null;
   preview: InteractionPreview | null;
-  rendererRef: RefObject<RendererMeasurementHandle | null>;
+  rendererHandle: RendererMeasurementHandle | null;
   selectionRectOverride: CanvasRect | null;
   selectedNodeId: string | null;
   showHandles?: boolean;
@@ -52,7 +53,7 @@ export function InteractionOverlay({
   documentRevision,
   hoveredNodeId,
   preview,
-  rendererRef,
+  rendererHandle,
   selectionRectOverride,
   selectedNodeId,
   showHandles = true,
@@ -64,10 +65,10 @@ export function InteractionOverlay({
     preview?.previewRect ??
     selectionRectOverride ??
     (selectedNode
-      ? resolveNodeCanvasRect(
+      ? resolveOverlayNodeCanvasRect(
           document,
-          selectedNode.id,
-          rendererRef.current,
+          selectedNode,
+          rendererHandle,
           viewport.zoom,
           documentRevision
         )
@@ -75,10 +76,10 @@ export function InteractionOverlay({
   const originalSelectedRect = preview?.originalRect ?? selectedRect;
   const hoveredRect =
     hoveredNode && hoveredNode.id !== selectedNode?.id
-      ? resolveNodeCanvasRect(
+      ? resolveOverlayNodeCanvasRect(
           document,
-          hoveredNode.id,
-          rendererRef.current,
+          hoveredNode,
+          rendererHandle,
           viewport.zoom,
           documentRevision
         )
@@ -89,10 +90,10 @@ export function InteractionOverlay({
     selectedNode && selectedNode.parent_id ? document.nodes[selectedNode.parent_id] ?? null : null;
   const parentRect =
     parentNode
-      ? resolveNodeCanvasRect(
+      ? resolveOverlayNodeCanvasRect(
           document,
-          parentNode.id,
-          rendererRef.current,
+          parentNode,
+          rendererHandle,
           viewport.zoom,
           documentRevision
         )
@@ -106,14 +107,14 @@ export function InteractionOverlay({
     () =>
       selectedNode && selectedRect && parentNode && parentRect
         ? buildSpacingMeasures(
-            document,
-            documentRevision,
-            selectedNode,
-            selectedRect,
-            parentNode,
-            parentRect,
-            rendererRef,
-            viewport.zoom
+          document,
+          documentRevision,
+          selectedNode,
+          selectedRect,
+          parentNode,
+          parentRect,
+          rendererHandle,
+          viewport.zoom
           )
         : [],
     [
@@ -121,7 +122,7 @@ export function InteractionOverlay({
       documentRevision,
       parentNode,
       parentRect,
-      rendererRef,
+      rendererHandle,
       selectedNode,
       selectedRect,
       viewport.zoom
@@ -313,7 +314,7 @@ function buildSpacingMeasures(
   selectedRect: CanvasRect,
   parentNode: RendererNode,
   parentRect: CanvasRect,
-  rendererRef: RefObject<RendererMeasurementHandle | null>,
+  rendererHandle: RendererMeasurementHandle | null,
   zoom: number
 ): MeasureSpec[] {
   const measures: MeasureSpec[] = [];
@@ -387,20 +388,20 @@ function buildSpacingMeasures(
   const nextSiblingId = selectedIndex < siblingIds.length - 1 ? siblingIds[selectedIndex + 1] : null;
   const previousRect =
     previousSiblingId
-      ? resolveNodeCanvasRect(
+      ? resolveOverlayNodeCanvasRect(
           document,
-          previousSiblingId,
-          rendererRef.current,
+          document.nodes[previousSiblingId] ?? null,
+          rendererHandle,
           zoom,
           documentRevision
         )
       : null;
   const nextRect =
     nextSiblingId
-      ? resolveNodeCanvasRect(
+      ? resolveOverlayNodeCanvasRect(
           document,
-          nextSiblingId,
-          rendererRef.current,
+          document.nodes[nextSiblingId] ?? null,
+          rendererHandle,
           zoom,
           documentRevision
         )
@@ -459,6 +460,32 @@ function buildSpacingMeasures(
   }
 
   return measures;
+}
+
+function resolveOverlayNodeCanvasRect(
+  document: RendererDocument,
+  node: RendererNode | null,
+  rendererHandle: RendererMeasurementHandle | null,
+  zoom: number,
+  documentRevision: number
+): CanvasRect | null {
+  if (!node) {
+    return null;
+  }
+
+  const documentRect = resolveDocumentNodeCanvasRectWithSource(document, node.id);
+
+  if (
+    documentRect &&
+    (documentRect.source === "computed_layout" ||
+      node.parent_id === null ||
+      isSceneFrameNode(document, node) ||
+      node.render_style.position === "absolute")
+  ) {
+    return documentRect.rect;
+  }
+
+  return resolveNodeCanvasRect(document, node.id, rendererHandle, zoom, documentRevision);
 }
 
 function createLabelStyle(x: number, y: number, scale: number) {
