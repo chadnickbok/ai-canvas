@@ -8,9 +8,19 @@ import type {
   McpStatus,
   RuntimeCapabilities
 } from "@ai-canvas/ipc-contract";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Frame,
+  Hand,
+  MousePointer2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Square,
+  Type
+} from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
+import type { CanvasTool } from "./canvasTools.js";
+import { isCreateCanvasTool } from "./canvasTools.js";
 import { resolveNodeCanvasRect } from "./interaction/geometry.js";
 import { InteractionOverlay } from "./interaction/InteractionOverlay.js";
 import { useInteractionController } from "./interaction/useInteractionController.js";
@@ -39,6 +49,39 @@ export type DocumentWorkspaceScreenProps = {
 };
 
 type SelectionSource = "canvas" | "hierarchy";
+type CanvasToolButtonDefinition = {
+  icon: typeof MousePointer2;
+  label: string;
+  tool: CanvasTool;
+};
+
+const CANVAS_TOOL_BUTTONS: CanvasToolButtonDefinition[] = [
+  {
+    icon: MousePointer2,
+    label: "Selection",
+    tool: "selection"
+  },
+  {
+    icon: Hand,
+    label: "Grab",
+    tool: "grab"
+  },
+  {
+    icon: Frame,
+    label: "Create frame",
+    tool: "frame"
+  },
+  {
+    icon: Type,
+    label: "Create text",
+    tool: "text"
+  },
+  {
+    icon: Square,
+    label: "Create rectangle",
+    tool: "rectangle"
+  }
+];
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -105,11 +148,62 @@ function resolveDocumentAssets(activeProject: ActiveProject): ResolvedAssetsById
   return resolvedAssetsById;
 }
 
+function CanvasToolBar({
+  activeTool,
+  canCreateNodes,
+  onToolChange
+}: {
+  activeTool: CanvasTool;
+  canCreateNodes: boolean;
+  onToolChange: (tool: CanvasTool) => void;
+}) {
+  return (
+    <div
+      aria-label="Canvas tools"
+      className="pointer-events-auto flex items-center gap-2 border border-black/14 bg-white/96 px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.08)] backdrop-blur"
+      data-canvas-toolbar="true"
+      role="toolbar"
+    >
+      {CANVAS_TOOL_BUTTONS.map(({ icon: Icon, label, tool }) => {
+        const isActive = activeTool === tool;
+        const isDisabled = isCreateCanvasTool(tool) && !canCreateNodes;
+
+        return (
+          <button
+            aria-label={label}
+            aria-pressed={isActive}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center border border-black/14 text-[#111111] transition",
+              isActive
+                ? "bg-[#111111] text-[var(--chrome-ink-inverse)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]"
+                : "bg-white/96 hover:border-black/60",
+              isDisabled && "cursor-not-allowed opacity-40 hover:border-black/14"
+            )}
+            data-canvas-tool={tool}
+            data-canvas-tool-active={isActive ? "true" : "false"}
+            disabled={isDisabled}
+            key={tool}
+            onClick={() => {
+              onToolChange(tool);
+            }}
+            title={label}
+            type="button"
+          >
+            <Icon className="h-4 w-4" strokeWidth={1.7} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function WorkspaceOverlay({
+  bottomBar,
   hasInteractedWithCanvas,
   isBusy,
   sceneCount
 }: {
+  bottomBar?: ReactNode;
   hasInteractedWithCanvas: boolean;
   isBusy: boolean;
   sceneCount: number;
@@ -136,18 +230,24 @@ function WorkspaceOverlay({
         ) : null}
       </div>
 
-      <div className="flex justify-start">
-        <div
-          aria-hidden={hasInteractedWithCanvas}
-          className={cn(
-            "ui-mono bg-[var(--chrome-surface-strong)]/78 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[var(--chrome-ink-inverse)] shadow-[0_14px_40px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-200 ease-out",
-            hasInteractedWithCanvas ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
-          )}
-          data-viewport-hint="true"
-          data-viewport-hint-visible={hasInteractedWithCanvas ? "false" : "true"}
-        >
-          Scroll to pan. Hold Space and drag to move. Ctrl/Cmd + wheel to zoom.
+      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-4">
+        <div className="justify-self-start">
+          <div
+            aria-hidden={hasInteractedWithCanvas}
+            className={cn(
+              "ui-mono bg-[var(--chrome-surface-strong)]/78 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[var(--chrome-ink-inverse)] shadow-[0_14px_40px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-200 ease-out",
+              hasInteractedWithCanvas ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
+            )}
+            data-viewport-hint="true"
+            data-viewport-hint-visible={hasInteractedWithCanvas ? "false" : "true"}
+          >
+            Scroll to pan. Hold Space and drag to move. Ctrl/Cmd + wheel to zoom.
+          </div>
         </div>
+
+        <div className="justify-self-center">{bottomBar}</div>
+
+        <div aria-hidden="true" />
       </div>
     </div>
   );
@@ -187,6 +287,11 @@ export function DocumentWorkspaceScreen({
     isVisible: true,
     workspaceIdentity
   }));
+  const [activeCanvasTool, setActiveCanvasTool] = useState<CanvasTool>("selection");
+  const canCreateNodes =
+    runtimeCapabilities?.mode === "read_write" &&
+    runtimeCapabilities.measurementSurfaceAvailable === true;
+  const isGrabToolActive = activeCanvasTool === "grab";
   const {
     fitToContent,
     hasInteractedWithCanvas,
@@ -205,6 +310,7 @@ export function DocumentWorkspaceScreen({
     viewportSize
   } = useViewportController({
     document: activeProject.document,
+    isPanModePinned: isGrabToolActive,
     workspaceIdentity
   });
   const selectedNodeId =
@@ -225,6 +331,19 @@ export function DocumentWorkspaceScreen({
     layersInspectorVisibilityState.workspaceIdentity === workspaceIdentity
       ? layersInspectorVisibilityState.isVisible
       : true;
+
+  useEffect(() => {
+    setActiveCanvasTool("selection");
+  }, [workspaceIdentity]);
+
+  useEffect(() => {
+    if (canCreateNodes || !isCreateCanvasTool(activeCanvasTool)) {
+      return;
+    }
+
+    setActiveCanvasTool("selection");
+  }, [activeCanvasTool, canCreateNodes]);
+
   const {
     commandError,
     handleClick: handleInteractionClick,
@@ -239,11 +358,13 @@ export function DocumentWorkspaceScreen({
     preview,
     selectionRectOverride
   } = useInteractionController({
+    activeTool: activeCanvasTool,
     allowMutation:
       runtimeCapabilities?.mode === "read_write" &&
       runtimeCapabilities.measurementSurfaceAvailable === true,
     document: activeProject.document,
-    isPanModifierActive: isSpacePressed,
+    isPanModifierActive: isSpacePressed || isGrabToolActive,
+    onCanvasToolChange: setActiveCanvasTool,
     onSelectedNodeIdChange: (nodeId) => {
       setSelectionState((currentSelectionState) => ({
         nodeId,
@@ -512,14 +633,16 @@ export function DocumentWorkspaceScreen({
                 ? "cursor-default"
                 : isDragging
                   ? "cursor-grabbing"
-                  : isSpacePressed
+                  : isSpacePressed || isGrabToolActive
                     ? "cursor-grab"
-                    : "cursor-default"
+                    : isCreateCanvasTool(activeCanvasTool)
+                      ? "cursor-crosshair"
+                      : "cursor-default"
             )}
             data-viewport-frame="true"
             onAuxClick={handleAuxClick}
             onClick={(event) => {
-              if (!isDragging && !isSpacePressed && !isMutatingSelection) {
+              if (!isDragging && !isSpacePressed && !isMutatingSelection && !isGrabToolActive) {
                 handleInteractionClick(event);
               }
             }}
@@ -578,6 +701,7 @@ export function DocumentWorkspaceScreen({
                   rendererRef={rendererRef}
                   selectionRectOverride={selectionRectOverride}
                   selectedNodeId={selectedNodeId}
+                  showHandles={activeCanvasTool === "selection"}
                   viewport={viewport}
                 />
               }
@@ -585,6 +709,13 @@ export function DocumentWorkspaceScreen({
               resolvedAssetsById={resolvedAssetsById}
               uiLayer={
                 <WorkspaceOverlay
+                  bottomBar={
+                    <CanvasToolBar
+                      activeTool={activeCanvasTool}
+                      canCreateNodes={canCreateNodes}
+                      onToolChange={setActiveCanvasTool}
+                    />
+                  }
                   hasInteractedWithCanvas={hasInteractedWithCanvas}
                   isBusy={isBusy}
                   sceneCount={sceneCount}

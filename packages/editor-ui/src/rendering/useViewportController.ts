@@ -28,6 +28,7 @@ const MODIFIED_WHEEL_ZOOM_SENSITIVITY = 0.00375;
 type UseViewportControllerInput = {
   document: RendererDocument;
   fitPadding?: number;
+  isPanModePinned?: boolean;
   workspaceIdentity: string;
 };
 
@@ -65,6 +66,7 @@ function measureViewportSize(element: HTMLDivElement | null): ViewportSize {
 export function useViewportController({
   document,
   fitPadding = DEFAULT_VIEWPORT_FIT_PADDING,
+  isPanModePinned = false,
   workspaceIdentity
 }: UseViewportControllerInput) {
   const [viewport, setViewport] = useState<ViewportState>(DEFAULT_VIEWPORT);
@@ -353,7 +355,8 @@ export function useViewportController({
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      const shouldStartDrag = event.button === 1 || (event.button === 0 && isSpacePressed);
+      const shouldStartDrag =
+        event.button === 1 || (event.button === 0 && (isSpacePressed || isPanModePinned));
 
       if (!shouldStartDrag) {
         return;
@@ -369,7 +372,7 @@ export function useViewportController({
       setHasInteractedWithCanvas(true);
       setIsDragging(true);
     },
-    [isSpacePressed]
+    [isPanModePinned, isSpacePressed]
   );
 
   const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {

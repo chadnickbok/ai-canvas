@@ -29,6 +29,7 @@ export type InteractionOverlayProps = {
   rendererRef: RefObject<RendererMeasurementHandle | null>;
   selectionRectOverride: CanvasRect | null;
   selectedNodeId: string | null;
+  showHandles?: boolean;
   viewport: ViewportState;
 };
 
@@ -54,6 +55,7 @@ export function InteractionOverlay({
   rendererRef,
   selectionRectOverride,
   selectedNodeId,
+  showHandles = true,
   viewport
 }: InteractionOverlayProps) {
   const selectedNode = selectedNodeId ? document.nodes[selectedNodeId] ?? null : null;
@@ -274,7 +276,7 @@ export function InteractionOverlay({
         />
       ) : null}
 
-      {selectedRect && canManipulateSelection && !preview
+      {selectedRect && canManipulateSelection && showHandles && !preview
         ? RESIZE_HANDLE_ORDER.map((handle) => {
             const position = resolveHandlePosition(selectedRect, handle, handleSize);
 

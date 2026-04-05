@@ -7,6 +7,8 @@ import type {
 } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import type { CanvasTool, CreateCanvasTool } from "../canvasTools.js";
+import { isCreateCanvasTool } from "../canvasTools.js";
 import type { RendererMeasurementHandle, ViewportState } from "../rendering/types.js";
 import {
   createCanvasRect,
@@ -14,6 +16,7 @@ import {
   type CanvasRect,
   isNodeDirectlyManipulable,
   isSceneFrameNode,
+  resolveFramePaddingInsets,
   roundCanvasNumber,
   type ResizeHandle,
   resolveCanvasPointFromClientCoordinates,
@@ -45,10 +48,24 @@ type SelectionRectOverride = {
   targetRevision: number | null;
 };
 
+type CreateCommandDescriptor = {
+  createdNodeId: string;
+  input: ApplyCommandsInput;
+};
+
+type CreateNodePayload = Extract<ApplyCommandsInput["commands"][number], { type: "create_node" }>["node"];
+
+type CreateInsertionTarget = {
+  index?: number;
+  parentId: string | null;
+};
+
 export type UseInteractionControllerInput = {
+  activeTool: CanvasTool;
   allowMutation: boolean;
   document: RendererDocument;
   isPanModifierActive?: boolean;
+  onCanvasToolChange?: (tool: CanvasTool) => void;
   onSelectedNodeIdChange?: (nodeId: string | null) => void;
   onApplyCommands?: (input: ApplyCommandsInput) => Promise<AppResult<CommandResult>>;
   rendererRef: RefObject<RendererMeasurementHandle | null>;
@@ -75,9 +92,11 @@ export type UseInteractionControllerResult = {
 };
 
 export function useInteractionController({
+  activeTool,
   allowMutation,
   document,
   isPanModifierActive = false,
+  onCanvasToolChange,
   onSelectedNodeIdChange,
   onApplyCommands,
   rendererRef,
@@ -122,6 +141,19 @@ export function useInteractionController({
       setSelectionRectOverride(null);
     }
   }, [document, gestureState, hoveredNodeId, onSelectedNodeIdChange, selectedNodeId, selectionRectOverride]);
+
+  useEffect(() => {
+    if (activeTool === "selection") {
+      return;
+    }
+
+    setGestureState(null);
+    setSelectionRectOverride(null);
+
+    if (activeTool === "grab") {
+      setHoveredNodeId(null);
+    }
+  }, [activeTool]);
 
   useLayoutEffect(() => {
     if (!selectionRectOverride) {
@@ -275,9 +307,59 @@ export function useInteractionController({
     [document, onApplyCommands, revision]
   );
 
+  const commitCreateNode = useCallback(
+    async (tool: CreateCanvasTool, event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!allowMutation || !onApplyCommands) {
+        return;
+      }
+
+      const createCommand = resolveCreateCommandDescriptor({
+        document,
+        event,
+        rendererRef: rendererRef.current,
+        revision,
+        tool,
+        viewport
+      });
+
+      if (!createCommand) {
+        setCommandError("Failed to resolve insertion target");
+        return;
+      }
+
+      setCommandError(null);
+      setIsMutatingSelection(true);
+
+      try {
+        const result = await onApplyCommands(createCommand.input);
+
+        if (!result.ok) {
+          setCommandError(result.error.message);
+          return;
+        }
+
+        setCommandError(null);
+        setHoveredNodeId(null);
+        setSelectionRectOverride(null);
+        onSelectedNodeIdChange?.(createCommand.createdNodeId);
+        onCanvasToolChange?.("selection");
+      } catch (error) {
+        setCommandError(error instanceof Error ? error.message : "Failed to apply commands");
+      } finally {
+        setIsMutatingSelection(false);
+      }
+    },
+    [allowMutation, document, onApplyCommands, onCanvasToolChange, onSelectedNodeIdChange, rendererRef, revision, viewport]
+  );
+
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0 || isMutatingSelection || isPanModifierActive) {
+      if (
+        activeTool !== "selection" ||
+        event.button !== 0 ||
+        isMutatingSelection ||
+        isPanModifierActive
+      ) {
         return false;
       }
 
@@ -310,6 +392,7 @@ export function useInteractionController({
       return startGesture(event, targetNode, "move", null);
     },
     [
+      activeTool,
       allowMutation,
       document,
       isMutatingSelection,
@@ -368,10 +451,15 @@ export function useInteractionController({
         return false;
       }
 
+      if (activeTool === "grab") {
+        setHoveredNodeId(null);
+        return false;
+      }
+
       setHoveredNodeId(resolveInteractionTargetNodeId(event.target));
       return false;
     },
-    [gestureState, isMutatingSelection, viewport]
+    [activeTool, gestureState, isMutatingSelection, viewport]
   );
 
   const handlePointerUp = useCallback(
@@ -434,13 +522,22 @@ export function useInteractionController({
         return;
       }
 
+      if (activeTool === "grab") {
+        return;
+      }
+
+      if (isCreateCanvasTool(activeTool)) {
+        void commitCreateNode(activeTool, event);
+        return;
+      }
+
       const targetNodeId = resolveInteractionTargetNodeId(event.target);
 
       setCommandError(null);
       onSelectedNodeIdChange?.(targetNodeId);
       setHoveredNodeId(targetNodeId);
     },
-    [isMutatingSelection, onSelectedNodeIdChange]
+    [activeTool, commitCreateNode, isMutatingSelection, onSelectedNodeIdChange]
   );
 
   return {
@@ -603,4 +700,284 @@ function createCommitInput(
     ],
     document_id: document.document_id
   };
+}
+
+function resolveCreateCommandDescriptor(input: {
+  document: RendererDocument;
+  event: ReactMouseEvent<HTMLDivElement>;
+  rendererRef: RendererMeasurementHandle | null;
+  revision: number;
+  tool: CreateCanvasTool;
+  viewport: ViewportState;
+}): CreateCommandDescriptor | null {
+  const targetNodeId = resolveInteractionTargetNodeId(input.event.target);
+  const clickPoint = resolveCanvasPointFromClientCoordinates({
+    clientX: input.event.clientX,
+    clientY: input.event.clientY,
+    viewportElement: input.event.currentTarget,
+    viewportState: input.viewport
+  });
+  const insertionTarget = resolveCreateInsertionTarget(input.document, targetNodeId);
+
+  if (!insertionTarget) {
+    return null;
+  }
+
+  const parentNode = insertionTarget.parentId
+    ? input.document.nodes[insertionTarget.parentId] ?? null
+    : null;
+  const localPoint = resolveCreateLocalPoint({
+    clickPoint,
+    document: input.document,
+    parentNode,
+    rendererRef: input.rendererRef,
+    revision: input.revision,
+    viewportZoom: input.viewport.zoom
+  });
+
+  if (!localPoint) {
+    return null;
+  }
+
+  const createdNodeId = createNodeId(input.tool);
+  const commands: ApplyCommandsInput["commands"] = [];
+
+  if (shouldPatchParentToRelative(parentNode)) {
+    commands.push({
+      node_id: parentNode.id,
+      patch: {
+        render_style: {
+          position: "relative"
+        }
+      },
+      type: "update_node"
+    });
+  }
+
+  commands.push({
+    node: createNodePayload(input.tool, createdNodeId, localPoint),
+    parent: {
+      parent_id: insertionTarget.parentId,
+      ...(insertionTarget.index === undefined ? {} : { index: insertionTarget.index })
+    },
+    type: "create_node"
+  });
+
+  return {
+    createdNodeId,
+    input: {
+      base_revision: input.revision,
+      commands,
+      document_id: input.document.document_id
+    }
+  };
+}
+
+function resolveCreateInsertionTarget(
+  document: RendererDocument,
+  targetNodeId: string | null
+): CreateInsertionTarget | null {
+  if (!targetNodeId) {
+    return {
+      index: document.root.child_ids.length,
+      parentId: null
+    };
+  }
+
+  const targetNode = document.nodes[targetNodeId];
+
+  if (!targetNode) {
+    return null;
+  }
+
+  switch (targetNode.kind) {
+    case "frame":
+      return {
+        index: targetNode.child_ids.length,
+        parentId: targetNode.id
+      };
+    case "rectangle":
+    case "text":
+      return resolveSiblingInsertionTarget(document, targetNode.id);
+    case "svg":
+    case "svg-visual-element": {
+      const svgSiblingAnchor = resolveSvgSiblingAnchor(document, targetNode.id);
+      return svgSiblingAnchor ? resolveSiblingInsertionTarget(document, svgSiblingAnchor.id) : null;
+    }
+  }
+}
+
+function resolveSiblingInsertionTarget(
+  document: RendererDocument,
+  nodeId: string
+): CreateInsertionTarget | null {
+  const node = document.nodes[nodeId];
+
+  if (!node) {
+    return null;
+  }
+
+  if (node.parent_id === null) {
+    const index = document.root.child_ids.indexOf(node.id);
+
+    return {
+      index: index === -1 ? document.root.child_ids.length : index + 1,
+      parentId: null
+    };
+  }
+
+  const parentNode = document.nodes[node.parent_id];
+
+  if (!parentNode) {
+    return null;
+  }
+
+  const index = parentNode.child_ids.indexOf(node.id);
+
+  return {
+    index: index === -1 ? parentNode.child_ids.length : index + 1,
+    parentId: parentNode.id
+  };
+}
+
+function resolveSvgSiblingAnchor(
+  document: RendererDocument,
+  nodeId: string
+): RendererNode | null {
+  let currentNode = document.nodes[nodeId] ?? null;
+
+  while (currentNode?.parent_id) {
+    const parentNode = document.nodes[currentNode.parent_id] ?? null;
+
+    if (!parentNode || parentNode.kind !== "svg") {
+      break;
+    }
+
+    currentNode = parentNode;
+  }
+
+  return currentNode;
+}
+
+function resolveCreateLocalPoint(input: {
+  clickPoint: CanvasPoint;
+  document: RendererDocument;
+  parentNode: RendererNode | null;
+  rendererRef: RendererMeasurementHandle | null;
+  revision: number;
+  viewportZoom: number;
+}): CanvasPoint | null {
+  if (!input.parentNode) {
+    return {
+      x: roundCanvasNumber(input.clickPoint.x),
+      y: roundCanvasNumber(input.clickPoint.y)
+    };
+  }
+
+  const parentRect = resolveNodeCanvasRect(
+    input.document,
+    input.parentNode.id,
+    input.rendererRef,
+    input.viewportZoom,
+    input.revision
+  );
+
+  if (!parentRect) {
+    return null;
+  }
+
+  const paddingInsets =
+    input.parentNode.kind === "frame"
+      ? resolveFramePaddingInsets(input.parentNode) ?? { bottom: 0, left: 0, right: 0, top: 0 }
+      : { bottom: 0, left: 0, right: 0, top: 0 };
+
+  return {
+    x: roundCanvasNumber(input.clickPoint.x - parentRect.x - paddingInsets.left),
+    y: roundCanvasNumber(input.clickPoint.y - parentRect.y - paddingInsets.top)
+  };
+}
+
+function shouldPatchParentToRelative(parentNode: RendererNode | null): parentNode is RendererNode {
+  if (!parentNode || parentNode.kind !== "frame" || parentNode.parent_id === null) {
+    return false;
+  }
+
+  return !isPositionedValue(parentNode.render_style.position);
+}
+
+function isPositionedValue(value: unknown): boolean {
+  return value === "absolute" || value === "fixed" || value === "relative" || value === "sticky";
+}
+
+function createNodeId(tool: CreateCanvasTool): string {
+  const suffix = globalThis.crypto?.randomUUID?.() ?? createFallbackId();
+
+  switch (tool) {
+    case "frame":
+      return `frame_${suffix}`;
+    case "rectangle":
+      return `rect_${suffix}`;
+    case "text":
+      return `text_${suffix}`;
+  }
+}
+
+function createFallbackId(): string {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createNodePayload(
+  tool: CreateCanvasTool,
+  nodeId: string,
+  localPoint: CanvasPoint
+): CreateNodePayload {
+  switch (tool) {
+    case "frame":
+      return {
+        height: 240,
+        id: nodeId,
+        kind: "frame" as const,
+        left: localPoint.x,
+        name: "Frame",
+        render_style: {
+          backgroundColor: "#f5f5f5",
+          border: "1px solid rgba(17, 17, 17, 0.14)",
+          position: "absolute"
+        },
+        top: localPoint.y,
+        width: 320
+      };
+    case "rectangle":
+      return {
+        height: 120,
+        id: nodeId,
+        kind: "rectangle" as const,
+        left: localPoint.x,
+        name: "Rectangle",
+        render_style: {
+          backgroundColor: "#d4d4d4",
+          position: "absolute"
+        },
+        top: localPoint.y,
+        width: 160
+      };
+    case "text":
+      return {
+        id: nodeId,
+        kind: "text" as const,
+        left: localPoint.x,
+        name: "Text",
+        render_style: {
+          color: "#111111",
+          fontFamily: "IBM Plex Sans",
+          fontSize: 24,
+          fontWeight: 500,
+          position: "absolute"
+        },
+        text: {
+          content: "Text"
+        },
+        top: localPoint.y
+      };
+  }
 }
