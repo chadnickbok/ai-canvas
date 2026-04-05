@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/.electron-vite/**"]
+    ignores: ["**/dist/**", "**/node_modules/**", "**/.electron-vite/**", "**/.next/**"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -29,7 +29,11 @@ export default tseslint.config(
     }
   },
   {
-    files: ["apps/desktop/src/renderer/**/*.{ts,tsx}", "packages/editor-ui/**/*.{ts,tsx}"],
+    files: [
+      "apps/desktop/src/renderer/**/*.{ts,tsx}",
+      "apps/marketing/**/*.{ts,tsx}",
+      "packages/editor-ui/**/*.{ts,tsx}"
+    ],
     plugins: {
       react: reactPlugin,
       "react-hooks": reactHooksPlugin

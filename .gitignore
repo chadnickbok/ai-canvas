@@ -1,7 +1,9 @@
 node_modules
 dist
 out
+.next
+*.tsbuildinfo
 .DS_Store
 .electron-vite
 coverage
-screenshots/
+/screenshots/
