@@ -1,13 +1,16 @@
 {
   "name": "@ai-canvas/desktop",
   "private": true,
+  "productName": "AI Canvas",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "pnpm --dir ../.. dev",
+    "icon:build": "node ./scripts/build-app-icon.mjs",
     "dev:app": "electron-vite dev --watch",
     "build": "pnpm --dir ../.. build",
     "build:app": "electron-vite build",
+    "package:mac": "pnpm icon:build && pnpm build:app && node ./scripts/package-mac.mjs",
     "mcp:demo-slice": "node ./scripts/mcp-demo-vertical-slice.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src",
@@ -26,6 +29,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@electron/packager": "^19.1.0",
     "@modelcontextprotocol/sdk": "^1.28.0",
     "jsdom": "^26.1.0"
   }
