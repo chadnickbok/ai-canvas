@@ -171,6 +171,8 @@ export function DocumentWorkspaceScreen({
   const sceneCount = Object.keys(activeProject.document.scenes).length;
   const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
   const rendererRef = useRef<RendererMeasurementHandle | null>(null);
+  const [rendererMeasurementHandle, setRendererMeasurementHandle] =
+    useState<RendererMeasurementHandle | null>(null);
   const [selectionState, setSelectionState] = useState<{
     nodeId: string | null;
     sequence: number;
@@ -274,6 +276,10 @@ export function DocumentWorkspaceScreen({
     zoomInputState.lastCommittedZoom === viewport.zoom
       ? zoomInputState.draft
       : formatViewportZoomPercent(viewport.zoom);
+  const handleRendererRef = useCallback((nextRendererHandle: RendererMeasurementHandle | null) => {
+    rendererRef.current = nextRendererHandle;
+    setRendererMeasurementHandle(nextRendererHandle);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -585,13 +591,14 @@ export function DocumentWorkspaceScreen({
                   document={activeProject.document}
                   documentRevision={activeProject.revision}
                   hoveredNodeId={hoveredNodeId}
+                  measurementHandle={rendererMeasurementHandle}
                   preview={preview}
                   selectionRectOverride={selectionRectOverride}
                   selectedNodeId={selectedNodeId}
                   viewport={viewport}
                 />
               }
-              ref={rendererRef}
+              ref={handleRendererRef}
               resolvedAssetsById={resolvedAssetsById}
               uiLayer={
                 <WorkspaceOverlay

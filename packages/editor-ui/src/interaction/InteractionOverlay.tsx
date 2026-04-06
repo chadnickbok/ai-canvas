@@ -1,7 +1,7 @@
 import type { RendererDocument, RendererNode } from "@ai-canvas/document-core";
 import { Fragment, useMemo } from "react";
 
-import type { ViewportState } from "../rendering/types.js";
+import type { RendererMeasurementHandle, ViewportState } from "../rendering/types.js";
 import {
   insetCanvasRect,
   isNodeDirectlyManipulable,
@@ -24,6 +24,7 @@ export type InteractionOverlayProps = {
   document: RendererDocument;
   documentRevision: number;
   hoveredNodeId: string | null;
+  measurementHandle: RendererMeasurementHandle | null;
   preview: InteractionPreview | null;
   selectionRectOverride: CanvasRect | null;
   selectedNodeId: string | null;
@@ -48,6 +49,7 @@ export function InteractionOverlay({
   document,
   documentRevision,
   hoveredNodeId,
+  measurementHandle,
   preview,
   selectionRectOverride,
   selectedNodeId,
@@ -59,24 +61,12 @@ export function InteractionOverlay({
     preview?.previewRect ??
     selectionRectOverride ??
     (selectedNode
-      ? resolveNodeCanvasRect(
-          document,
-          selectedNode.id,
-          null,
-          viewport.zoom,
-          documentRevision
-        )
+      ? resolveOverlayCanvasRect(document, selectedNode.id, measurementHandle, viewport.zoom, documentRevision)
       : null);
   const originalSelectedRect = preview?.originalRect ?? selectedRect;
   const hoveredRect =
     hoveredNode && hoveredNode.id !== selectedNode?.id
-      ? resolveNodeCanvasRect(
-          document,
-          hoveredNode.id,
-          null,
-          viewport.zoom,
-          documentRevision
-        )
+      ? resolveOverlayCanvasRect(document, hoveredNode.id, measurementHandle, viewport.zoom, documentRevision)
       : null;
   const canManipulateSelection =
     selectedNode !== null && isNodeDirectlyManipulable(document, selectedNode, allowMutation);
@@ -84,13 +74,7 @@ export function InteractionOverlay({
     selectedNode && selectedNode.parent_id ? document.nodes[selectedNode.parent_id] ?? null : null;
   const parentRect =
     parentNode
-      ? resolveNodeCanvasRect(
-          document,
-          parentNode.id,
-          null,
-          viewport.zoom,
-          documentRevision
-        )
+      ? resolveOverlayCanvasRect(document, parentNode.id, measurementHandle, viewport.zoom, documentRevision)
       : null;
   const parentPaddingRect =
     parentNode && parentRect
@@ -103,6 +87,7 @@ export function InteractionOverlay({
         ? buildSpacingMeasures(
             document,
             documentRevision,
+            measurementHandle,
             selectedNode,
             selectedRect,
             parentNode,
@@ -113,6 +98,7 @@ export function InteractionOverlay({
     [
       document,
       documentRevision,
+      measurementHandle,
       parentNode,
       parentRect,
       selectedNode,
@@ -302,6 +288,7 @@ export function InteractionOverlay({
 function buildSpacingMeasures(
   document: RendererDocument,
   documentRevision: number,
+  measurementHandle: RendererMeasurementHandle | null,
   selectedNode: RendererNode,
   selectedRect: CanvasRect,
   parentNode: RendererNode,
@@ -385,7 +372,8 @@ function buildSpacingMeasures(
           null,
           zoom,
           documentRevision
-        )
+        ) ??
+        resolveNodeCanvasRect(document, previousSiblingId, measurementHandle, zoom, documentRevision)
       : null;
   const nextRect =
     nextSiblingId
@@ -395,7 +383,8 @@ function buildSpacingMeasures(
           null,
           zoom,
           documentRevision
-        )
+        ) ??
+        resolveNodeCanvasRect(document, nextSiblingId, measurementHandle, zoom, documentRevision)
       : null;
 
   if (layoutAxis === "x" && previousRect && previousRect.right <= selectedRect.x) {
@@ -451,6 +440,19 @@ function buildSpacingMeasures(
   }
 
   return measures;
+}
+
+function resolveOverlayCanvasRect(
+  document: RendererDocument,
+  nodeId: string,
+  measurementHandle: RendererMeasurementHandle | null,
+  zoom: number,
+  documentRevision: number
+): CanvasRect | null {
+  return (
+    resolveNodeCanvasRect(document, nodeId, null, zoom, documentRevision) ??
+    resolveNodeCanvasRect(document, nodeId, measurementHandle, zoom, documentRevision)
+  );
 }
 
 function createLabelStyle(x: number, y: number, scale: number) {

@@ -1,13 +1,6 @@
 import type { RendererDocument } from "@ai-canvas/document-core";
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { ViewportState } from "./types.js";
 import {
@@ -35,12 +28,34 @@ type DragState = {
   lastClientX: number;
   lastClientY: number;
   pointerId: number;
+  workspaceIdentity: string;
 };
+
+type ScopedBooleanState = {
+  value: boolean;
+  workspaceIdentity: string | null;
+};
+
+type ScopedDraggingState = {
+  isDragging: boolean;
+  workspaceIdentity: string | null;
+};
+
+type ScopedViewportState = {
+  viewport: ViewportState;
+  workspaceIdentity: string | null;
+};
+
+type ViewportUpdater = ViewportState | ((currentViewport: ViewportState) => ViewportState);
 
 const EMPTY_VIEWPORT_SIZE: ViewportSize = {
   height: 0,
   width: 0
 };
+
+function areViewportSizesEqual(left: ViewportSize, right: ViewportSize): boolean {
+  return left.width === right.width && left.height === right.height;
+}
 
 function isEditableEventTarget(target: EventTarget | null): boolean {
   return (
@@ -62,25 +77,83 @@ function measureViewportSize(element: HTMLDivElement | null): ViewportSize {
   };
 }
 
+function createInitialViewport(
+  contentBounds: ReturnType<typeof resolveTopLevelContentBounds>,
+  viewportSize: ViewportSize,
+  fitPadding: number
+): ViewportState {
+  if (viewportSize.width === 0 || viewportSize.height === 0) {
+    return DEFAULT_VIEWPORT;
+  }
+
+  return createViewportForContentBounds(contentBounds, viewportSize, {
+    maxZoom: 1,
+    padding: fitPadding
+  });
+}
+
 export function useViewportController({
   document,
   fitPadding = DEFAULT_VIEWPORT_FIT_PADDING,
   workspaceIdentity
 }: UseViewportControllerInput) {
-  const [viewport, setViewport] = useState<ViewportState>(DEFAULT_VIEWPORT);
+  const [viewportState, setViewportState] = useState<ScopedViewportState>(() => ({
+    viewport: DEFAULT_VIEWPORT,
+    workspaceIdentity: null
+  }));
   const [viewportSize, setViewportSize] = useState<ViewportSize>(EMPTY_VIEWPORT_SIZE);
-  const [isDragging, setIsDragging] = useState(false);
+  const [draggingState, setDraggingState] = useState<ScopedDraggingState>(() => ({
+    isDragging: false,
+    workspaceIdentity: null
+  }));
   const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const [hasInteractedWithCanvas, setHasInteractedWithCanvas] = useState(false);
+  const [interactionState, setInteractionState] = useState<ScopedBooleanState>(() => ({
+    value: false,
+    workspaceIdentity: null
+  }));
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
-  const viewportElementRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
-  const initializedWorkspaceRef = useRef<string | null>(null);
 
   const contentBounds = useMemo(() => resolveTopLevelContentBounds(document), [document]);
+  const viewport =
+    viewportState.workspaceIdentity === workspaceIdentity
+      ? viewportState.viewport
+      : createInitialViewport(contentBounds, viewportSize, fitPadding);
+  const isDragging =
+    draggingState.workspaceIdentity === workspaceIdentity ? draggingState.isDragging : false;
+  const hasInteractedWithCanvas =
+    interactionState.workspaceIdentity === workspaceIdentity ? interactionState.value : false;
+
+  const setViewportForCurrentWorkspace = useCallback(
+    (nextViewport: ViewportUpdater) => {
+      setViewportState((currentViewportState) => {
+        const currentViewport =
+          currentViewportState.workspaceIdentity === workspaceIdentity
+            ? currentViewportState.viewport
+            : createInitialViewport(contentBounds, viewportSize, fitPadding);
+        const resolvedViewport =
+          typeof nextViewport === "function" ? nextViewport(currentViewport) : nextViewport;
+
+        return {
+          viewport: resolvedViewport,
+          workspaceIdentity
+        };
+      });
+    },
+    [contentBounds, fitPadding, viewportSize, workspaceIdentity]
+  );
+
+  const setHasInteractedForCurrentWorkspace = useCallback(
+    (value: boolean) => {
+      setInteractionState({
+        value,
+        workspaceIdentity
+      });
+    },
+    [workspaceIdentity]
+  );
 
   const viewportRef = useCallback((element: HTMLDivElement | null) => {
-    viewportElementRef.current = element;
     setViewportElement(element);
     setViewportSize(measureViewportSize(element));
   }, []);
@@ -90,13 +163,13 @@ export function useViewportController({
       return;
     }
 
-    setViewport(
+    setViewportForCurrentWorkspace(
       createViewportForContentBounds(contentBounds, viewportSize, {
         maxZoom: 1,
         padding: fitPadding
       })
     );
-  }, [contentBounds, fitPadding, viewportSize]);
+  }, [contentBounds, fitPadding, setViewportForCurrentWorkspace, viewportSize]);
 
   const resetToActualSize = useCallback(() => {
     if (viewportSize.width === 0 || viewportSize.height === 0) {
@@ -110,8 +183,8 @@ export function useViewportController({
         }
       : { x: 0, y: 0 };
 
-    setViewport(centerViewportOnPoint(targetCenter, viewportSize, 1));
-  }, [contentBounds, viewportSize]);
+    setViewportForCurrentWorkspace(centerViewportOnPoint(targetCenter, viewportSize, 1));
+  }, [contentBounds, setViewportForCurrentWorkspace, viewportSize]);
 
   const setZoomAtViewportCenter = useCallback(
     (nextZoom: number) => {
@@ -124,11 +197,11 @@ export function useViewportController({
         y: viewportSize.height / 2
       };
 
-      setViewport((currentViewport) =>
+      setViewportForCurrentWorkspace((currentViewport) =>
         zoomViewportAroundPoint(currentViewport, centerPoint, clampViewportZoom(nextZoom))
       );
     },
-    [viewportSize]
+    [setViewportForCurrentWorkspace, viewportSize]
   );
 
   const revealCanvasRect = useCallback(
@@ -147,27 +220,41 @@ export function useViewportController({
         return false;
       }
 
-      const shouldReveal = !isCanvasBoundsFullyVisible(viewport, rect, viewportSize, options?.padding ?? fitPadding);
+      const shouldReveal = !isCanvasBoundsFullyVisible(
+        viewport,
+        rect,
+        viewportSize,
+        options?.padding ?? fitPadding
+      );
 
       if (!shouldReveal) {
         return false;
       }
 
-      setViewport((currentViewport) =>
+      setViewportForCurrentWorkspace((currentViewport) =>
         revealCanvasBounds(currentViewport, rect, viewportSize, {
           padding: options?.padding ?? fitPadding
         })
       );
-      setHasInteractedWithCanvas(true);
+      setHasInteractedForCurrentWorkspace(true);
       return true;
     },
-    [fitPadding, viewport, viewportSize]
+    [
+      fitPadding,
+      setHasInteractedForCurrentWorkspace,
+      setViewportForCurrentWorkspace,
+      viewport,
+      viewportSize
+    ]
   );
 
   const stopDragging = useCallback(() => {
     dragStateRef.current = null;
-    setIsDragging(false);
-  }, []);
+    setDraggingState({
+      isDragging: false,
+      workspaceIdentity
+    });
+  }, [workspaceIdentity]);
 
   useLayoutEffect(() => {
     if (!viewportElement) {
@@ -175,79 +262,30 @@ export function useViewportController({
     }
 
     const updateViewportSize = () => {
-      setViewportSize(measureViewportSize(viewportElement));
+      const nextViewportSize = measureViewportSize(viewportElement);
+
+      setViewportSize((currentViewportSize) =>
+        areViewportSizesEqual(currentViewportSize, nextViewportSize)
+          ? currentViewportSize
+          : nextViewportSize
+      );
     };
 
-    queueMicrotask(updateViewportSize);
+    const resizeObserver =
+      typeof ResizeObserver === "function"
+        ? new ResizeObserver(() => {
+            updateViewportSize();
+          })
+        : null;
 
-    if (typeof ResizeObserver === "function") {
-      const observer = new ResizeObserver(() => {
-        updateViewportSize();
-      });
-
-      observer.observe(viewportElement);
-
-      return () => {
-        observer.disconnect();
-      };
-    }
-
+    resizeObserver?.observe(viewportElement);
     window.addEventListener("resize", updateViewportSize);
 
     return () => {
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", updateViewportSize);
     };
   }, [viewportElement]);
-
-  useEffect(() => {
-    initializedWorkspaceRef.current = null;
-    let isCancelled = false;
-
-    queueMicrotask(() => {
-      if (isCancelled) {
-        return;
-      }
-
-      stopDragging();
-      setViewport(DEFAULT_VIEWPORT);
-      setHasInteractedWithCanvas(false);
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [stopDragging, workspaceIdentity]);
-
-  useEffect(() => {
-    if (initializedWorkspaceRef.current === workspaceIdentity) {
-      return;
-    }
-
-    if (viewportSize.width === 0 || viewportSize.height === 0) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    queueMicrotask(() => {
-      if (isCancelled) {
-        return;
-      }
-
-      setViewport(
-        createViewportForContentBounds(contentBounds, viewportSize, {
-          maxZoom: 1,
-          padding: fitPadding
-        })
-      );
-      setHasInteractedWithCanvas(false);
-      initializedWorkspaceRef.current = workspaceIdentity;
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [contentBounds, fitPadding, viewportSize, workspaceIdentity]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -308,7 +346,7 @@ export function useViewportController({
         };
         const zoomFactor = Math.exp(-input.deltaY * MODIFIED_WHEEL_ZOOM_SENSITIVITY);
 
-        setViewport((currentViewport) =>
+        setViewportForCurrentWorkspace((currentViewport) =>
           zoomViewportAroundPoint(
             currentViewport,
             pointer,
@@ -316,16 +354,16 @@ export function useViewportController({
           )
         );
       } else {
-        setViewport((currentViewport) => ({
+        setViewportForCurrentWorkspace((currentViewport) => ({
           ...currentViewport,
           panX: currentViewport.panX - input.deltaX,
           panY: currentViewport.panY - input.deltaY
         }));
       }
 
-      setHasInteractedWithCanvas(true);
+      setHasInteractedForCurrentWorkspace(true);
     },
-    [viewportSize]
+    [setHasInteractedForCurrentWorkspace, setViewportForCurrentWorkspace, viewportSize]
   );
 
   useEffect(() => {
@@ -387,41 +425,55 @@ export function useViewportController({
       dragStateRef.current = {
         lastClientX: event.clientX,
         lastClientY: event.clientY,
-        pointerId: event.pointerId
+        pointerId: event.pointerId,
+        workspaceIdentity
       };
       event.currentTarget.setPointerCapture(event.pointerId);
-      setHasInteractedWithCanvas(true);
-      setIsDragging(true);
+      setHasInteractedForCurrentWorkspace(true);
+      setDraggingState({
+        isDragging: true,
+        workspaceIdentity
+      });
     },
-    [isSpacePressed]
+    [isSpacePressed, setHasInteractedForCurrentWorkspace, workspaceIdentity]
   );
 
-  const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const dragState = dragStateRef.current;
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const dragState = dragStateRef.current;
 
-    if (!dragState || dragState.pointerId !== event.pointerId) {
-      return;
-    }
+      if (
+        !dragState ||
+        dragState.pointerId !== event.pointerId ||
+        dragState.workspaceIdentity !== workspaceIdentity
+      ) {
+        return;
+      }
 
-    const deltaX = event.clientX - dragState.lastClientX;
-    const deltaY = event.clientY - dragState.lastClientY;
+      const deltaX = event.clientX - dragState.lastClientX;
+      const deltaY = event.clientY - dragState.lastClientY;
 
-    dragStateRef.current = {
-      ...dragState,
-      lastClientX: event.clientX,
-      lastClientY: event.clientY
-    };
+      dragStateRef.current = {
+        ...dragState,
+        lastClientX: event.clientX,
+        lastClientY: event.clientY
+      };
 
-    setViewport((currentViewport) => ({
-      ...currentViewport,
-      panX: currentViewport.panX + deltaX,
-      panY: currentViewport.panY + deltaY
-    }));
-  }, []);
+      setViewportForCurrentWorkspace((currentViewport) => ({
+        ...currentViewport,
+        panX: currentViewport.panX + deltaX,
+        panY: currentViewport.panY + deltaY
+      }));
+    },
+    [setViewportForCurrentWorkspace, workspaceIdentity]
+  );
 
   const handlePointerUp = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (dragStateRef.current?.pointerId !== event.pointerId) {
+      if (
+        dragStateRef.current?.pointerId !== event.pointerId ||
+        dragStateRef.current.workspaceIdentity !== workspaceIdentity
+      ) {
         return;
       }
 
@@ -431,18 +483,21 @@ export function useViewportController({
 
       stopDragging();
     },
-    [stopDragging]
+    [stopDragging, workspaceIdentity]
   );
 
   const handlePointerCancel = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (dragStateRef.current?.pointerId !== event.pointerId) {
+      if (
+        dragStateRef.current?.pointerId !== event.pointerId ||
+        dragStateRef.current.workspaceIdentity !== workspaceIdentity
+      ) {
         return;
       }
 
       stopDragging();
     },
-    [stopDragging]
+    [stopDragging, workspaceIdentity]
   );
 
   const handleAuxClick = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
