@@ -1,19 +1,18 @@
 import react from "@vitejs/plugin-react";
 import { createRequire } from "node:module";
 import { defineConfig } from "electron-vite";
-import type { PluginOption } from "vite";
+import type { RendererViteConfig } from "electron-vite";
 
 const require = createRequire(import.meta.url);
 
-let tailwindPlugin: PluginOption | null = null;
+const rendererPlugins: unknown[] = [react()];
 
 try {
   const tailwindcss = require("@tailwindcss/vite").default as () => unknown;
   // electron-vite and @tailwindcss/vite currently surface distinct Vite plugin types.
-  tailwindPlugin = tailwindcss() as PluginOption;
+  rendererPlugins.push(tailwindcss());
 } catch {
   // Keep Tailwind plugin optional during environments where deps are not installed yet.
-  tailwindPlugin = null;
 }
 
 export default defineConfig({
@@ -38,6 +37,6 @@ export default defineConfig({
     }
   },
   renderer: {
-    plugins: [react(), ...(tailwindPlugin ? [tailwindPlugin] : [])]
+    plugins: rendererPlugins as NonNullable<RendererViteConfig["plugins"]>
   }
 });

@@ -294,6 +294,7 @@ describe("App", () => {
       await flushAsyncWork();
 
       expect(harness.container.textContent).toContain("AI Canvas Desktop");
+      expect(harness.container.textContent).toContain("strapping.ai");
       expect(harness.container.textContent).toContain("My Projects");
       expect(harness.container.textContent).not.toContain("No scene yet.");
     } finally {
@@ -317,6 +318,7 @@ describe("App", () => {
       expect(harness.container.textContent).toContain("Workspace Project");
       expect(harness.container.textContent).toContain("No scene yet.");
       expect(harness.container.textContent).not.toContain("AI Canvas Desktop");
+      expect(harness.container.textContent).not.toContain("strapping.ai");
     } finally {
       harness.cleanup();
     }

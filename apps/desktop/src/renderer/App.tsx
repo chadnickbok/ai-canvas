@@ -16,6 +16,7 @@ import {
   type RuntimeEvent
 } from "@ai-canvas/ipc-contract";
 
+import { desktopBranding } from "../branding.js";
 import { CommitLayoutMeasurementHost } from "./CommitLayoutMeasurementHost.js";
 
 type BootState = "booting" | "ready" | "boot_error";
@@ -438,6 +439,7 @@ export function App() {
     <>
       <ProjectLibraryScreen
         activeProjectId={state.activeProject?.project.id ?? null}
+        brandAttribution={desktopBranding.brandAttribution}
         bootState={state.bootState}
         errorMessage={state.errorMessage}
         isBusy={state.isBusy}

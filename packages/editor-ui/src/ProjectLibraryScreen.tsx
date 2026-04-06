@@ -25,6 +25,10 @@ import {
 
 type ProjectLibraryScreenProps = {
   activeProjectId: string | null;
+  brandAttribution?: {
+    label: string;
+    url: string;
+  };
   bootState: "booting" | "ready" | "boot_error";
   errorMessage?: string | null;
   isBusy: boolean;
@@ -502,6 +506,7 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
     : createProjectValidation.error.issues[0]?.message ?? "Enter a project name.";
   const createProjectInlineError =
     createProjectValidationMessage ?? createProjectSubmissionError;
+  const brandAttribution = props.brandAttribution;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -914,6 +919,17 @@ status: running`}
           <div className="grid flex-1 gap-[58px] xl:grid-cols-[minmax(0,1fr)_280px]">
             <div className="flex max-w-[620px] flex-col gap-6">
               <div className="flex flex-col gap-4 border-b border-black/12 pb-5">
+                {brandAttribution ? (
+                  <button
+                    className="ui-mono w-fit border-0 bg-transparent p-0 text-[11px] uppercase tracking-[0.18em] text-black/42 transition hover:text-[#111111]"
+                    onClick={() => {
+                      props.onOpenExternalUrl(brandAttribution.url);
+                    }}
+                    type="button"
+                  >
+                    {brandAttribution.label}
+                  </button>
+                ) : null}
                 <h2 className="m-0 text-[clamp(52px,5vw,74px)] font-semibold leading-[0.94] tracking-[-0.08em] text-[#111111]">
                   AI Canvas Desktop
                 </h2>
