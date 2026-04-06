@@ -114,6 +114,12 @@ const runtimeCapabilities: RuntimeCapabilities = {
   runtimeState: "editor_open_clean"
 };
 
+const readOnlyRuntimeCapabilities: RuntimeCapabilities = {
+  measurementSurfaceAvailable: true,
+  mode: "read_only",
+  runtimeState: "editor_open_clean"
+};
+
 const emptyHistoryState = {
   canRedo: false,
   canUndo: false,
@@ -277,6 +283,43 @@ function createDocumentWithLooseNode(): RendererDocument {
     },
     scene_id: null
   };
+
+  return document;
+}
+
+function createDocumentWithNestedFrame(): RendererDocument {
+  const document = createDocumentWithScene({
+    documentId: "doc_workspace_nested",
+    name: "Workspace Nested Fixture"
+  });
+
+  document.scenes.scene_home.child_count = 1;
+  document.nodes.scene_home.child_ids = ["frame_nested"];
+  document.nodes.frame_nested = {
+    authoring: {
+      local_values: {},
+      style_bindings: {},
+      variable_bindings: {}
+    },
+    child_ids: [],
+    id: "frame_nested",
+    is_locked: false,
+    is_visible: true,
+    kind: "frame",
+    name: "Nested Frame",
+    parent_id: "scene_home",
+    render_style: {
+      backgroundColor: "#fafafa",
+      border: "1px solid rgba(17,17,17,0.12)",
+      height: 280,
+      left: 32,
+      top: 36,
+      width: 300
+    },
+    scene_id: "scene_home"
+  };
+  delete document.nodes.rect_hero;
+  delete document.nodes.text_title;
 
   return document;
 }
@@ -554,15 +597,25 @@ function renderIntoDom(
 }
 
 function assignInteractionGeometry(harness: RenderHarness) {
+  const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
   const rendererRoot = harness.container.querySelector('[data-renderer-root="true"]') as HTMLElement;
   const sceneFrame = harness.container.querySelector('[data-node-id="scene_home"]') as HTMLElement;
-  const heroRectangle = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement;
+  const heroRectangle = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement | null;
+  const nestedFrame = harness.container.querySelector('[data-node-id="frame_nested"]') as HTMLElement | null;
   const titleText = harness.container.querySelector('[data-node-id="text_title"]') as HTMLElement | null;
   const looseRectangle = harness.container.querySelector('[data-node-id="rect_loose"]') as HTMLElement | null;
 
+  assignBoundingRect(viewportFrame, 0, 0, 1600, 1200);
   assignBoundingRect(rendererRoot, 0, 0, 1600, 1200);
   assignBoundingRect(sceneFrame, 80, 80, 390, 844);
-  assignBoundingRect(heroRectangle, 104, 104, 320, 180);
+
+  if (heroRectangle) {
+    assignBoundingRect(heroRectangle, 104, 104, 320, 180);
+  }
+
+  if (nestedFrame) {
+    assignBoundingRect(nestedFrame, 112, 116, 300, 280);
+  }
 
   if (titleText) {
     assignBoundingRect(titleText, 120, 300, 220, 38);
@@ -601,6 +654,12 @@ function getSelectionInspector(harness: RenderHarness): HTMLElement | null {
   return harness.container.querySelector(
     '[data-selection-inspector="true"]'
   ) as HTMLElement | null;
+}
+
+function getCanvasToolButton(harness: RenderHarness, tool: string): HTMLButtonElement | null {
+  return harness.container.querySelector(
+    `[data-canvas-tool="${tool}"]`
+  ) as HTMLButtonElement | null;
 }
 
 function getInspectorSection(harness: RenderHarness, sectionName: string): HTMLElement | null {
@@ -726,6 +785,381 @@ describe("DocumentWorkspaceScreen", () => {
       expect(sceneFrame.style.left).toBe("80px");
       expect(sceneFrame.style.top).toBe("80px");
       expect(rectangle.style.backgroundColor).toBe("rgb(212, 212, 212)");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("renders the floating canvas tool bar with selection active by default", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      const toolbar = harness.container.querySelector('[data-canvas-toolbar="true"]');
+      const selectionTool = getCanvasToolButton(harness, "selection");
+      const grabTool = getCanvasToolButton(harness, "grab");
+      const frameTool = getCanvasToolButton(harness, "frame");
+      const textTool = getCanvasToolButton(harness, "text");
+      const rectangleTool = getCanvasToolButton(harness, "rectangle");
+
+      expect(toolbar).not.toBeNull();
+      expect(selectionTool?.getAttribute("data-canvas-tool-active")).toBe("true");
+      expect(grabTool?.getAttribute("data-canvas-tool-active")).toBe("false");
+      expect(frameTool).not.toBeNull();
+      expect(textTool).not.toBeNull();
+      expect(rectangleTool).not.toBeNull();
+      expect(getHideLayersToggle(harness)).not.toBeNull();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("uses the grab tool to pan the viewport with primary drag", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const rendererTransform = harness.container.querySelector(
+        '[data-viewport-transform="renderer"]'
+      ) as HTMLElement;
+      const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
+      const grabTool = getCanvasToolButton(harness, "grab") as HTMLButtonElement;
+      const before = parseTransform(rendererTransform.style.transform);
+
+      act(() => {
+        grabTool.click();
+      });
+
+      act(() => {
+        dispatchPointerEvent(viewportFrame, "pointerdown", {
+          clientX: 400,
+          clientY: 320,
+          pointerId: 21
+        });
+      });
+
+      act(() => {
+        dispatchPointerEvent(viewportFrame, "pointermove", {
+          clientX: 470,
+          clientY: 365,
+          pointerId: 21
+        });
+      });
+
+      act(() => {
+        dispatchPointerEvent(viewportFrame, "pointerup", {
+          clientX: 470,
+          clientY: 365,
+          pointerId: 21
+        });
+      });
+
+      const after = parseTransform(rendererTransform.style.transform);
+
+      expect(grabTool.getAttribute("data-canvas-tool-active")).toBe("true");
+      expect(after.panX).toBe(before.panX + 70);
+      expect(after.panY).toBe(before.panY + 45);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("creates a loose top-level rectangle from the toolbar on blank canvas click and returns to selection", async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          measured_node_count: 1,
+          measured_root_ids: ["scene_home", "rect_created"],
+          status: "refreshed"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      onApplyCommands
+    });
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
+      const rectangleTool = getCanvasToolButton(harness, "rectangle") as HTMLButtonElement;
+      const selectionTool = getCanvasToolButton(harness, "selection") as HTMLButtonElement;
+
+      act(() => {
+        rectangleTool.click();
+      });
+
+      await act(async () => {
+        viewportFrame.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            button: 0,
+            clientX: 900,
+            clientY: 500
+          })
+        );
+        await Promise.resolve();
+      });
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          expect.objectContaining({
+            parent: {
+              index: 1,
+              parent_id: null
+            },
+            type: "create_node",
+            node: expect.objectContaining({
+              height: 120,
+              kind: "rectangle",
+              left: 900,
+              name: "Rectangle",
+              render_style: {
+                backgroundColor: "#d4d4d4",
+                position: "absolute"
+              },
+              top: 500,
+              width: 160
+            })
+          })
+        ],
+        document_id: "doc_workspace_scene"
+      });
+      expect(String(onApplyCommands.mock.calls[0]?.[0]?.commands?.[0]?.node?.id)).toMatch(/^rect_/);
+      expect(rectangleTool.getAttribute("data-canvas-tool-active")).toBe("false");
+      expect(selectionTool.getAttribute("data-canvas-tool-active")).toBe("true");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("creates a child frame when the frame tool clicks an existing frame", async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          measured_node_count: 1,
+          measured_root_ids: ["scene_home"],
+          status: "refreshed"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      onApplyCommands
+    });
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const sceneFrame = harness.container.querySelector('[data-node-id="scene_home"]') as HTMLElement;
+      const frameTool = getCanvasToolButton(harness, "frame") as HTMLButtonElement;
+
+      act(() => {
+        frameTool.click();
+      });
+
+      await act(async () => {
+        sceneFrame.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            button: 0,
+            clientX: 200,
+            clientY: 240
+          })
+        );
+        await Promise.resolve();
+      });
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          expect.objectContaining({
+            parent: {
+              index: 2,
+              parent_id: "scene_home"
+            },
+            type: "create_node",
+            node: expect.objectContaining({
+              height: 240,
+              kind: "frame",
+              left: 120,
+              name: "Frame",
+              render_style: {
+                backgroundColor: "#f5f5f5",
+                border: "1px solid rgba(17, 17, 17, 0.14)",
+                position: "absolute"
+              },
+              top: 160,
+              width: 320
+            })
+          })
+        ],
+        document_id: "doc_workspace_scene"
+      });
+      expect(String(onApplyCommands.mock.calls[0]?.[0]?.commands?.[0]?.node?.id)).toMatch(/^frame_/);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("creates a sibling text node after clicking an existing rectangle", async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          measured_node_count: 1,
+          measured_root_ids: ["scene_home"],
+          status: "refreshed"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      onApplyCommands
+    });
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const rectangle = harness.container.querySelector('[data-node-id="rect_hero"]') as HTMLElement;
+      const textTool = getCanvasToolButton(harness, "text") as HTMLButtonElement;
+
+      act(() => {
+        textTool.click();
+      });
+
+      await act(async () => {
+        rectangle.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            button: 0,
+            clientX: 140,
+            clientY: 140
+          })
+        );
+        await Promise.resolve();
+      });
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          expect.objectContaining({
+            parent: {
+              index: 1,
+              parent_id: "scene_home"
+            },
+            type: "create_node",
+            node: expect.objectContaining({
+              kind: "text",
+              left: 60,
+              name: "Text",
+              render_style: {
+                color: "#111111",
+                fontFamily: "IBM Plex Sans",
+                fontSize: 24,
+                fontWeight: 500,
+                position: "absolute"
+              },
+              text: {
+                content: "Text"
+              },
+              top: 60
+            })
+          })
+        ],
+        document_id: "doc_workspace_scene"
+      });
+      expect(String(onApplyCommands.mock.calls[0]?.[0]?.commands?.[0]?.node?.id)).toMatch(/^text_/);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("patches nested frame parents to relative positioning before creating absolute children", async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          measured_node_count: 2,
+          measured_root_ids: ["scene_home"],
+          status: "refreshed"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithNestedFrame()), {
+      onApplyCommands
+    });
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const nestedFrame = harness.container.querySelector('[data-node-id="frame_nested"]') as HTMLElement;
+      const rectangleTool = getCanvasToolButton(harness, "rectangle") as HTMLButtonElement;
+
+      act(() => {
+        rectangleTool.click();
+      });
+
+      await act(async () => {
+        nestedFrame.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            button: 0,
+            clientX: 160,
+            clientY: 170
+          })
+        );
+        await Promise.resolve();
+      });
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          {
+            node_id: "frame_nested",
+            patch: {
+              render_style: {
+                position: "relative"
+              }
+            },
+            type: "update_node"
+          },
+          expect.objectContaining({
+            parent: {
+              index: 0,
+              parent_id: "frame_nested"
+            },
+            type: "create_node",
+            node: expect.objectContaining({
+              kind: "rectangle",
+              left: 48,
+              top: 54
+            })
+          })
+        ],
+        document_id: "doc_workspace_nested"
+      });
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("disables create tools when the runtime is read-only", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      runtimeCapabilities: readOnlyRuntimeCapabilities
+    });
+
+    try {
+      expect(getCanvasToolButton(harness, "selection")?.disabled).toBe(false);
+      expect(getCanvasToolButton(harness, "grab")?.disabled).toBe(false);
+      expect(getCanvasToolButton(harness, "frame")?.disabled).toBe(true);
+      expect(getCanvasToolButton(harness, "text")?.disabled).toBe(true);
+      expect(getCanvasToolButton(harness, "rectangle")?.disabled).toBe(true);
     } finally {
       harness.cleanup();
     }
@@ -895,6 +1329,88 @@ describe("DocumentWorkspaceScreen", () => {
       expect(appearanceSection.textContent).toContain("72%");
       expect(inspector.textContent).not.toContain("Asset ID");
       expect(inspector.textContent).not.toContain("Raw render style");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("submits update_node when the inspector fill color picker changes", async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          measured_node_count: 1,
+          measured_root_ids: ["rect_hero"],
+          status: "refreshed"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      onApplyCommands
+    });
+
+    try {
+      act(() => {
+        getLayerRow(harness, "rect_hero")?.click();
+      });
+
+      const fillColorInput = harness.container.querySelector(
+        'input[aria-label="Fill color"]'
+      ) as HTMLInputElement | null;
+
+      expect(fillColorInput).not.toBeNull();
+      expect(fillColorInput?.value).toBe("#d4d4d4");
+
+      await act(async () => {
+        setInputValue(fillColorInput as HTMLInputElement, "#112233");
+        fillColorInput?.dispatchEvent(
+          new Event("change", {
+            bubbles: true
+          })
+        );
+        await Promise.resolve();
+      });
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          {
+            node_id: "rect_hero",
+            patch: {
+              render_style: {
+                backgroundColor: "#112233"
+              }
+            },
+            type: "update_node"
+          }
+        ],
+        document_id: "doc_workspace_scene"
+      });
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("disables the inspector fill color picker when runtime is read-only", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      runtimeCapabilities: {
+        ...runtimeCapabilities,
+        mode: "read_only"
+      }
+    });
+
+    try {
+      act(() => {
+        getLayerRow(harness, "rect_hero")?.click();
+      });
+
+      const fillColorInput = harness.container.querySelector(
+        'input[aria-label="Fill color"]'
+      ) as HTMLInputElement | null;
+
+      expect(fillColorInput).not.toBeNull();
+      expect(fillColorInput?.disabled).toBe(true);
     } finally {
       harness.cleanup();
     }
