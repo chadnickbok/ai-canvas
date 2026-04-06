@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import strappingLogoDark from "../../src/assets/branding/strappingai-logo-dark.png";
 import heroProjectLibraryImage from "../../src/assets/screenshots/hero-project-library.png";
 import mcpInstallationImage from "../../src/assets/screenshots/mcp-installation.png";
 import workflowSceneImage from "../../src/assets/screenshots/workflow-scene.png";
@@ -18,46 +19,46 @@ const navigationItems = [
 ] as const;
 
 const proofPoints = [
-  "Local-first",
-  "Scene-first",
-  "Shared UI + MCP document core",
-  "Localhost MCP",
-  "SQLite + disk-backed assets"
+  "Bootstrap screens fast",
+  "Desktop + MCP parity",
+  "Scene-first structure",
+  "Local projects",
+  "Deterministic edits"
 ] as const;
 
 const valueCards = [
   {
     body:
-      "The editor UI and the local MCP bridge use the same document schema, command system, and semantic logic. Agent edits do not go through a second automation model.",
-    title: "One Shared Core"
+      "Start with a structured first pass instead of a blank page. Rough in scenes, layout blocks, copy, and system primitives quickly, then refine from a visible direction.",
+    title: "Fast First Pass"
   },
   {
     body:
-      "Projects, metadata, and assets stay on your machine. Core editing is offline-capable, and MCP binds only to localhost on a configurable port.",
-    title: "Local By Default"
+      "The editor UI and the local MCP bridge use the same document schema, command system, and semantic logic. Agent edits do not disappear into a second automation layer.",
+    title: "One Runtime"
   },
   {
     body:
-      "Scenes are the primary top-level unit, and the document owns variables, styles, bindings, and provenance. That gives agents structure instead of pixels-only guesswork.",
-    title: "Built For Structured Mockups"
+      "Scenes, variables, styles, bindings, and provenance give the model something better than pixels alone, so bootstrap edits stay inspectable and usable.",
+    title: "Structured Mockups"
   }
 ] as const;
 
 const workflowSteps = [
   {
     body:
-      "Create or open a local project. In v1, each project contains one document workspace with scenes as the primary top-level unit.",
-    title: "Open a project"
+      "Create or open a local project in the desktop app and establish the workspace you want to push forward.",
+    title: "Open a local workspace"
   },
   {
     body:
-      "Connect a client such as Claude, Codex, or Gemini through the local MCP endpoint and inspect or mutate the same live project session the editor uses.",
-    title: "Inspect or mutate through MCP"
+      "Connect Claude, Codex, or Gemini through the local MCP endpoint and generate first-pass structure, copy, and layout against the same active project session.",
+    title: "Bootstrap with an agent"
   },
   {
     body:
-      "See the resulting scene, text, and layout state in the desktop editor. Command application, normalization, and document updates stay deterministic across both paths.",
-    title: "Verify the same result in the UI"
+      "Use the canvas, layers, and inspector to tighten what the agent started without exporting, translating, or losing state across tools.",
+    title: "Refine in the canvas"
   }
 ] as const;
 
@@ -78,8 +79,8 @@ const trustPoints = [
   "No mandatory backend or account setup.",
   "Core editing workflows are offline-capable.",
   "MCP is localhost-only and user-visible.",
-  "UI and MCP do not diverge into separate semantic models.",
-  "Autosave-first desktop workflow with explicit runtime boundaries."
+  "UI and MCP share one document model.",
+  "Write boundaries stay explicit and deterministic."
 ] as const;
 
 const excludedScope = [
@@ -92,13 +93,18 @@ const excludedScope = [
 const faqItems = [
   {
     answer:
-      "AI Canvas is built as a standalone Electron app so the editor, local persistence, and MCP runtime can share one local-first document model without a mandatory backend.",
+      "Strapping AI Canvas is built as a standalone Electron app so the editor, local persistence, and MCP runtime can share one local-first document model without a mandatory backend.",
     question: "Why desktop instead of browser-first?"
   },
   {
     answer:
+      "It means getting from a blank canvas to a credible visual direction quickly: scenes, layout blocks, headline copy, and reusable system primitives before detailed polish.",
+    question: "What does bootstrapping visual design mean here?"
+  },
+  {
+    answer:
       "No. Core editing workflows are designed to work locally without a running server or cloud control plane.",
-    question: "Does AI Canvas require the cloud?"
+    question: "Does Strapping AI Canvas require the cloud?"
   },
   {
     answer:
@@ -117,11 +123,6 @@ const faqItems = [
   },
   {
     answer:
-      "Yes. The current product stance is single-user, single-window, and local-first for v1.",
-    question: "Is v1 single-user?"
-  },
-  {
-    answer:
       "No. In v1, each project contains exactly one document. Project targeting is the primary MCP target surface.",
     question: "Does a project contain multiple documents?"
   }
@@ -133,28 +134,28 @@ tool: inspect_project
 tool: apply_commands
 
 commands:
-  - create_scene id=scene_home
-  - create_node id=rect_hero kind=rectangle
-  - create_node id=text_title kind=text
+  - create_scene id=scene_launch
+  - create_node id=rect_shell kind=rectangle
+  - create_node id=text_headline kind=text
   - inspect_scenes
 
 mode: read_write`;
 
 const treeRows = [
-  "project: homeflow",
+  "project: launchpad",
   "document: current_document_json",
-  "scene: scene_home",
-  "frame: scene_home",
-  "rectangle: rect_hero",
-  "text: text_title",
+  "scene: scene_launch",
+  "frame: scene_launch",
+  "rectangle: rect_shell",
+  "text: text_headline",
   "style: hero_surface",
-  "variable: color.brand.accent"
+  "variable: color.neutral.950"
 ] as const;
 
 const designSystemRows = [
-  "variables: color.brand.accent, type.display.lg",
+  "variables: color.neutral.950, type.display.lg",
   "styles: hero_surface, body_copy",
-  "bindings: text_title -> body_copy",
+  "bindings: text_headline -> hero_copy",
   "provenance: command batch / revision 12"
 ] as const;
 
@@ -165,10 +166,16 @@ export function MarketingHomePage() {
 
       <header className="site-header">
         <a className="brand-lockup" href="#top">
-          <span aria-hidden="true" className="brand-mark" />
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="brand-mark-image"
+            priority
+            src={strappingLogoDark}
+          />
           <span className="brand-text">
-            <strong>AI Canvas</strong>
-            <span>Desktop + MCP</span>
+            <strong>strapping.ai</strong>
+            <span>AI Canvas</span>
           </span>
         </a>
 
@@ -189,12 +196,12 @@ export function MarketingHomePage() {
       <main>
         <section className="hero section" id="top">
           <div className="hero-copy">
-            <span className="section-eyebrow">Local-first visual authoring for AI agents</span>
-            <h1>A local-first canvas for AI-assisted interface design.</h1>
+            <span className="section-eyebrow">Bootstrap visual design with desktop + MCP</span>
+            <h1>Bootstrap visual design fast.</h1>
             <p className="hero-body">
-              AI Canvas Desktop is a scene-first mockup editor where humans and AI agents work
-              against the same structured project model. The editor UI and MCP bridge share one
-              document core, so design changes stay inspectable, deterministic, and local.
+              Strapping AI Canvas is the fastest way to go from a blank surface to a structured
+              visual direction. Open the desktop app, point an MCP client at the same project, and
+              rough in scenes, layout, and copy before polishing by hand.
             </p>
 
             <div className="hero-actions">
@@ -203,8 +210,7 @@ export function MarketingHomePage() {
             </div>
 
             <p className="hero-note">
-              Experimental desktop app. Local projects, localhost MCP, and explicit runtime
-              boundaries.
+              Fast first pass, local runtime, explicit boundaries, one shared document core.
             </p>
           </div>
 
@@ -212,11 +218,11 @@ export function MarketingHomePage() {
             <article className="hero-panel hero-panel-canvas">
               <div className="panel-chrome">
                 <span>project library</span>
-                <span className="ui-mono">active project: homeflow</span>
+                <span className="ui-mono">active project: launchpad</span>
               </div>
               <div className="panel-media-frame">
                 <Image
-                  alt="AI Canvas Desktop project library with MCP status and installation guidance"
+                  alt="Strapping AI Canvas Desktop project library with MCP status and installation guidance"
                   className="panel-image"
                   placeholder="blur"
                   priority
@@ -246,9 +252,9 @@ export function MarketingHomePage() {
 
         <section className="section" id="why">
           <SectionHeading
-            body="Most design tooling treats automation as an add-on. AI Canvas takes the opposite approach: one project model, one command path, and one local runtime that serves both direct editing and agent workflows."
-            eyebrow="Why AI Canvas"
-            title="A design surface that does not fork human and agent behavior."
+            body="Strapping AI Canvas is built for the messy first pass: not final polish, but getting a usable visual direction into view quickly. Speed comes from one local project model shared by the desktop UI and MCP clients."
+            eyebrow="Why Strapping"
+            title="The quickest path from blank canvas to structured direction."
           />
 
           <div className="value-grid">
@@ -264,9 +270,9 @@ export function MarketingHomePage() {
 
         <section className="section workflow-section" id="workflow">
           <SectionHeading
-            body="The intended loop is direct: open a local project, connect MCP, make structured changes, and inspect the same live result in the editor."
+            body="The loop is short: open a local project, connect MCP, generate a structured first pass, and refine the same live result in the editor."
             eyebrow="Workflow"
-            title="Open locally. Mutate through MCP. Verify in the same workspace."
+            title="Open locally. Strap in an agent. Tighten in the same canvas."
           />
 
           <div className="workflow-layout">
@@ -285,7 +291,7 @@ export function MarketingHomePage() {
                 <LinkButton
                   href={siteConfig.downloadPath}
                   kind="primary"
-                  label="Download Desktop and Try MCP"
+                  label="Download Desktop and Bootstrap a Project"
                 />
               </div>
             </div>
@@ -298,7 +304,7 @@ export function MarketingHomePage() {
                 </div>
                 <div className="panel-media-frame panel-media-frame-shot">
                   <Image
-                    alt="AI Canvas document workspace showing a multi-screen flow with the layers panel on the left and the inspector on the right"
+                    alt="Strapping AI Canvas document workspace showing a multi-screen flow with the layers panel on the left and the inspector on the right"
                     className="panel-image panel-image-workflow"
                     placeholder="blur"
                     sizes="(min-width: 1180px) 556px, (min-width: 900px) calc(100vw - 32px), 100vw"
@@ -306,19 +312,19 @@ export function MarketingHomePage() {
                   />
                 </div>
                 <p className="card-footnote">
-                  One screenshot now carries the full product shape: scene-first canvas, visible
-                  structure, and inspector-backed editing in the same workspace.
+                  One workspace carries the whole loop: bootstrap the structure fast, inspect the
+                  result, and keep tightening in the same scene-first editor.
                 </p>
               </article>
 
-              <article className="info-card info-card-accent">
+              <article className="info-card info-card-contrast">
                 <div className="stat-row">
-                  <span className="stat-label">project target</span>
-                  <strong>Active project session</strong>
+                  <span className="stat-label">speed lever</span>
+                  <strong>One active project session</strong>
                 </div>
                 <div className="stat-row">
-                  <span className="stat-label">document count in v1</span>
-                  <strong>1 document per project</strong>
+                  <span className="stat-label">best fit</span>
+                  <strong>First-pass screens and system scaffolds</strong>
                 </div>
                 <div className="stat-row">
                   <span className="stat-label">shared path</span>
@@ -331,9 +337,9 @@ export function MarketingHomePage() {
 
         <section className="section mcp-section" id="mcp">
           <SectionHeading
-            body="AI Canvas exposes a first-pass local MCP surface over the same command/query/document core the desktop editor uses. The goal is not generic automation glue. The goal is parity."
+            body="Strapping AI Canvas exposes a local MCP surface over the same command/query/document core the desktop editor uses. That is why the bootstrap pass stays fast, inspectable, and close to the real product state."
             eyebrow="MCP"
-            title="The local MCP bridge is part of the product, not a separate adapter."
+            title="The speed story is one runtime, not automation glue."
           />
 
           <div className="mcp-layout">
@@ -358,7 +364,7 @@ export function MarketingHomePage() {
               </div>
               <div className="panel-media-frame panel-media-frame-shot panel-media-frame-mcp">
                 <Image
-                  alt="AI Canvas MCP installation panel showing the localhost endpoint and setup buttons for Claude, Codex, and Gemini"
+                  alt="Strapping AI Canvas MCP installation panel showing the localhost endpoint and setup buttons for Claude, Codex, and Gemini"
                   className="panel-image panel-image-mcp"
                   placeholder="blur"
                   sizes="(min-width: 1180px) 420px, (min-width: 900px) calc(50vw - 32px), 100vw"
@@ -366,9 +372,8 @@ export function MarketingHomePage() {
                 />
               </div>
               <p className="card-footnote">
-                Works with clients such as Claude, Codex, and Gemini through their MCP or tools
-                configuration screens. Use the full endpoint, including the <span>/mcp</span> path,
-                and keep the editor window open for write-capable actions.
+                Use the full localhost endpoint, including the <span>/mcp</span> path, and keep
+                the editor window open for write-capable actions.
               </p>
             </article>
 
@@ -396,9 +401,9 @@ export function MarketingHomePage() {
 
         <section className="section trust-section" id="trust">
           <SectionHeading
-            body="The product boundary matters. The site should make the trust model and the v1 limits visible so the marketing story matches the runtime contract."
+            body="Fast only works if the product boundary stays obvious. This is a local-first desktop tool with a visible runtime contract, and the marketing story should match that contract."
             eyebrow="Trust"
-            title="Local-first means explicit boundaries, not vague privacy claims."
+            title="Speed without ambiguity beats vague AI promises."
           />
 
           <div className="trust-layout">
@@ -427,7 +432,7 @@ export function MarketingHomePage() {
           <SectionHeading
             body="Scenes, variables, styles, bindings, and provenance are first-class project data. That gives both the editor and an agent a stable surface for inspection and mutation."
             eyebrow="Scene-first structure"
-            title="Structured design data gives agents something better than pixels."
+            title="Structured design data gives the model something solid to build on."
           />
 
           <div className="systems-layout">
@@ -460,11 +465,11 @@ export function MarketingHomePage() {
         <section className="section status-section">
           <article className="status-card">
             <span className="status-badge ui-mono">Experimental</span>
-            <h2>Current status: active development, concrete desktop direction.</h2>
+            <h2>Current status: sharp first-pass workflow, active product development.</h2>
             <p>
-              AI Canvas Desktop, the local MCP bridge, and the shared command/query/document core
-              define the current product direction. For exact behavior, the docs remain the source
-              of truth.
+              Strapping AI Canvas is still under active development, but the direction is clear:
+              get from zero to usable visual design faster by keeping desktop editing and agent
+              actions in one local workspace.
             </p>
             <div className="status-actions">
               <LinkButton href={siteConfig.docsPath} kind="secondary" label="Read Docs" />
@@ -475,7 +480,7 @@ export function MarketingHomePage() {
 
         <section className="section faq-section" id="faq">
           <SectionHeading
-            body="Short answers to the current v1 questions that matter most for technical evaluation."
+            body="Short answers to the runtime and scope questions that matter when evaluating the product."
             eyebrow="FAQ"
             title="What the site should answer directly."
           />
@@ -494,10 +499,11 @@ export function MarketingHomePage() {
           <article className="download-card">
             <div>
               <span className="section-eyebrow">Download</span>
-              <h2>Local-first, scene-first mockup editing for humans and AI agents.</h2>
+              <h2>Bootstrap your next interface direction in one local workspace.</h2>
               <p>
                 Download the latest desktop build, inspect the docs, or review the source. The
-                current release is experimental, but the product story is already clear.
+                current release is experimental, but the value is immediate: faster first-pass
+                visual design with a local editor and MCP in the same loop.
               </p>
             </div>
 
@@ -511,7 +517,7 @@ export function MarketingHomePage() {
       </main>
 
       <footer className="site-footer">
-        <p>Local-first, scene-first mockup editing for humans and AI agents.</p>
+        <p>Bootstrap visual design fast with one local desktop + MCP workspace.</p>
         <div className="footer-links">
           <MarketingLink href={siteConfig.githubUrl}>GitHub</MarketingLink>
           <MarketingLink href={siteConfig.docsPath} newTab={false}>
