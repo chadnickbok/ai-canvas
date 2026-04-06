@@ -397,6 +397,9 @@ export function DocumentWorkspaceScreen({
     lastCommittedZoom: viewport.zoom
   }));
   const canAdjustViewport = viewportSize.width > 0 && viewportSize.height > 0;
+  const canMutateSelection =
+    runtimeCapabilities?.mode === "read_write" &&
+    runtimeCapabilities.measurementSurfaceAvailable === true;
   const canTraverseHistory = runtimeCapabilities?.mode === "read_write" && !isBusy;
   const canRedo = canTraverseHistory && historyState?.canRedo === true;
   const canUndo = canTraverseHistory && historyState?.canUndo === true;
@@ -468,6 +471,45 @@ export function DocumentWorkspaceScreen({
       }
     },
     [activeProject.document, activeProject.revision, revealCanvasRect, viewport.zoom, workspaceIdentity]
+  );
+
+  const handleUpdateNodeFillColor = useCallback(
+    async (nodeId: string, color: string) => {
+      if (!onApplyCommands) {
+        return {
+          errorMessage: "Command bridge unavailable.",
+          ok: false as const
+        };
+      }
+
+      const result = await onApplyCommands({
+        base_revision: activeProject.revision,
+        commands: [
+          {
+            node_id: nodeId,
+            patch: {
+              render_style: {
+                backgroundColor: color
+              }
+            },
+            type: "update_node"
+          }
+        ],
+        document_id: activeProject.document.document_id
+      });
+
+      if (!result.ok) {
+        return {
+          errorMessage: result.error.message,
+          ok: false as const
+        };
+      }
+
+      return {
+        ok: true as const
+      };
+    },
+    [activeProject.document.document_id, activeProject.revision, onApplyCommands]
   );
 
   const commitZoomInput = () => {
@@ -702,10 +744,7 @@ export function DocumentWorkspaceScreen({
               documentRevision={activeProject.revision}
               interactionLayer={
                 <InteractionOverlay
-                  allowMutation={
-                    runtimeCapabilities?.mode === "read_write" &&
-                    runtimeCapabilities.measurementSurfaceAvailable === true
-                  }
+                  allowMutation={canMutateSelection}
                   document={activeProject.document}
                   documentRevision={activeProject.revision}
                   hoveredNodeId={hoveredNodeId}
@@ -793,7 +832,9 @@ export function DocumentWorkspaceScreen({
         </div>
 
         <SelectionInspector
+          canEditAppearance={canMutateSelection && !isBusy}
           document={activeProject.document}
+          onUpdateNodeFillColor={handleUpdateNodeFillColor}
           rendererRef={rendererRef}
           selectedNodeId={selectedNodeId}
           viewport={viewport}
