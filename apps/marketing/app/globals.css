@@ -201,6 +201,17 @@ main,
     color 140ms ease;
 }
 
+.button-icon,
+.inline-link-icon {
+  display: block;
+  flex: none;
+}
+
+.button-icon {
+  height: 14px;
+  width: 14px;
+}
+
 .button:hover {
   transform: translateY(-1px);
 }
@@ -686,6 +697,17 @@ main,
 .site-footer p {
   font-size: 14px;
   margin: 0;
+}
+
+.inline-link {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.inline-link-icon {
+  height: 14px;
+  width: 14px;
 }
 
 .footer-links {

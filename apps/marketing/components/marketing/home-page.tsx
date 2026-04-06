@@ -1,9 +1,11 @@
 import Image from "next/image";
+import { siGithub } from "simple-icons";
 
 import strappingLogoDark from "../../src/assets/branding/strappingai-logo-dark.png";
 import heroProjectLibraryImage from "../../src/assets/screenshots/hero-project-library.png";
 import mcpInstallationImage from "../../src/assets/screenshots/mcp-installation.png";
 import workflowSceneImage from "../../src/assets/screenshots/workflow-scene.png";
+import { BrandIcon } from "./brand-icon";
 import { siteConfig } from "../../lib/site-config";
 import { LinkButton } from "./link-button";
 import { MarketingLink } from "./marketing-link";
@@ -160,6 +162,15 @@ const designSystemRows = [
 ] as const;
 
 export function MarketingHomePage() {
+  const githubIcon = (
+    <BrandIcon
+      aria-hidden="true"
+      className="button-icon"
+      icon={siGithub}
+      title="GitHub"
+    />
+  );
+
   return (
     <div className="site-shell">
       <div aria-hidden="true" className="site-background" />
@@ -188,7 +199,12 @@ export function MarketingHomePage() {
         </nav>
 
         <div className="header-actions">
-          <LinkButton href={siteConfig.githubUrl} kind="ghost" label="GitHub" />
+          <LinkButton
+            href={siteConfig.githubUrl}
+            kind="ghost"
+            label="GitHub"
+            leadingVisual={githubIcon}
+          />
           <LinkButton href={siteConfig.downloadPath} kind="primary" label="Download Desktop" />
         </div>
       </header>
@@ -473,7 +489,12 @@ export function MarketingHomePage() {
             </p>
             <div className="status-actions">
               <LinkButton href={siteConfig.docsPath} kind="secondary" label="Read Docs" />
-              <LinkButton href={siteConfig.githubUrl} kind="ghost" label="View GitHub" />
+              <LinkButton
+                href={siteConfig.githubUrl}
+                kind="ghost"
+                label="View GitHub"
+                leadingVisual={githubIcon}
+              />
             </div>
           </article>
         </section>
@@ -509,7 +530,12 @@ export function MarketingHomePage() {
 
             <div className="download-actions">
               <LinkButton href={siteConfig.downloadPath} kind="primary" label="Download Desktop" />
-              <LinkButton href={siteConfig.githubUrl} kind="secondary" label="View GitHub" />
+              <LinkButton
+                href={siteConfig.githubUrl}
+                kind="secondary"
+                label="View GitHub"
+                leadingVisual={githubIcon}
+              />
               <LinkButton href={siteConfig.docsPath} kind="ghost" label="Read Docs" />
             </div>
           </article>
@@ -519,7 +545,12 @@ export function MarketingHomePage() {
       <footer className="site-footer">
         <p>Bootstrap visual design fast with one local desktop + MCP workspace.</p>
         <div className="footer-links">
-          <MarketingLink href={siteConfig.githubUrl}>GitHub</MarketingLink>
+          <MarketingLink href={siteConfig.githubUrl}>
+            <span className="inline-link">
+              <BrandIcon aria-hidden="true" className="inline-link-icon" icon={siGithub} title="GitHub" />
+              <span>GitHub</span>
+            </span>
+          </MarketingLink>
           <MarketingLink href={siteConfig.docsPath} newTab={false}>
             Docs
           </MarketingLink>
