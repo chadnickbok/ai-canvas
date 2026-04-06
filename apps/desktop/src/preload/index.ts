@@ -10,6 +10,7 @@ const appChannelNames = {
   applyCommands: "app:applyCommands",
   createProject: "app:createProject",
   getActiveProject: "app:getActiveProject",
+  getAppMetadata: "app:getAppMetadata",
   getHistoryState: "app:getHistoryState",
   getMcpStatus: "app:getMcpStatus",
   getRuntimeCapabilities: "app:getRuntimeCapabilities",
@@ -32,6 +33,9 @@ const api: DesktopApi = {
   },
   async getActiveProject() {
     return ipcRenderer.invoke(appChannelNames.getActiveProject);
+  },
+  async getAppMetadata() {
+    return ipcRenderer.invoke(appChannelNames.getAppMetadata);
   },
   async getHistoryState() {
     return ipcRenderer.invoke(appChannelNames.getHistoryState, {});

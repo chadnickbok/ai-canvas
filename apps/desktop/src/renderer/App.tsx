@@ -5,6 +5,7 @@ import type { DesktopApi } from "@ai-canvas/ipc-contract";
 import {
   assertOk,
   err,
+  type AppMetadata,
   type ActiveProject,
   type ApplyCommandsInput,
   type CreateProjectInput,
@@ -17,12 +18,14 @@ import {
 } from "@ai-canvas/ipc-contract";
 
 import { CommitLayoutMeasurementHost } from "./CommitLayoutMeasurementHost.js";
+import { AboutDialog } from "./AboutDialog.js";
 
 type BootState = "booting" | "ready" | "boot_error";
 type Screen = "library" | "workspace";
 
 type ScreenState = {
   activeProject: ActiveProject | null;
+  appMetadata: AppMetadata | null;
   bootState: BootState;
   errorMessage: string | null;
   historyState: HistoryState | null;
@@ -35,6 +38,7 @@ type ScreenState = {
 
 const initialState: ScreenState = {
   activeProject: null,
+  appMetadata: null,
   bootState: "booting",
   errorMessage: null,
   historyState: null,
@@ -52,10 +56,11 @@ function getDesktopApi(): DesktopApi | null {
 async function loadScreenState(
   api: DesktopApi
 ): Promise<Omit<ScreenState, "bootState" | "errorMessage" | "isBusy">> {
-  const [projectsResult, activeProjectResult, historyResult, runtimeResult, mcpResult] =
+  const [projectsResult, activeProjectResult, appMetadataResult, historyResult, runtimeResult, mcpResult] =
     await Promise.all([
       api.listProjects(),
       api.getActiveProject(),
+      api.getAppMetadata(),
       api.getHistoryState(),
       api.getRuntimeCapabilities(),
       api.getMcpStatus()
@@ -64,6 +69,7 @@ async function loadScreenState(
 
   return {
     activeProject,
+    appMetadata: assertOk(appMetadataResult),
     historyState: assertOk(historyResult),
     mcpStatus: assertOk(mcpResult),
     projects: assertOk(projectsResult),
@@ -115,6 +121,7 @@ function applyRuntimeEvent(state: ScreenState, event: RuntimeEvent): ScreenState
 
 export function App() {
   const [state, setState] = useState<ScreenState>(initialState);
+  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const api = getDesktopApi();
 
   const loadInitialState = async (api: DesktopApi) => {
@@ -408,6 +415,15 @@ export function App() {
   };
 
   const measurementHost = api ? <CommitLayoutMeasurementHost api={api} /> : null;
+  const aboutDialog = (
+    <AboutDialog
+      appMetadata={state.appMetadata}
+      isOpen={isAboutDialogOpen}
+      onClose={() => {
+        setIsAboutDialogOpen(false);
+      }}
+    />
+  );
 
   if (state.bootState === "ready" && state.screen === "workspace" && state.activeProject) {
     return (
@@ -425,10 +441,14 @@ export function App() {
               screen: "library"
             }));
           }}
+          onOpenAbout={() => {
+            setIsAboutDialogOpen(true);
+          }}
           onRedo={handleRedo}
           onUndo={handleUndo}
           runtimeCapabilities={state.runtimeCapabilities}
         />
+        {aboutDialog}
         {measurementHost}
       </>
     );
@@ -443,6 +463,9 @@ export function App() {
         isBusy={state.isBusy}
         mcpStatus={state.mcpStatus}
         onCreateProject={handleCreateProject}
+        onOpenAbout={() => {
+          setIsAboutDialogOpen(true);
+        }}
         onOpenProject={handleOpenProject}
         onOpenExternalUrl={(url) => {
           void handleOpenExternalUrl(url);
@@ -450,6 +473,7 @@ export function App() {
         projects={state.projects}
         runtimeCapabilities={state.runtimeCapabilities}
       />
+      {aboutDialog}
       {measurementHost}
     </>
   );

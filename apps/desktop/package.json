@@ -1,13 +1,18 @@
 {
   "name": "@ai-canvas/desktop",
+  "author": "AI Canvas",
+  "description": "Local-first, scene-first mockup editor packaged as AI Canvas Desktop.",
+  "packageManager": "pnpm@10.24.0",
   "private": true,
   "type": "module",
+  "version": "0.0.0",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "pnpm --dir ../.. dev",
     "dev:app": "electron-vite dev --watch",
-    "build": "pnpm --dir ../.. build",
+    "build": "pnpm --dir ../.. build:desktop",
     "build:app": "electron-vite build",
+    "dist:mac": "electron-builder --config electron-builder.config.mjs --mac dmg zip --publish never",
     "mcp:demo-slice": "node ./scripts/mcp-demo-vertical-slice.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src",
@@ -20,13 +25,14 @@
     "@ai-canvas/mcp-bridge": "workspace:*",
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@fontsource/ibm-plex-mono": "^5.2.7",
-    "electron": "^41.0.4",
-    "electron-vite": "^5.0.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",
+    "electron": "^41.0.4",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
     "jsdom": "^26.1.0"
   }
 }

@@ -209,6 +209,26 @@ pnpm --filter @ai-canvas/editor-ui lint
 pnpm build
 ```
 
+### Build desktop release output
+
+Generate the packageable desktop build output without packaging installers:
+
+```bash
+pnpm build:desktop
+```
+
+### Package a macOS candidate
+
+Phase 1 packaging is macOS-first. Packaging does not rebuild the app, so run the desktop build first.
+
+```bash
+pnpm build:desktop
+AI_CANVAS_UPDATE_BASE_URL=https://updates.example.com/aicanvas \
+pnpm --filter @ai-canvas/desktop dist:mac
+```
+
+Typical outputs land under `apps/desktop/dist/release/`.
+
 ### Verify local MCP bridge
 
 Run the desktop app and keep it open, then run:

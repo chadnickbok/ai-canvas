@@ -34,5 +34,5 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Document core tests
-        run: pnpm test:document-core
+      - name: Desktop tests
+        run: pnpm --filter @ai-canvas/desktop test

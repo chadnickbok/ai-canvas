@@ -16,6 +16,13 @@ export const projectSummarySchema = z.object({
 });
 
 export const runtimeModeSchema = z.enum(["read_write", "read_only"]);
+export const appReleaseChannelSchema = z.enum(["latest", "beta"]);
+
+export const appMetadataSchema = z.object({
+  channel: appReleaseChannelSchema,
+  commitSha: z.string().nullable(),
+  version: z.string()
+});
 
 export const runtimeCapabilitiesSchema = z.object({
   measurementSurfaceAvailable: z.boolean(),
@@ -208,6 +215,7 @@ export const appChannelNames = {
   applyCommands: "app:applyCommands",
   createProject: "app:createProject",
   getActiveProject: "app:getActiveProject",
+  getAppMetadata: "app:getAppMetadata",
   getHistoryState: "app:getHistoryState",
   getMcpStatus: "app:getMcpStatus",
   getRuntimeCapabilities: "app:getRuntimeCapabilities",
@@ -222,6 +230,8 @@ export const appChannelNames = {
 } as const;
 
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
+export type AppMetadata = z.infer<typeof appMetadataSchema>;
+export type AppReleaseChannel = z.infer<typeof appReleaseChannelSchema>;
 export type RuntimeCapabilities = z.infer<typeof runtimeCapabilitiesSchema>;
 export type HistoryState = z.infer<typeof historyStateSchema>;
 export type McpStatus = z.infer<typeof mcpStatusSchema>;
@@ -260,6 +270,7 @@ export interface DesktopApi {
   applyCommands(input: ApplyCommandsInput): Promise<AppResult<CommandResult>>;
   createProject(input: CreateProjectInput): Promise<AppResult<ProjectSummary>>;
   getActiveProject(): Promise<AppResult<ActiveProject | null>>;
+  getAppMetadata(): Promise<AppResult<AppMetadata>>;
   getHistoryState(): Promise<AppResult<HistoryState>>;
   getMcpStatus(): Promise<AppResult<McpStatus>>;
   getRuntimeCapabilities(): Promise<AppResult<RuntimeCapabilities>>;

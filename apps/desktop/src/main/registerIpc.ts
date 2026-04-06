@@ -10,6 +10,7 @@ import {
   ok,
   openExternalUrlInputSchema,
   openProjectInputSchema,
+  type AppMetadata,
   type AppResult,
   type EmptyPayload,
   type LayoutMeasurementResult,
@@ -19,6 +20,7 @@ import {
 import type { ProjectRuntime } from "./runtime/index.js";
 
 type RegisterIpcOptions = {
+  appMetadata?: AppMetadata;
   sendRuntimeEvent?: (event: RuntimeEvent) => void;
   submitLayoutMeasurementResult?: (
     input: LayoutMeasurementResult
@@ -32,6 +34,13 @@ export function registerIpc(runtime: ProjectRuntime, options: RegisterIpcOptions
 
   ipcMain.handle(appChannelNames.listProjects, async () => runtime.listProjects());
   ipcMain.handle(appChannelNames.getActiveProject, async () => runtime.getActiveProject());
+  ipcMain.handle(appChannelNames.getAppMetadata, async () => {
+    if (!options.appMetadata) {
+      return err("internal_error", "App metadata is unavailable");
+    }
+
+    return ok(options.appMetadata);
+  });
   ipcMain.handle(appChannelNames.getHistoryState, async (_event, input) => {
     try {
       emptyPayloadSchema.parse(input ?? {});

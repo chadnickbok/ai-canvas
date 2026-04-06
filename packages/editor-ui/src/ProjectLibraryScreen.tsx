@@ -1,9 +1,9 @@
 import {
   ArrowRight,
+  BadgeInfo,
   CalendarDays,
   Clock3,
   Search,
-  Settings
 } from "lucide-react";
 import {
   useDeferredValue,
@@ -32,6 +32,7 @@ type ProjectLibraryScreenProps = {
   projects: ProjectSummary[];
   runtimeCapabilities: RuntimeCapabilities | null;
   onCreateProject: (input: CreateProjectInput) => Promise<void> | void;
+  onOpenAbout: () => void;
   onOpenProject: (projectId: string) => void;
   onOpenExternalUrl: (url: string) => void;
 };
@@ -625,8 +626,8 @@ export function ProjectLibraryScreen(props: ProjectLibraryScreenProps) {
               >
                 <GitHubMarkIcon className="h-[17px] w-[17px]" />
               </UtilityButton>
-              <UtilityButton disabled title="Settings coming soon">
-                <Settings className="h-[17px] w-[17px]" strokeWidth={1.6} />
+              <UtilityButton onClick={props.onOpenAbout} title="Open About dialog">
+                <BadgeInfo className="h-[17px] w-[17px]" strokeWidth={1.6} />
               </UtilityButton>
             </div>
           </header>
@@ -906,8 +907,8 @@ status: running`}
             >
               <GitHubMarkIcon className="h-[17px] w-[17px]" />
             </UtilityButton>
-            <UtilityButton disabled title="Settings coming soon">
-              <Settings className="h-[17px] w-[17px]" strokeWidth={1.6} />
+            <UtilityButton onClick={props.onOpenAbout} title="Open About dialog">
+              <BadgeInfo className="h-[17px] w-[17px]" strokeWidth={1.6} />
             </UtilityButton>
           </div>
 

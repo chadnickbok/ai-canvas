@@ -33,6 +33,7 @@ export type DocumentWorkspaceScreenProps = {
   mcpStatus: McpStatus | null;
   onApplyCommands?: (input: ApplyCommandsInput) => Promise<AppResult<CommandResult>>;
   onBackToLibrary: () => void;
+  onOpenAbout: () => void;
   onRedo?: () => Promise<void> | void;
   onUndo?: () => Promise<void> | void;
   runtimeCapabilities: RuntimeCapabilities | null;
@@ -161,6 +162,7 @@ export function DocumentWorkspaceScreen({
   mcpStatus,
   onApplyCommands,
   onBackToLibrary,
+  onOpenAbout,
   onRedo,
   onUndo,
   runtimeCapabilities
@@ -390,6 +392,15 @@ export function DocumentWorkspaceScreen({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+              className="ui-mono border border-black/12 bg-white px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black"
+              onClick={onOpenAbout}
+              title="Open About dialog"
+              type="button"
+            >
+              About
+            </button>
+
             <div className="min-w-0 max-w-full text-left md:text-right">
               <div className="ui-mono text-[12px] text-[#111111]">{formatMcpStatusLine(mcpStatus)}</div>
               <div className="ui-mono mt-1 break-all text-[11px] uppercase tracking-[0.14em] text-black/40">

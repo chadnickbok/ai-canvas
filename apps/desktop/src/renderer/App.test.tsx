@@ -6,7 +6,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createEmptyDocument, type RendererDocument } from "@ai-canvas/document-core";
-import { ok, type ActiveProject, type DesktopApi, type RuntimeEvent } from "@ai-canvas/ipc-contract";
+import {
+  ok,
+  type ActiveProject,
+  type AppMetadata,
+  type DesktopApi,
+  type RuntimeEvent
+} from "@ai-canvas/ipc-contract";
 
 import { App } from "./App.js";
 
@@ -33,6 +39,12 @@ const historyState = {
   canUndo: false,
   redoDepth: 0,
   undoDepth: 0
+};
+
+const appMetadata: AppMetadata = {
+  channel: "latest",
+  commitSha: null,
+  version: "0.0.0"
 };
 
 const mcpStatus = {
@@ -179,6 +191,7 @@ function createDesktopApiMock(overrides: Partial<DesktopApi> = {}) {
       ),
     getActiveProject:
       overrides.getActiveProject ?? vi.fn(async () => ok<ActiveProject | null>(null)),
+    getAppMetadata: overrides.getAppMetadata ?? vi.fn(async () => ok(appMetadata)),
     getHistoryState: overrides.getHistoryState ?? vi.fn(async () => ok(historyState)),
     getMcpStatus: overrides.getMcpStatus ?? vi.fn(async () => ok(mcpStatus)),
     getRuntimeCapabilities:
@@ -265,6 +278,16 @@ function getButtonByText(container: HTMLElement, text: string): HTMLButtonElemen
   return button;
 }
 
+function getButtonByTitle(container: HTMLElement, title: string): HTMLButtonElement {
+  const button = container.querySelector(`button[title="${title}"]`);
+
+  if (!(button instanceof HTMLButtonElement)) {
+    throw new Error(`Button with title "${title}" was not found`);
+  }
+
+  return button;
+}
+
 beforeEach(() => {
   Object.defineProperty(window, "scrollTo", {
     configurable: true,
@@ -322,6 +345,34 @@ describe("App", () => {
     }
   });
 
+  it("opens the About dialog from the project library and shows build metadata", async () => {
+    const betaAppMetadata: AppMetadata = {
+      channel: "beta",
+      commitSha: "abc1234",
+      version: "1.2.3"
+    };
+    const desktopApi = createDesktopApiMock({
+      getAppMetadata: vi.fn(async () => ok(betaAppMetadata))
+    });
+    const harness = renderApp(desktopApi.api);
+
+    try {
+      await flushAsyncWork();
+
+      act(() => {
+        getButtonByTitle(harness.container, "Open About dialog").click();
+      });
+      await flushAsyncWork();
+
+      expect(harness.container.textContent).toContain("About AI Canvas Desktop");
+      expect(harness.container.textContent).toContain("1.2.3");
+      expect(harness.container.textContent).toContain("Beta");
+      expect(harness.container.textContent).toContain("abc1234");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
   it("creates a project, loads the active session, and navigates into the workspace", async () => {
     const activeProject = createActiveProject({
       name: "Project 1",
@@ -370,6 +421,32 @@ describe("App", () => {
       expect(getActiveProject).toHaveBeenCalledTimes(2);
       expect(harness.container.textContent).toContain("Project 1");
       expect(harness.container.textContent).toContain("No scene yet.");
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("shows a commit fallback in the About dialog when build metadata omits the sha", async () => {
+    const activeProject = createActiveProject({
+      name: "Workspace Project",
+      projectId: "project_workspace"
+    });
+    const desktopApi = createDesktopApiMock({
+      getActiveProject: vi.fn(async () => ok(activeProject))
+    });
+    const harness = renderApp(desktopApi.api);
+
+    try {
+      await flushAsyncWork();
+
+      act(() => {
+        getButtonByTitle(harness.container, "Open About dialog").click();
+      });
+      await flushAsyncWork();
+
+      expect(harness.container.textContent).toContain("About AI Canvas Desktop");
+      expect(harness.container.textContent).toContain("Unavailable in this build");
+      expect(harness.container.textContent).toContain("Stable");
     } finally {
       harness.cleanup();
     }

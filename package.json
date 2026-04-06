@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build:packages": "pnpm exec tsc -b tsconfig.packages.json",
+    "build:desktop": "pnpm build:packages && pnpm --filter @ai-canvas/desktop build:app",
     "build:marketing": "pnpm --filter @ai-canvas/marketing build",
     "watch:packages": "pnpm exec tsc -b -w tsconfig.packages.json --preserveWatchOutput",
     "dev": "node ./scripts/run-dev.mjs",

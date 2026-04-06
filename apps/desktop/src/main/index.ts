@@ -11,6 +11,7 @@ import {
 import { appChannelNames } from "@ai-canvas/ipc-contract";
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
+import { loadAppMetadata } from "./appMetadata.js";
 import { createProjectService } from "./createProjectService.js";
 import {
   LayoutMeasurementBridgeError,
@@ -86,6 +87,7 @@ async function bootstrap() {
   app.setName("AI Canvas Desktop");
   await app.whenReady();
 
+  const appMetadata = loadAppMetadata(app.getAppPath());
   const store = new ProjectStore(path.join(app.getPath("userData"), "app.db"));
   const runtime = createProjectRuntime(store);
   const layoutMeasurementBridge = new RendererLayoutMeasurementBridge();
@@ -140,6 +142,7 @@ async function bootstrap() {
 
   runtime.attachMcpStatusProvider(mcpBridge);
   const unsubscribeFromRuntimeEvents = registerIpc(runtime, {
+    appMetadata,
     submitLayoutMeasurementResult: (result) =>
       layoutMeasurementBridge.submitLayoutMeasurementResult(result),
     sendRuntimeEvent: (event) => {
