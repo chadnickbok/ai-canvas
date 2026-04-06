@@ -329,6 +329,7 @@ Guidance docs:
 Policy docs:
 
 - [docs/testing-and-release.md](docs/testing-and-release.md)
+- [docs/release-distribution.md](docs/release-distribution.md)
 
 ## Contributing
 

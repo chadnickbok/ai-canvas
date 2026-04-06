@@ -32,6 +32,7 @@ The main process owns:
 - app lifecycle
 - window lifecycle
 - tray or menu-bar lifecycle
+- updater orchestration
 - native menus
 - file dialogs for import/export
 - OS integrations
@@ -227,6 +228,10 @@ Examples of good API calls:
 - `openProject(projectId)`
 - `getActiveProject()`
 - `getRuntimeCapabilities()`
+- `getUpdaterState()`
+- `checkForUpdates()`
+- `setUpdateChannel(channel)`
+- `restartToInstallUpdate()`
 - `applyCommands(projectId, commands)`
 - `inspectDesignSystem(projectId)`
 - `importProjectSnapshot(path)`
@@ -235,7 +240,15 @@ Examples of good API calls:
 
 `getRuntimeCapabilities()` should expose whether a browser measurement surface is currently available for write-capable flows.
 
+`getUpdaterState()` should expose main-owned updater state such as selected channel, current updater state, last checked time, available or downloaded version, and install-blocked reason when present.
+
 Write-capable calls such as `applyCommands(projectId, commands)` should fail with `measurement_surface_unavailable` when no renderer-backed measurement surface exists, according to the runtime contract in `docs/product-stance.md`.
+
+Updater calls must follow the same ownership rules:
+
+- `setUpdateChannel(channel)` persists update-feed preference only and must not imply downgrade
+- `restartToInstallUpdate()` must route through the same close and final-save lifecycle defined in `docs/product-stance.md`
+- the renderer may reflect updater state, but it must not create a second lifecycle or authoritative updater state machine
 
 That API can be implemented over IPC, but the renderer should experience it as a typed client.
 

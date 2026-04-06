@@ -14,7 +14,20 @@ Related docs:
 
 This spec assumes a pnpm monorepo with `apps/desktop`, `electron-vite` already in use for desktop production builds, and a main/preload/renderer split. If the repository evolves, implementation details may adapt as long as the distribution and lifecycle invariants in this document remain unchanged.
 
-## 1. Goal
+## 1. Authority
+
+For AI Canvas Desktop build, packaging, publishing, promotion, and auto-update behavior, the authoritative documents are:
+
+1. this document for release, feed, promotion, signing, and updater rules
+2. `docs/product-stance.md` for runtime lifecycle semantics such as dirty-state, final-save, close-to-tray, and recovery behavior
+3. `docs/testing-and-release.md` for the release-validation and manual-verification bar
+4. `docs/desktop-architecture.md` for the recommended application API and package-boundary shape
+
+`README.md` and `docs/README.md` are indexes only. They are not behavior contracts.
+
+If these disagree, update the docs and implementation in the same change.
+
+## 2. Goal
 
 Implement a v1 build, download, install, release, and auto-update system for AI Canvas Desktop that is safe for a local-first, tray-resident Electron app.
 
@@ -34,84 +47,90 @@ This distribution model assumes:
 - the renderer is the only browser-backed measurement surface
 - recovery and close-to-tray behavior are product constraints
 
-## 2. Fixed decisions
+## 3. Fixed decisions
 
 These decisions are part of the v1 spec.
 
-### 2.1 Packaging and updater stack
+### 3.1 Packaging and updater stack
 
 - Use `electron-vite` for desktop app build output.
-- Use `electron-builder` for packaging and publish metadata generation.
+- Use `electron-builder` for packaging and updater metadata generation.
 - Use `electron-updater` for in-app updates.
 - Package from built output only, never from raw source trees.
 - Keep the current fast pnpm dev workflow unchanged.
 
-### 2.2 Platform scope
+### 3.2 Platform scope
 
 - v1 polished distribution targets are macOS first and Windows second.
 - v1 auto-update targets are macOS and Windows.
 - Linux may gain packaging later, but it is not a polished v1 distribution target.
 
-### 2.3 Release channels
+### 3.3 Release channels and fresh installs
 
 - v1 has exactly two channels: `latest` and `beta`.
 - `latest` is stable.
 - `beta` is opt-in.
 - There is no `alpha` channel in v1.
+- All fresh installs default to `latest`.
+- Downloading an installer from the marketing site or GitHub Releases does not, by itself, enroll the app in `beta`.
+- A distinct installer-time "download beta and stay on beta" path is out of scope for v1.
 
-### 2.4 Hosting model
+### 3.4 Hosting model
 
 - Human-facing downloads may live on the marketing site and/or GitHub Releases.
 - Machine-facing auto-update feeds live on a generic HTTPS endpoint under our domain.
+- The generic HTTPS endpoint is the only machine-readable updater source in v1.
+- GitHub Releases are for human downloads only.
 - Do not use the private GitHub updater provider in v1.
 
-### 2.5 Promotion model
+### 3.5 Promotion model
 
-- “Release now” means promote an existing tested candidate.
-- Promotion must not rebuild source.
+- "Release now" means promote an existing tested candidate.
+- Promotion must not rebuild or re-sign source.
 - Promotion is driven by `workflow_dispatch`.
 - In v1, promotion reads from GitHub Actions artifacts created by the candidate build workflow.
-- If the referenced candidate artifact has expired, a new candidate must be built and revalidated before promotion.
+- Candidate artifacts must set `retention-days: 90` explicitly.
+- If a candidate artifact expires, that version is no longer promotable in v1. Cut a new higher version and revalidate it instead of rebuilding the expired version.
 
-### 2.6 Telemetry split
+### 3.6 Telemetry split
 
 - Electron `crashReporter` handles native/process crash dumps.
-- Sentry handles JavaScript exceptions in main and renderer.
+- Sentry handles JavaScript exceptions in main, renderer, and preload.
 - Product metrics remain a separate opt-in system.
 - Sentry Logs and event-loop-block detection are not required for v1 correctness.
 
-## 3. Long-term impact decisions
+## 4. Release identity rules
 
-These decisions are important enough to make explicit now because they shape the later implementation.
+These rules intentionally constrain later implementation choices.
 
-### 3.1 Channel is a feed concern, not a version-suffix concern
+### 4.1 One version maps to one immutable candidate artifact set
+
+The canonical distributed app version comes from `apps/desktop/package.json`.
+
+V1 hard rule:
+
+- one app version maps to exactly one immutable signed candidate artifact set
+- that artifact set is identified by a promotion manifest containing version, commit SHA, file list, and checksums
+- rerunning packaging for the same commit and version is acceptable only if it reproduces the exact same checksums
+- any materially different rebuild requires a new higher app version
+
+This prevents beta and stable users from running different bits under the same version string.
+
+### 4.2 Channel is a feed concern, not a version-suffix concern
 
 V1 does not use prerelease version suffixes such as `1.2.0-beta` as the primary channel mechanism.
 
 Instead:
 
 - release candidates are built once with the final app version
-- beta builds use the same canonical app version as the later stable promotion candidate
-- the tested artifacts may be published to `beta` first
-- the same signed artifacts may later be published to `latest`
+- beta publishes that tested artifact set to the `beta` feed first when desired
+- stable promotion republishes the exact same artifact set to the `latest` feed
 - `beta` and `latest` may point at the same version simultaneously
-- promotion changes published channel metadata and distribution placement, not the built binary contents
-
-Example:
-
-- candidate `0.4.0` is published to the `beta` feed first
-- beta users on older builds update to `0.4.0`
-- after validation, the exact same `0.4.0` artifacts are published to `latest`
-- beta users already on `0.4.0` do not update again
-- stable users on `0.3.2` now update to `0.4.0`
+- promotion changes published feed metadata and distribution placement, not the built binary contents
 
 Clients still compare normal semantic versions within their selected feed. Publishing the same version to `latest` after it has already shipped on `beta` does not create a new update for clients already running that version.
 
-Operationally, promotion means publishing the approved stable-channel metadata and artifacts to the `latest` feed location. It does not mean regenerating, resigning, or rebuilding the app binaries.
-
-This intentionally diverges from `electron-builder`'s default prerelease-version channel tutorial. V1 should therefore not depend on automatic channel inference from the app version.
-
-### 3.2 Channel switching does not imply downgrade
+### 4.3 Channel switching does not imply downgrade
 
 `electron-updater` automatically enables `allowDowngrade` when the app channel is set programmatically. That is not the desired v1 behavior.
 
@@ -119,33 +138,38 @@ V1 rule:
 
 - switching from `latest` to `beta` may expose newer beta builds
 - switching from `beta` back to `latest` does not immediately downgrade the installed app
-- after channel changes, updater configuration must keep downgrade behavior disabled unless a future product decision explicitly introduces downgrade UX
+- after channel changes, updater configuration must restore `allowDowngrade = false`
 
 This avoids surprising reinstall or rollback behavior when a user opts out of beta.
 
-### 3.3 Quit and window close are different operations
+### 4.4 Quit and window close are different operations
 
 The app is tray-resident by contract. Closing the window is not the same as quitting the app.
 
 V1 rule:
 
 - update installation must not piggyback on window close
-- downloaded updates are installed only from an explicit restart/install path, or from an explicit full-app quit path if that path has passed the same safety checks
+- downloaded updates are installed only from an explicit restart/install path, or from an explicit full-app quit path that has passed the same safety checks
 - updater behavior must respect the runtime contract in `docs/product-stance.md`
 
-### 3.4 Version source is local to the desktop app
+### 4.5 Updater configuration is owned by the main-process service
 
-The canonical distributed app version comes from `apps/desktop/package.json`.
+V1 uses explicit main-process updater configuration rather than relying on builder's implicit prerelease-channel behavior or treating baked `app-update.yml` as the full runtime contract.
 
-Commit SHA and build metadata may be attached for diagnostics, but they do not replace the canonical app version.
+That means:
 
-## 4. Build and package contract
+- `UpdateService` computes the generic feed URL from the configured base URL, persisted channel, platform, and architecture
+- `UpdateService` owns programmatic channel changes and downgrade protection
+- if `electron-builder` emits `app-update.yml`, treat it as packaging metadata only, not as the sole runtime authority
+- GitHub is not configured as a machine-facing updater provider
+
+## 5. Build and package contract
 
 V1 introduces one canonical production desktop build pipeline.
 
-### 4.1 Canonical entrypoint
+### 5.1 Canonical entrypoint
 
-The canonical production build entrypoint should be a dedicated root command:
+The canonical production build entrypoint is:
 
 ```bash
 pnpm build:desktop
@@ -157,9 +181,7 @@ That command should:
 2. run the desktop production build through `electron-vite`
 3. emit a packageable built-output tree for `electron-builder`
 
-The current repo does not yet expose that exact command. This document defines it as the target contract.
-
-### 4.2 Packaging inputs
+### 5.2 Packaging inputs
 
 - `electron-vite` build output is the packaging input
 - `electron-builder` packages from built output only
@@ -168,7 +190,7 @@ The current repo does not yet expose that exact command. This document defines i
 
 This follows `electron-vite` production guidance to keep bundled code in one output tree for packaging.
 
-### 4.3 Platform packaging targets
+### 5.3 Platform packaging targets
 
 - macOS packages: `dmg` and `zip`
 - Windows packages: `nsis`
@@ -176,7 +198,7 @@ This follows `electron-vite` production guidance to keep bundled code in one out
 
 For macOS, the `zip` artifact is required so updater metadata can be generated correctly even if the human-facing installer is the DMG.
 
-### 4.4 Packaging config
+### 5.4 Packaging config
 
 The repository must define a dedicated `electron-builder` configuration adjacent to the desktop app.
 
@@ -186,13 +208,17 @@ That config should:
 - define app id, product name, artifact naming, and target platforms
 - generate updater metadata
 - set `electronUpdaterCompatibility: ">= 2.16"` explicitly
-- define publish providers in the intended order
+- configure only the generic HTTPS publish provider for machine-facing metadata generation
+- avoid configuring GitHub as a publish provider for updater metadata
 
-This matches current `electron-builder` guidance for new projects and pins the updater metadata compatibility baseline instead of relying on implicit defaults.
+Candidate packaging and promotion must use explicit publish intent:
 
-## 5. Publish and feed model
+- `build-candidate.yml` packages with `--publish never`
+- `promote-release.yml` performs the actual upload work
 
-### 5.1 Human downloads vs machine feeds
+## 6. Publish and feed contract
+
+### 6.1 Human downloads vs machine feeds
 
 Human-facing downloads and machine-facing update feeds are separate concerns.
 
@@ -201,51 +227,87 @@ Human-facing distribution may use:
 - marketing site download links
 - GitHub Releases
 
-Machine-facing updater traffic should use:
+Machine-facing updater traffic uses:
 
 - a generic HTTPS update endpoint under our domain
 
-### 5.2 Provider ordering
+### 6.2 Authoritative machine feed layout
 
-`electron-builder` publish providers should be ordered so that:
+Given a base URL such as:
 
-1. the first provider is the generic HTTPS update feed
-2. an optional secondary provider publishes to GitHub Releases
+```text
+https://updates.example.com/aicanvas
+```
 
-This matters because the first provider becomes the default auto-update source.
+V1 uses this hosted layout:
 
-### 5.3 Feed layout
+```text
+{base}/{channel}/{platform}/{arch}/latest-mac.yml
+{base}/{channel}/{platform}/{arch}/latest.yml
+{base}/{channel}/{platform}/{arch}/{version}/{artifact-name}
+{base}/{channel}/{platform}/{arch}/{version}/SHA256SUMS
+```
 
-The exact URL layout may vary, but v1 must preserve:
+V1 platform and architecture tokens are:
 
-- channel separation
-- platform separation
-- stable URLs per installed client
-- a layout that lets `latest` and `beta` go live independently
+- `platform`: `darwin` or `win32`
+- `arch`: `universal`, `arm64`, or `x64` as applicable to the packaged target
 
-Conceptual examples:
+Rules:
 
-- `https://updates.example.com/aicanvas/latest/darwin/...`
-- `https://updates.example.com/aicanvas/latest/win/...`
-- `https://updates.example.com/aicanvas/beta/darwin/...`
+- macOS metadata lives at `{base}/{channel}/darwin/{arch}/latest-mac.yml`
+- Windows metadata lives at `{base}/{channel}/win32/{arch}/latest.yml`
+- immutable artifacts live under the versioned subdirectory for that same channel, platform, and architecture
+- metadata may reference only artifacts inside that channel/platform/arch/version subtree
 
-The spec does not require this exact path structure. It does require that updater clients have stable per-channel and per-platform metadata endpoints.
+### 6.3 Authoritative hosted files
 
-Channel metadata is the mechanism that differentiates `beta` from `latest`. The same app version may appear in both feeds at the same time when a tested beta candidate is promoted to stable.
+The release system must publish all files required by the updater metadata, including:
 
-### 5.4 Metadata ownership
+- `latest-mac.yml` for macOS
+- `latest.yml` for Windows
+- every installer, ZIP, EXE, `.blockmap`, or other builder-emitted file referenced from that metadata
+- `SHA256SUMS` for the versioned artifact directory
 
-The release system must publish:
+The authoritative machine-readable truth is the generic feed plus the promotion manifest that produced it.
 
-- platform installers
-- required metadata files such as `latest.yml` or `latest-mac.yml`
-- checksums
+### 6.4 Upload order and cache behavior
 
-For the generic provider, artifact and metadata upload is an explicit release automation responsibility.
+Publishing must follow this order:
 
-## 6. Release workflow design
+1. upload versioned artifacts and `SHA256SUMS`
+2. verify every referenced artifact is reachable at its final URL
+3. upload channel metadata (`latest-mac.yml` or `latest.yml`) last
 
-### 6.1 `ci.yml`
+Cache rules:
+
+- versioned artifacts are immutable and may be cached aggressively
+- channel metadata is mutable, low-TTL content and must not be treated as immutable
+
+### 6.5 Promotion atomicity rules
+
+Promotion is considered live only when the channel metadata upload succeeds.
+
+That means:
+
+- partial artifact upload must not overwrite existing channel metadata
+- a failed promotion may be rerun safely
+- reruns for the same candidate and channel must be idempotent
+- promotion to `latest` must publish the exact artifact checksums already approved on `beta` when stable release follows beta soak
+
+### 6.6 GitHub Releases policy
+
+GitHub Releases exist for human downloads, release notes, and manual asset retrieval.
+
+V1 rule:
+
+- upload release assets to GitHub manually during promotion
+- do not publish updater metadata to GitHub
+- do not create a second machine-readable update truth source
+
+## 7. Release workflow design
+
+### 7.1 `ci.yml`
 
 Trigger:
 
@@ -262,7 +324,7 @@ Responsibilities:
 
 This is the merge gate, not the release publisher.
 
-### 6.2 `build-candidate.yml`
+### 7.2 `build-candidate.yml`
 
 Trigger:
 
@@ -271,15 +333,20 @@ Trigger:
 
 Responsibilities:
 
+- fail if release bits change without a corresponding intended desktop app version
 - build desktop candidates on native target runners
-- package platform installers
+- package with `--publish never`
 - generate updater metadata
 - produce checksums
-- upload build outputs as GitHub Actions artifacts
+- emit a promotion manifest containing version, commit SHA, source ref, platform/arch file list, and checksums
+- upload build outputs and the manifest as GitHub Actions artifacts with `retention-days: 90`
 
-Candidate artifacts are the only valid promotion input in v1.
+Rules:
 
-### 6.3 `promote-release.yml`
+- candidate artifacts are the only valid promotion input in v1
+- a push that would create materially different release bits for an already-issued version is invalid and must not silently overwrite candidate identity
+
+### 7.3 `promote-release.yml`
 
 Trigger:
 
@@ -295,18 +362,21 @@ Inputs:
 
 Responsibilities:
 
-- download previously built candidate artifacts
-- publish them to the update host
-- publish or update the matching GitHub Release
+- download previously built candidate artifacts and the promotion manifest
+- verify the requested version matches the manifest
+- verify checksums before upload
+- publish the generic-feed artifacts and `SHA256SUMS`
+- publish channel metadata last
+- publish or update the matching GitHub Release assets manually
 - for `beta`, publish candidate artifacts and beta-channel metadata
 - for `latest`, publish the same approved artifacts and stable-channel metadata without rebuild
-- never rebuild source
+- never rebuild or re-sign source
 
-Promotion requires an available candidate artifact. If the referenced candidate has expired, release operators must create and revalidate a new candidate instead of rebuilding during promotion.
+Promotion requires an available candidate artifact. If the referenced candidate has expired, that version cannot be promoted in v1.
 
 Staged rollout is not part of the v1 correctness bar. If a rollout input is accepted in v1, it is forward-compatible release plumbing rather than required rollout behavior.
 
-### 6.4 `hotfix-release.yml`
+### 7.4 `hotfix-release.yml`
 
 Trigger:
 
@@ -320,17 +390,18 @@ Responsibilities:
 
 If staged rollout is used and a release must be pulled, the fix ships as a higher version. V1 does not attempt in-place rollback of the same version number.
 
-## 7. Updater service design
+## 8. Updater service design
 
 V1 implements updater behavior as one explicit main-process service under `apps/desktop/src/main`.
 
 The renderer must not own updater logic.
 
-### 7.1 Service responsibilities
+### 8.1 Service responsibilities
 
 `UpdateService` should own:
 
-- `electron-updater` configuration
+- explicit `electron-updater` configuration
+- generic feed URL construction from base URL, selected channel, platform, and architecture
 - channel selection
 - check cadence
 - event subscriptions
@@ -341,15 +412,15 @@ The renderer must not own updater logic.
 
 Persisted update channel, updater preferences, and privacy preferences are owned by main-process persistence. The renderer reads current values and requests changes through preload, and never writes those preferences directly.
 
-### 7.2 Updater API usage rules
+### 8.2 Updater API usage rules
 
 - use `electron-updater`, not Electron's built-in `autoUpdater`
+- use direct main-process configuration rather than implicit prerelease-version channel detection
 - do not use the private GitHub update mode
-- do not rely on implicit prerelease-version channel detection for v1
-- configure provider and channel behavior explicitly in the main-process updater service
 - do not rely on deprecated or implicit feed configuration paths
+- keep `allowDowngrade` disabled after any programmatic channel change
 
-### 7.3 State machine
+### 8.3 State machine
 
 The updater state machine lives in main and is reflected to renderer:
 
@@ -365,7 +436,14 @@ The updater state machine lives in main and is reflected to renderer:
 
 The renderer consumes this state through preload and does not recreate the authoritative state machine in React.
 
-### 7.4 Event handling
+When relevant, state exposure should also include:
+
+- selected channel
+- last checked time
+- available or downloaded version
+- install-blocked reason
+
+### 8.4 Event handling
 
 The service should subscribe to the standard updater events:
 
@@ -376,7 +454,7 @@ The service should subscribe to the standard updater events:
 - `update-downloaded`
 - `error`
 
-### 7.5 Check timing
+### 8.5 Check timing
 
 V1 should not check for updates on raw process boot.
 
@@ -389,7 +467,7 @@ Instead:
 
 This prevents updater work from preempting runtime recovery and measurement-surface-sensitive startup behavior.
 
-### 7.6 Download and install behavior
+### 8.6 Download and install behavior
 
 - background download is allowed
 - install must be explicit
@@ -398,15 +476,27 @@ This prevents updater work from preempting runtime recovery and measurement-surf
 - install on explicit full quit is acceptable only if it goes through the same safety gate
 - window close alone must never install an update
 
-### 7.7 Required updater configuration
+### 8.7 Required updater configuration
 
 V1 must explicitly disable automatic install-on-quit behavior.
 
-`electron-updater` defaults `autoInstallOnAppQuit` to `true`, but this app requires update installation to pass through an explicit, main-process safety gate. Even when installation on full app quit is allowed, it must happen through that app-controlled lifecycle path rather than the updater's automatic default.
+Required settings:
 
-### 7.8 Safe restart gate
+- `autoInstallOnAppQuit = false`
+- `allowDowngrade = false` after any programmatic channel change
 
-Before `quitAndInstall()` or any equivalent install path runs, the main process must confirm that:
+### 8.8 Restart/install lifecycle
+
+Updater-triggered install must reuse the existing runtime lifecycle rather than creating a parallel close system.
+
+V1 rule:
+
+- `restartToInstallUpdate()` enters the same `close_requested` and final-save flow defined in `docs/product-stance.md`
+- if the runtime reaches `close_blocked_final_save_error`, install remains blocked until the user retries save or explicitly discards
+- `install_blocked` is an updater reflection of that blocked close state, not a second lifecycle
+- `quitAndInstall()` is called only after the app reaches the equivalent of a durably clean, safe-to-exit state
+
+Before `quitAndInstall()` or any equivalent install path runs, the main process must also confirm that:
 
 - autosave checkpoint is flushed
 - recovery artifact exists or has been refreshed
@@ -416,36 +506,38 @@ Before `quitAndInstall()` or any equivalent install path runs, the main process 
 
 If the gate fails, updater state becomes `install_blocked` and the app surfaces the reason instead of silently forcing restart.
 
-### 7.9 Quit sequence caveat
+### 8.9 Quit sequence caveat
 
 `electron-updater` documents that `quitAndInstall()` closes windows first and emits `before-quit` later than a normal quit sequence.
 
 The app must therefore treat update-triggered restart as a dedicated lifecycle path and not assume that ordinary close or quit hooks run in their usual order.
 
-## 8. Settings and about UI
+## 9. Settings and about UI
 
 The renderer should consume typed update and privacy state through preload APIs.
 
-### 8.1 About surface
+### 9.1 About surface
 
 Expose:
 
 - app version
-- build channel
+- selected update channel
 - build commit or SHA if available
 - `Check for updates`
 
-### 8.2 Updates settings
+### 9.2 Updates settings
 
 Expose:
 
 - current channel: Stable or Beta
 - current updater state
 - last checked time
+- available or downloaded version when present
 - download action when an update is available
 - restart/install action when an update is ready
+- install-blocked reason when present
 
-### 8.3 Privacy settings
+### 9.3 Privacy settings
 
 Expose separate controls for:
 
@@ -455,9 +547,9 @@ Expose separate controls for:
 
 Crash reporting, exception telemetry, and product metrics must not be presented as a single combined checkbox.
 
-## 9. Crash reporting and exception tracking
+## 10. Crash reporting and exception tracking
 
-### 9.1 Electron crash reporter
+### 10.1 Electron crash reporter
 
 The main process should:
 
@@ -469,26 +561,28 @@ Crash dump collection should still work when upload is disabled.
 
 If useful later, the app may also surface uploaded report identifiers as a support aid, but that is not part of the v1 correctness bar.
 
-### 9.2 Sentry
+### 10.2 Sentry
 
 Sentry should be initialized separately in:
 
 - main via `@sentry/electron/main`
 - renderer via `@sentry/electron/renderer`
+- preload via a preload-safe Sentry init path so preload exceptions are captured in the shipped app
 
 V1 should:
 
-- tag events with app version and channel
+- tag events with app version and selected update channel
 - avoid sending project content or large document payloads
 - capture main-process exceptions
 - capture renderer exceptions
+- capture preload exceptions
 - capture updater failures
 - capture migration failures
 - capture import/export failures
 
 Sentry Logs and event-loop-block detection remain out of scope for the v1 correctness bar.
 
-## 10. Product metrics
+## 11. Product metrics
 
 Product metrics are opt-in and intentionally minimal.
 
@@ -504,7 +598,17 @@ Exact event names and payload shapes are implementation details and are not stan
 
 This is operational signal, not a generalized analytics platform.
 
-## 11. Secrets and environment model
+## 12. Release prerequisites
+
+These are correctness prerequisites, not optional implementation details.
+
+- macOS auto-update requires a signed app
+- macOS shipped candidates require notarization
+- macOS packaging must include the paired ZIP artifact used for update metadata generation
+- Windows shipped candidates require signing when Windows shipping is enabled
+- the generic update host must be reachable over HTTPS
+
+## 13. Secrets and environment model
 
 V1 should assume these secret categories exist:
 
@@ -518,25 +622,31 @@ Secrets must not be hard-coded in workflow files.
 
 Release and publish jobs may use protected GitHub Actions environments.
 
-## 12. Acceptance criteria
+## 14. Acceptance criteria
 
 The release-distribution implementation is done when all of the following are true:
 
 - `pnpm build:desktop` produces deterministic packageable output
-- `electron-builder` creates macOS installers and updater metadata
+- `electron-builder` creates macOS DMG, ZIP, and updater metadata from built output
+- macOS shipped candidates are signed, notarized, and pass a signed update smoke test
 - `electron-builder` creates Windows installers and updater metadata when Windows shipping is enabled
-- CI produces candidate artifacts and stores them as workflow artifacts
-- manual promotion publishes an already-built candidate without recompiling source
-- an installed app can check the configured channel and download an update
+- Windows shipped candidates are signed when Windows shipping is enabled
+- CI produces candidate artifacts plus a promotion manifest and stores them as workflow artifacts with explicit retention
+- manual promotion publishes an already-built candidate without recompiling or re-signing source
+- one promoted version never maps to multiple different artifact sets
+- the generic HTTPS feed is the only machine-readable updater source
+- an installed app can check the selected channel and download an update
+- fresh installs default to `latest`
+- beta enrollment is an in-app persisted preference rather than an installer-side mode
 - downloaded updates install only from explicit restart or explicit full-quit behavior
 - window close alone does not install the update
+- channel switching between `latest` and `beta` works without implicit downgrade behavior
 - recovery still works after forced crash and restart
 - crash dumps are collected locally even when upload is disabled
-- Sentry receives main and renderer exceptions with release metadata
-- settings UI exposes version, channel, updater state, and privacy controls
-- channel switching between `latest` and `beta` works without implicit downgrade behavior
+- Sentry receives main, renderer, and preload exceptions with release metadata
+- settings UI exposes version, selected channel, updater state, and privacy controls
 
-## 13. Non-goals
+## 15. Non-goals
 
 This phase does not include:
 
@@ -545,8 +655,10 @@ This phase does not include:
 - advanced differential rollout infrastructure beyond basic channel support
 - Linux polish
 - silent background install on window close
+- installer-time beta enrollment
 - analytics warehouse design
 - one-click rollback in app UI
+- durable candidate mirroring beyond GitHub Actions artifacts
 - replacing GitHub Actions with a custom release backend
 
 This work also must not change the product stance:
@@ -555,7 +667,7 @@ This work also must not change the product stance:
 - no write-capable background replay after the window closes
 - no cloud dependency added just to make updates work
 
-## 14. Implementation order
+## 16. Implementation order
 
 Recommended implementation order:
 
@@ -563,12 +675,13 @@ Recommended implementation order:
 
 - builder config
 - canonical production build/package contract
-- version/about UI
-- candidate build workflow
+- version and update-channel UI in About and Settings
+- candidate build workflow with promotion manifest output
 
 ### Phase 2
 
-- generic update feed publishing
+- generic feed publishing
+- promotion workflow
 - main-process `UpdateService`
 - preload update API
 - settings UI for update state
@@ -577,7 +690,7 @@ Recommended implementation order:
 ### Phase 3
 
 - `crashReporter` setup
-- Sentry setup
+- Sentry setup in main, renderer, and preload
 - telemetry preference persistence
 - support and diagnostics export
 
@@ -585,10 +698,10 @@ Recommended implementation order:
 
 - beta channel switching polish
 - hotfix workflow
-- staged-rollout hardening after the core v1 release flow is stable
+- longer-lived candidate storage if beta soak requirements outgrow GitHub Actions artifacts
 - installer polish and marketing-site download integration
 
-## Appendix A. External References
+## Appendix A. External references
 
 Non-normative reference material.
 

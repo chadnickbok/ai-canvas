@@ -78,7 +78,8 @@ Validation is organized into the following layers:
 7. MCP parity tests
 8. import/export snapshot tests
 9. end-to-end user workflow tests
-10. manual release verification
+10. release packaging and updater tests
+11. manual release verification
 
 Each layer exists for a different class of regression.
 
@@ -446,6 +447,26 @@ At minimum, end-to-end coverage must include:
 
 These do not all need to be covered by one giant scenario, but the release bar must prove all of them.
 
+## 5.10 Release packaging and updater tests
+
+These tests validate the release-distribution contract from `docs/release-distribution.md`.
+
+They should exercise packaged builds and updater behavior as close to shipped reality as practical, including a local or ephemeral generic update host when automation needs one.
+
+### Required coverage
+
+At minimum, release packaging and updater coverage must prove:
+
+- fresh install defaults to `latest`
+- opting into `beta` persists across relaunch
+- switching from `beta` back to `latest` does not trigger implicit downgrade
+- window close alone does not install a downloaded update
+- updater-triggered restart reuses the existing final-save and recovery lifecycle
+- install remains blocked when updater-triggered restart hits final-save failure until retry or explicit discard
+- signed macOS update smoke passes when macOS shipping is enabled
+- candidate-to-promotion flow publishes already-built artifacts without rebuild
+- published metadata points only to uploaded artifacts whose checksums match the candidate manifest
+
 ## 6. Fixture Strategy
 
 Fixture-based validation is a first-class part of the project.
@@ -516,6 +537,7 @@ A release must not ship if any of the following fail:
 * core IPC validation suite
 * MCP parity suite
 * required end-to-end workflows
+* release packaging and updater suite
 * packaging/build success for the target release platform
 * manual smoke test checklist for the release candidate
 
@@ -567,6 +589,7 @@ Heavier CI should include:
 * screenshot or visual regression tests
 * snapshot import/export tests
 * MCP parity tests
+* release packaging and updater tests
 * packaging smoke build
 * end-to-end desktop workflow tests
 
@@ -576,7 +599,13 @@ A release candidate should run the full suite required by the target platform, i
 
 * packaged app build
 * install or launch smoke test
+* fresh-install default channel validation
+* channel switch without downgrade validation
+* signed update smoke on supported shipping platforms
+* candidate-to-promotion verification without rebuild
+* promotion manifest and published checksum verification
 * end-to-end workflow run
+* updater-triggered restart validation through final-save and recovery behavior
 * snapshot export/import run
 * tray-close and explicit-quit behavior validation
 * MCP localhost validation
@@ -592,6 +621,7 @@ Every release candidate should pass a manual smoke test.
 At minimum, manual release verification should cover:
 
 * launch app successfully
+* verify fresh install defaults to Stable (`latest`)
 * create a project
 * open a project
 * create a scene
@@ -601,11 +631,14 @@ At minimum, manual release verification should cover:
 * verify autosave indicator behavior if present
 * close and reopen the project
 * edit a project, close the window, and verify close waits for final save before tray transition
+* opt into Beta, relaunch, and verify channel preference persists
 * export a snapshot
 * import the snapshot as a new project
 * close the editor window and verify tray-resident behavior
 * verify MCP status UI
 * apply one safe read call and one mutation through MCP
+* download an update, close the window, and verify the update does not install
+* trigger restart-to-install from a dirty editor and verify updater-triggered restart follows the final-save or block-and-retry path
 * explicitly quit app and verify MCP stops
 * relaunch app and confirm project library remains intact
 
