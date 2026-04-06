@@ -1,5 +1,5 @@
 export const desktopBranding = {
-  appName: "AI Canvas Desktop",
+  appName: "AI Canvas",
   brandAttribution: {
     label: "by strapping.ai",
     url: "https://strapping.ai"

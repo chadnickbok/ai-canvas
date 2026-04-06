@@ -12,7 +12,7 @@ import { appChannelNames } from "@ai-canvas/ipc-contract";
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
 import appIconIcoPath from "../../build/icons/strapping-app-icon.ico?asset";
-import appIconPngPath from "../assets/branding/strapping-app-icon.png?asset";
+import appIconPngPath from "../../build/icons/strapping-app-icon.png?asset";
 import { desktopBranding } from "../branding.js";
 import { createProjectService } from "./createProjectService.js";
 import {
