@@ -163,27 +163,10 @@ export function resolveMeasuredNodeCanvasRect(
   return resolveMeasuredCanvasRect(nodeId, measurementHandle, zoom, currentDocumentRevision);
 }
 
-export function resolveNodeCanvasRectWithSource(
+export function resolveDocumentNodeCanvasRectWithSource(
   document: RendererDocument,
-  nodeId: string,
-  measurementHandle: RendererMeasurementHandle | null,
-  zoom: number,
-  currentDocumentRevision?: number
+  nodeId: string
 ): NodeCanvasRectResolution | null {
-  const measuredRect = resolveMeasuredCanvasRect(
-    nodeId,
-    measurementHandle,
-    zoom,
-    currentDocumentRevision
-  );
-
-  if (measuredRect) {
-    return {
-      rect: measuredRect,
-      source: "measured_dom"
-    };
-  }
-
   const node = document.nodes[nodeId];
 
   if (!node) {
@@ -215,6 +198,30 @@ export function resolveNodeCanvasRectWithSource(
     }),
     source: "authored_render_style"
   };
+}
+
+export function resolveNodeCanvasRectWithSource(
+  document: RendererDocument,
+  nodeId: string,
+  measurementHandle: RendererMeasurementHandle | null,
+  zoom: number,
+  currentDocumentRevision?: number
+): NodeCanvasRectResolution | null {
+  const measuredRect = resolveMeasuredCanvasRect(
+    nodeId,
+    measurementHandle,
+    zoom,
+    currentDocumentRevision
+  );
+
+  if (measuredRect) {
+    return {
+      rect: measuredRect,
+      source: "measured_dom"
+    };
+  }
+
+  return resolveDocumentNodeCanvasRectWithSource(document, nodeId);
 }
 
 export function isSceneFrameNode(document: RendererDocument, node: RendererNode): boolean {
