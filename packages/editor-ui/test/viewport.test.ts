@@ -4,6 +4,10 @@ import { createEmptyDocument, type RendererDocument } from "@ai-canvas/document-
 
 import {
   createViewportForContentBounds,
+  formatViewportZoomPercent,
+  isCanvasBoundsFullyVisible,
+  parseViewportZoomPercent,
+  revealCanvasBounds,
   resolveTopLevelContentBounds
 } from "../src/rendering/viewport.js";
 
@@ -156,5 +160,76 @@ describe("viewport helpers", () => {
       panY: 10,
       zoom: 1
     });
+  });
+
+  it("parses and formats viewport zoom percentages using clamped values", () => {
+    expect(parseViewportZoomPercent(" 250% ")).toBe(2.5);
+    expect(parseViewportZoomPercent("999%")).toBe(4);
+    expect(parseViewportZoomPercent("0%")).toBeNull();
+    expect(parseViewportZoomPercent("-25%")).toBeNull();
+    expect(parseViewportZoomPercent("not-a-number")).toBeNull();
+
+    expect(formatViewportZoomPercent(0.005)).toBe("2%");
+    expect(formatViewportZoomPercent(1.234)).toBe("123%");
+  });
+
+  it("reveals offscreen bounds while respecting padding", () => {
+    const viewport = revealCanvasBounds(
+      {
+        panX: 237,
+        panY: -890,
+        zoom: 1
+      },
+      {
+        height: 844,
+        width: 390,
+        x: 80,
+        y: 80
+      },
+      {
+        height: 1024,
+        width: 1024
+      },
+      {
+        padding: 64
+      }
+    );
+
+    expect(viewport).toEqual({
+      panX: 237,
+      panY: -16,
+      zoom: 1
+    });
+  });
+
+  it("detects when bounds are already fully visible with padding", () => {
+    const viewport = {
+      panX: 237,
+      panY: 10,
+      zoom: 1
+    };
+    const bounds = {
+      height: 844,
+      width: 390,
+      x: 80,
+      y: 80
+    };
+    const viewportSize = {
+      height: 1024,
+      width: 1024
+    };
+
+    expect(isCanvasBoundsFullyVisible(viewport, bounds, viewportSize, 64)).toBe(true);
+    expect(
+      isCanvasBoundsFullyVisible(
+        {
+          ...viewport,
+          panY: viewport.panY - 900
+        },
+        bounds,
+        viewportSize,
+        64
+      )
+    ).toBe(false);
   });
 });

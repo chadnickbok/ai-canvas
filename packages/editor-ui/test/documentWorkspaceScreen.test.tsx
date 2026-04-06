@@ -13,6 +13,13 @@ import {
 } from "@ai-canvas/ipc-contract";
 
 import { DocumentWorkspaceScreen } from "../src/index.js";
+import {
+  createViewportForContentBounds,
+  revealCanvasBounds,
+  resolveTopLevelContentBounds,
+  zoomViewportAroundPoint,
+  type ViewportState
+} from "../src/rendering/viewport.js";
 
 (
   globalThis as typeof globalThis & {
@@ -100,12 +107,56 @@ function countMatches(value: string, pattern: RegExp): number {
   return value.match(pattern)?.length ?? 0;
 }
 
+async function flushQueuedStateTurns(turns = 3) {
+  await act(async () => {
+    for (let turn = 0; turn < turns; turn += 1) {
+      await Promise.resolve();
+    }
+  });
+}
+
 async function flushAnimationFrame() {
   await act(async () => {
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => resolve());
     });
   });
+}
+
+async function settleViewportFrame(
+  viewportFrame: Element,
+  options: {
+    height: number;
+    left?: number;
+    top?: number;
+    width: number;
+  }
+) {
+  assignBoundingRect(
+    viewportFrame,
+    options.left ?? 0,
+    options.top ?? 0,
+    options.width,
+    options.height
+  );
+
+  await act(async () => {
+    window.dispatchEvent(new Event("resize"));
+  });
+
+  await flushQueuedStateTurns();
+}
+
+function expectTransformMatchesViewport(
+  element: HTMLElement,
+  viewport: ViewportState,
+  precision = 6
+) {
+  const transform = parseTransform(element.style.transform);
+
+  expect(transform.zoom).toBeCloseTo(viewport.zoom, precision);
+  expect(transform.panX).toBeCloseTo(viewport.panX, precision);
+  expect(transform.panY).toBeCloseTo(viewport.panY, precision);
 }
 
 const runtimeCapabilities: RuntimeCapabilities = {
@@ -1003,8 +1054,9 @@ describe("DocumentWorkspaceScreen", () => {
     }
   });
 
-  it("does not shift the canvas transform when hiding and re-showing the left hierarchy", () => {
-    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+  it("does not shift the canvas transform when hiding and re-showing the left hierarchy", async () => {
+    const activeProject = createActiveProject(createDocumentWithScene());
+    const harness = renderIntoDom(activeProject);
 
     try {
       const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
@@ -1012,11 +1064,7 @@ describe("DocumentWorkspaceScreen", () => {
         '[data-viewport-transform="renderer"]'
       ) as HTMLElement;
 
-      assignBoundingRect(viewportFrame, 0, 0, 1024, 1024);
-
-      act(() => {
-        window.dispatchEvent(new Event("resize"));
-      });
+      await settleViewportFrame(viewportFrame, { height: 1024, width: 1024 });
 
       act(() => {
         viewportFrame.dispatchEvent(
@@ -1117,8 +1165,9 @@ describe("DocumentWorkspaceScreen", () => {
     }
   });
 
-  it("fits initial content into the viewport and lets the user pan, zoom, and refit", () => {
-    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+  it("fits initial content into the viewport and lets the user pan, zoom, and refit", async () => {
+    const activeProject = createActiveProject(createDocumentWithScene());
+    const harness = renderIntoDom(activeProject);
 
     try {
       const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
@@ -1131,14 +1180,19 @@ describe("DocumentWorkspaceScreen", () => {
       const zoomInput = harness.container.querySelector(
         'input[aria-label="Zoom percentage"]'
       ) as HTMLInputElement;
-
-      assignBoundingRect(viewportFrame, 0, 0, 1024, 1024);
-
-      act(() => {
-        window.dispatchEvent(new Event("resize"));
+      const viewportSize = {
+        height: 1024,
+        width: 1024
+      };
+      const contentBounds = resolveTopLevelContentBounds(activeProject.document);
+      const fittedViewport = createViewportForContentBounds(contentBounds, viewportSize, {
+        maxZoom: 1,
+        padding: 64
       });
 
-      expect(rendererTransform.style.transform).toBe("translate(237px, 10px) scale(1)");
+      await settleViewportFrame(viewportFrame, viewportSize);
+
+      expectTransformMatchesViewport(rendererTransform, fittedViewport);
 
       act(() => {
         viewportFrame.dispatchEvent(
@@ -1150,7 +1204,10 @@ describe("DocumentWorkspaceScreen", () => {
         );
       });
 
-      expect(rendererTransform.style.transform).toBe("translate(237px, -110px) scale(1)");
+      expectTransformMatchesViewport(rendererTransform, {
+        ...fittedViewport,
+        panY: fittedViewport.panY - 120
+      });
 
       act(() => {
         setInputValue(zoomInput, "50%");
@@ -1166,19 +1223,32 @@ describe("DocumentWorkspaceScreen", () => {
         );
       });
 
-      expect(rendererTransform.style.transform).toBe("translate(374.5px, 201px) scale(0.5)");
+      expectTransformMatchesViewport(
+        rendererTransform,
+        zoomViewportAroundPoint(
+          {
+            ...fittedViewport,
+            panY: fittedViewport.panY - 120
+          },
+          {
+            x: viewportSize.width / 2,
+            y: viewportSize.height / 2
+          },
+          0.5
+        )
+      );
 
       act(() => {
         fitButton.click();
       });
 
-      expect(rendererTransform.style.transform).toBe("translate(237px, 10px) scale(1)");
+      expectTransformMatchesViewport(rendererTransform, fittedViewport);
     } finally {
       harness.cleanup();
     }
   });
 
-  it("keeps major grid lines visible below 25% zoom while hiding minor lines", () => {
+  it("keeps major grid lines visible below 25% zoom while hiding minor lines", async () => {
     const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
 
     try {
@@ -1187,11 +1257,7 @@ describe("DocumentWorkspaceScreen", () => {
         'input[aria-label="Zoom percentage"]'
       ) as HTMLInputElement;
 
-      assignBoundingRect(viewportFrame, 0, 0, 1024, 1024);
-
-      act(() => {
-        window.dispatchEvent(new Event("resize"));
-      });
+      await settleViewportFrame(viewportFrame, { height: 1024, width: 1024 });
 
       act(() => {
         setInputValue(zoomInput, "24%");
@@ -1217,20 +1283,29 @@ describe("DocumentWorkspaceScreen", () => {
     }
   });
 
-  it("zooms faster around the pointer when a modified wheel gesture is used", () => {
-    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+  it("zooms faster around the pointer when a modified wheel gesture is used", async () => {
+    const activeProject = createActiveProject(createDocumentWithScene());
+    const harness = renderIntoDom(activeProject);
 
     try {
       const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
       const rendererTransform = harness.container.querySelector(
         '[data-viewport-transform="renderer"]'
       ) as HTMLElement;
+      const viewportSize = {
+        height: 1024,
+        width: 1024
+      };
+      const fittedViewport = createViewportForContentBounds(
+        resolveTopLevelContentBounds(activeProject.document),
+        viewportSize,
+        {
+          maxZoom: 1,
+          padding: 64
+        }
+      );
 
-      assignBoundingRect(viewportFrame, 0, 0, 1024, 1024);
-
-      act(() => {
-        window.dispatchEvent(new Event("resize"));
-      });
+      await settleViewportFrame(viewportFrame, viewportSize);
 
       act(() => {
         viewportFrame.dispatchEvent(
@@ -1245,27 +1320,30 @@ describe("DocumentWorkspaceScreen", () => {
         );
       });
 
-      const transform = parseTransform(rendererTransform.style.transform);
-
-      expect(transform.zoom).toBeCloseTo(0.6376281516217733, 6);
-      expect(transform.panX).toBeCloseTo(336.6522583040123, 2);
-      expect(transform.panY).toBeCloseTo(191.9106678858698, 2);
+      expectTransformMatchesViewport(
+        rendererTransform,
+        zoomViewportAroundPoint(
+          fittedViewport,
+          {
+            x: viewportSize.width / 2,
+            y: viewportSize.height / 2
+          },
+          fittedViewport.zoom * Math.exp(-120 * 0.00375)
+        ),
+        2
+      );
     } finally {
       harness.cleanup();
     }
   });
 
-  it("fades the viewport hint after the first canvas interaction and restores it for a new document", () => {
+  it("fades the viewport hint after the first canvas interaction and restores it for a new document", async () => {
     const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
 
     try {
       const viewportFrame = harness.container.querySelector('[data-viewport-frame="true"]') as HTMLElement;
 
-      assignBoundingRect(viewportFrame, 0, 0, 1024, 1024);
-
-      act(() => {
-        window.dispatchEvent(new Event("resize"));
-      });
+      await settleViewportFrame(viewportFrame, { height: 1024, width: 1024 });
 
       const viewportHintBefore = harness.container.querySelector(
         '[data-viewport-hint="true"]'
@@ -1306,6 +1384,8 @@ describe("DocumentWorkspaceScreen", () => {
           />
         );
       });
+
+      await flushQueuedStateTurns();
 
       const viewportHintReopened = harness.container.querySelector(
         '[data-viewport-hint="true"]'
@@ -1440,8 +1520,9 @@ describe("DocumentWorkspaceScreen", () => {
     }
   });
 
-  it("selects layers from the pane and reveals offscreen content", () => {
-    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
+  it("selects layers from the pane and reveals offscreen content", async () => {
+    const activeProject = createActiveProject(createDocumentWithScene());
+    const harness = renderIntoDom(activeProject);
 
     try {
       assignInteractionGeometry(harness);
@@ -1450,12 +1531,24 @@ describe("DocumentWorkspaceScreen", () => {
       const rendererTransform = harness.container.querySelector(
         '[data-viewport-transform="renderer"]'
       ) as HTMLElement;
+      const viewportSize = {
+        height: 1024,
+        width: 1024
+      };
+      const fittedViewport = createViewportForContentBounds(
+        resolveTopLevelContentBounds(activeProject.document),
+        viewportSize,
+        {
+          maxZoom: 1,
+          padding: 64
+        }
+      );
+      const pannedViewport = {
+        ...fittedViewport,
+        panY: fittedViewport.panY - 900
+      };
 
-      assignBoundingRect(viewportFrame, 0, 0, 1024, 1024);
-
-      act(() => {
-        window.dispatchEvent(new Event("resize"));
-      });
+      await settleViewportFrame(viewportFrame, viewportSize);
 
       act(() => {
         viewportFrame.dispatchEvent(
@@ -1467,13 +1560,28 @@ describe("DocumentWorkspaceScreen", () => {
         );
       });
 
-      expect(rendererTransform.style.transform).toBe("translate(237px, -890px) scale(1)");
+      expectTransformMatchesViewport(rendererTransform, pannedViewport);
 
       act(() => {
         getLayerRow(harness, "scene_home")?.click();
       });
 
-      expect(rendererTransform.style.transform).toBe("translate(237px, -16px) scale(1)");
+      expectTransformMatchesViewport(
+        rendererTransform,
+        revealCanvasBounds(
+          pannedViewport,
+          {
+            height: 844,
+            width: 390,
+            x: 80,
+            y: 80
+          },
+          viewportSize,
+          {
+            padding: 64
+          }
+        )
+      );
       expect(getLayerRow(harness, "scene_home")?.getAttribute("data-layer-selected")).toBe("true");
       expect(
         harness.container.querySelector('[data-interaction-outline="selected"][data-node-id="scene_home"]')

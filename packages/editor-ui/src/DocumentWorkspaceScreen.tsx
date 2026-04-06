@@ -574,6 +574,7 @@ export function DocumentWorkspaceScreen({
                   document={activeProject.document}
                   documentRevision={activeProject.revision}
                   hoveredNodeId={hoveredNodeId}
+                  measurementHandle={rendererRef.current}
                   preview={preview}
                   selectionRectOverride={selectionRectOverride}
                   selectedNodeId={selectedNodeId}

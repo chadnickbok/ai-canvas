@@ -1,7 +1,7 @@
 import type { RendererDocument, RendererNode } from "@ai-canvas/document-core";
 import { Fragment, useMemo } from "react";
 
-import type { ViewportState } from "../rendering/types.js";
+import type { RendererMeasurementHandle, ViewportState } from "../rendering/types.js";
 import {
   insetCanvasRect,
   isNodeDirectlyManipulable,
@@ -24,6 +24,7 @@ export type InteractionOverlayProps = {
   document: RendererDocument;
   documentRevision: number;
   hoveredNodeId: string | null;
+  measurementHandle: RendererMeasurementHandle | null;
   preview: InteractionPreview | null;
   selectionRectOverride: CanvasRect | null;
   selectedNodeId: string | null;
@@ -48,6 +49,7 @@ export function InteractionOverlay({
   document,
   documentRevision,
   hoveredNodeId,
+  measurementHandle,
   preview,
   selectionRectOverride,
   selectedNodeId,
@@ -62,7 +64,7 @@ export function InteractionOverlay({
       ? resolveNodeCanvasRect(
           document,
           selectedNode.id,
-          null,
+          measurementHandle,
           viewport.zoom,
           documentRevision
         )
@@ -73,7 +75,7 @@ export function InteractionOverlay({
       ? resolveNodeCanvasRect(
           document,
           hoveredNode.id,
-          null,
+          measurementHandle,
           viewport.zoom,
           documentRevision
         )
@@ -87,7 +89,7 @@ export function InteractionOverlay({
       ? resolveNodeCanvasRect(
           document,
           parentNode.id,
-          null,
+          measurementHandle,
           viewport.zoom,
           documentRevision
         )
