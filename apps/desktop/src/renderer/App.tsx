@@ -16,6 +16,7 @@ import {
   type RuntimeEvent
 } from "@ai-canvas/ipc-contract";
 
+import { desktopBranding } from "../branding.js";
 import { CommitLayoutMeasurementHost } from "./CommitLayoutMeasurementHost.js";
 
 type BootState = "booting" | "ready" | "boot_error";
@@ -330,6 +331,38 @@ export function App() {
     }
   };
 
+  const retryApplyCommandsOnRevisionMismatch = async (
+    api: DesktopApi,
+    input: ApplyCommandsInput,
+    initialResult: Awaited<ReturnType<DesktopApi["applyCommands"]>>
+  ) => {
+    const isBaseRevisionMismatch =
+      !initialResult.ok &&
+      typeof initialResult.error.message === "string" &&
+      initialResult.error.message.toLowerCase().includes("base_revision");
+
+    if (!isBaseRevisionMismatch) {
+      return initialResult;
+    }
+
+    const activeProjectResult = await api.getActiveProject();
+
+    if (!activeProjectResult.ok || !activeProjectResult.data) {
+      return initialResult;
+    }
+
+    const latestRevision = activeProjectResult.data.revision;
+
+    if (latestRevision === input.base_revision) {
+      return initialResult;
+    }
+
+    return api.applyCommands({
+      ...input,
+      base_revision: latestRevision
+    });
+  };
+
   const handleApplyCommands = async (input: ApplyCommandsInput) => {
     const api = getDesktopApi();
 
@@ -338,7 +371,8 @@ export function App() {
     }
 
     try {
-      return await api.applyCommands(input);
+      const initialResult = await api.applyCommands(input);
+      return retryApplyCommandsOnRevisionMismatch(api, input, initialResult);
     } catch (error) {
       return err(
         "internal_error",
@@ -438,6 +472,7 @@ export function App() {
     <>
       <ProjectLibraryScreen
         activeProjectId={state.activeProject?.project.id ?? null}
+        brandAttribution={desktopBranding.brandAttribution}
         bootState={state.bootState}
         errorMessage={state.errorMessage}
         isBusy={state.isBusy}

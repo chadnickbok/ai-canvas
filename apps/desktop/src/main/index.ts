@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, nativeImage } from "electron";
 
 import {
   collectSubtreeIds,
@@ -11,6 +11,9 @@ import {
 import { appChannelNames } from "@ai-canvas/ipc-contract";
 import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
 
+import appIconIcoPath from "../../build/icons/strapping-app-icon.ico?asset";
+import appIconPngPath from "../../build/icons/strapping-app-icon.png?asset";
+import { desktopBranding } from "../branding.js";
 import { createProjectService } from "./createProjectService.js";
 import {
   LayoutMeasurementBridgeError,
@@ -42,10 +45,11 @@ async function createMainWindow(
   const browserWindow = new BrowserWindow({
     backgroundColor: "#0c0f11",
     height: 920,
+    icon: process.platform === "win32" ? appIconIcoPath : appIconPngPath,
     minHeight: 700,
     minWidth: 1080,
     show: false,
-    title: "AI Canvas Desktop",
+    title: desktopBranding.shellTitle,
     width: 1440,
     webPreferences: {
       contextIsolation: true,
@@ -83,8 +87,16 @@ async function createMainWindow(
 }
 
 async function bootstrap() {
-  app.setName("AI Canvas Desktop");
+  app.setName(desktopBranding.appName);
   await app.whenReady();
+
+  if (process.platform === "darwin") {
+    const dockIcon = nativeImage.createFromPath(appIconPngPath);
+
+    if (app.dock && !dockIcon.isEmpty()) {
+      app.dock.setIcon(dockIcon);
+    }
+  }
 
   const store = new ProjectStore(path.join(app.getPath("userData"), "app.db"));
   const runtime = createProjectRuntime(store);
@@ -191,7 +203,7 @@ async function bootstrap() {
 
 function formatMcpStartError(error: unknown): string {
   if (isPortInUseError(error)) {
-    return `The local MCP bridge requires ${mcpHost}:${mcpPort}, but that port is already in use. Close the conflicting process and relaunch AI Canvas Desktop.`;
+    return `The local MCP bridge requires ${mcpHost}:${mcpPort}, but that port is already in use. Close the conflicting process and relaunch ${desktopBranding.appName}.`;
   }
 
   return error instanceof Error ? error.message : "The local MCP bridge failed to start.";
