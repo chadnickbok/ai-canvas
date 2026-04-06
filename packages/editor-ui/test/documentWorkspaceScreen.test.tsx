@@ -900,6 +900,88 @@ describe("DocumentWorkspaceScreen", () => {
     }
   });
 
+  it("submits update_node when the inspector fill color picker changes", async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          measured_node_count: 1,
+          measured_root_ids: ["rect_hero"],
+          status: "refreshed"
+        },
+        revision: 2
+      })
+    );
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      onApplyCommands
+    });
+
+    try {
+      act(() => {
+        getLayerRow(harness, "rect_hero")?.click();
+      });
+
+      const fillColorInput = harness.container.querySelector(
+        'input[aria-label="Fill color"]'
+      ) as HTMLInputElement | null;
+
+      expect(fillColorInput).not.toBeNull();
+      expect(fillColorInput?.value).toBe("#d4d4d4");
+
+      await act(async () => {
+        setInputValue(fillColorInput as HTMLInputElement, "#112233");
+        fillColorInput?.dispatchEvent(
+          new Event("change", {
+            bubbles: true
+          })
+        );
+        await Promise.resolve();
+      });
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          {
+            node_id: "rect_hero",
+            patch: {
+              render_style: {
+                backgroundColor: "#112233"
+              }
+            },
+            type: "update_node"
+          }
+        ],
+        document_id: "doc_workspace_scene"
+      });
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it("disables the inspector fill color picker when runtime is read-only", () => {
+    const harness = renderIntoDom(createActiveProject(createDocumentWithScene()), {
+      runtimeCapabilities: {
+        ...runtimeCapabilities,
+        mode: "read_only"
+      }
+    });
+
+    try {
+      act(() => {
+        getLayerRow(harness, "rect_hero")?.click();
+      });
+
+      const fillColorInput = harness.container.querySelector(
+        'input[aria-label="Fill color"]'
+      ) as HTMLInputElement | null;
+
+      expect(fillColorInput).not.toBeNull();
+      expect(fillColorInput?.disabled).toBe(true);
+    } finally {
+      harness.cleanup();
+    }
+  });
+
   it("keeps the workspace shell viewport-locked and the hierarchy self-scrolling", () => {
     const harness = renderIntoDom(createActiveProject(createDocumentWithScene()));
 
