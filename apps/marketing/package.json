@@ -1,0 +1,26 @@
+{
+  "name": "@ai-canvas/marketing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "preview": "next start",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint app components lib next-env.d.ts next.config.ts"
+  },
+  "dependencies": {
+    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "next": "16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "simple-icons": "^16.15.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}
