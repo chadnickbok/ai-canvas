@@ -84,6 +84,7 @@ Recommended project record fields:
 In v1:
 
 - the sole current document state is stored directly in the `projects` table as `current_document_json`
+- project-local asset catalog metadata is stored separately from `current_document_json`
 - local history metadata is bounded and stays local to the project library
 - deterministic derived state is treated as cacheable and rebuildable, not canonical
 
@@ -108,6 +109,15 @@ History is local and bounded in v1.
 ## Asset model
 
 Assets should be content-addressed on disk.
+
+Recommended live desktop split:
+
+- document fields reference stable project-local asset ids
+- a first-class project asset catalog in SQLite stores asset metadata for `asset_store` assets
+- the filesystem stores the binary payloads under the content-addressed asset store
+- render-time resolution turns document asset ids into browser-usable URLs or data sources
+
+`current_document_json` should not be treated as the persistence authority for `asset_store` asset metadata.
 
 Recommended asset metadata fields:
 

@@ -190,6 +190,19 @@ const mcpStatus: McpStatus = {
 };
 
 function createActiveProject(document: RendererDocument, revision = 1): ActiveProject {
+  const resolvedAssets = Object.fromEntries(
+    Object.values(document.assets).flatMap((asset) => {
+      switch (asset.source.kind) {
+        case "data_uri":
+          return [[asset.id, { url: asset.source.data_uri }]];
+        case "base64":
+          return [[asset.id, { url: `data:${asset.mime_type};base64,${asset.source.base64}` }]];
+        case "asset_store":
+          return [];
+      }
+    })
+  );
+
   return {
     document,
     project: {
@@ -200,6 +213,7 @@ function createActiveProject(document: RendererDocument, revision = 1): ActivePr
       name: document.name,
       updatedAt: "2026-03-31T00:00:00.000Z"
     },
+    resolved_assets: resolvedAssets,
     revision
   };
 }

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { app, BrowserWindow, dialog, nativeImage } from "electron";
+import { app, BrowserWindow, dialog, nativeImage, protocol } from "electron";
 
 import {
   collectSubtreeIds,
@@ -15,13 +15,27 @@ import appIconIcoPath from "../../build/icons/strapping-app-icon.ico?asset";
 import appIconPngPath from "../../build/icons/strapping-app-icon.png?asset";
 import { desktopBranding } from "../branding.js";
 import { createProjectService } from "./createProjectService.js";
+import { registerAssetProtocol } from "./registerAssetProtocol.js";
 import {
   LayoutMeasurementBridgeError,
   RendererLayoutMeasurementBridge
 } from "./rendererLayoutMeasurementBridge.js";
 import { resolveRendererLoadTarget } from "./resolveRendererLoadTarget.js";
 import { registerIpc } from "./registerIpc.js";
+import { DESKTOP_ASSET_PROTOCOL } from "./runtime/assetStorage.js";
 import { createProjectRuntime, ProjectStore } from "./runtime/index.js";
+
+protocol.registerSchemesAsPrivileged([
+  {
+    privileges: {
+      corsEnabled: true,
+      secure: true,
+      standard: true,
+      supportFetchAPI: true
+    },
+    scheme: DESKTOP_ASSET_PROTOCOL
+  }
+]);
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const rendererDist = path.join(moduleDir, "../renderer");
@@ -99,6 +113,7 @@ async function bootstrap() {
   }
 
   const store = new ProjectStore(path.join(app.getPath("userData"), "app.db"));
+  registerAssetProtocol(store);
   const runtime = createProjectRuntime(store);
   const layoutMeasurementBridge = new RendererLayoutMeasurementBridge();
   const mcpBridge = new LocalMcpBridge({

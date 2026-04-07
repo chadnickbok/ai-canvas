@@ -69,6 +69,7 @@ function createActiveProject(options: {
       name: options.name,
       updatedAt: "2026-03-31T00:00:00.000Z"
     },
+    resolved_assets: {},
     revision: options.revision ?? 1
   };
 }
@@ -423,6 +424,7 @@ describe("App", () => {
         desktopApi.emitRuntimeEvent({
           document: updatedDocument,
           project: activeProject.project,
+          resolved_assets: {},
           revision: 2,
           runtimeCapabilities,
           type: "document_changed"

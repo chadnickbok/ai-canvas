@@ -44,9 +44,19 @@ export const mcpStatusSchema = z.object({
   connectedSessions: z.number().int().nonnegative()
 });
 
+export const resolvedAssetSourceSchema = z.object({
+  url: z.string()
+});
+
+export const resolvedAssetsByIdSchema = z.record(
+  z.string(),
+  resolvedAssetSourceSchema.optional()
+);
+
 export const activeProjectSchema = z.object({
   project: projectSummarySchema,
   document: rendererDocumentSchema,
+  resolved_assets: resolvedAssetsByIdSchema,
   revision: z.number().int().positive()
 });
 
@@ -79,6 +89,7 @@ export const documentChangedEventSchema = z.object({
   type: z.literal("document_changed"),
   document: rendererDocumentSchema,
   project: projectSummarySchema,
+  resolved_assets: resolvedAssetsByIdSchema,
   revision: z.number().int().nonnegative(),
   runtimeCapabilities: runtimeCapabilitiesSchema
 });
@@ -227,6 +238,8 @@ export type HistoryState = z.infer<typeof historyStateSchema>;
 export type McpStatus = z.infer<typeof mcpStatusSchema>;
 export type McpStatusState = z.infer<typeof mcpStatusStateSchema>;
 export type McpStatusErrorCode = z.infer<typeof mcpStatusErrorCodeSchema>;
+export type ResolvedAssetSource = z.infer<typeof resolvedAssetSourceSchema>;
+export type ResolvedAssetsById = z.infer<typeof resolvedAssetsByIdSchema>;
 export type ActiveProject = z.infer<typeof activeProjectSchema>;
 export type ProjectsChangedEvent = z.infer<typeof projectsChangedEventSchema>;
 export type ActiveProjectChangedEvent = z.infer<typeof activeProjectChangedEventSchema>;

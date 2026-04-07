@@ -1,10 +1,20 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { createEmptyDocument, normalizeDocument, type RendererDocument } from "@ai-canvas/document-core";
-import type { ProjectSummary } from "@ai-canvas/ipc-contract";
+import {
+  collectEmbeddedAssets,
+  createEmptyDocument,
+  isAssetStoreSource,
+  normalizeDocument,
+  replaceAssetSources,
+  type AssetRecord,
+  type OpaqueValue,
+  type RendererDocument
+} from "@ai-canvas/document-core";
+import type { ProjectSummary, ResolvedAssetsById } from "@ai-canvas/ipc-contract";
 
+import { AssetStorage } from "./assetStorage.js";
 import { createDocumentId, createProjectId } from "./ids.js";
 
 type ProjectRow = {
@@ -27,6 +37,7 @@ type ProjectHistoryRow = {
 export type StoredProject = {
   document: RendererDocument;
   project: ProjectSummary;
+  resolved_assets: ResolvedAssetsById;
   revision: number;
 };
 
@@ -70,12 +81,43 @@ type TableInfoRow = {
   name: string;
 };
 
+type ProjectAssetRow = {
+  asset_id: string;
+  content_hash: string;
+  created_at: string;
+  height: number | null;
+  kind: AssetRecord["kind"];
+  metadata_json: string | null;
+  mime_type: string;
+  original_filename: string | null;
+  project_id: string;
+  size_bytes: number | null;
+  source_kind: "asset_store";
+  updated_at: string;
+  width: number | null;
+};
+
+export type EmbeddedAssetMigrationProjectReport = {
+  migrated_asset_ids: string[];
+  project_id: string;
+  reused_content_hashes: string[];
+  unresolved_asset_ids: string[];
+};
+
+export type EmbeddedAssetMigrationReport = {
+  migrated_asset_count: number;
+  projects: EmbeddedAssetMigrationProjectReport[];
+  unresolved_asset_count: number;
+};
+
 export class ProjectStore {
+  private readonly assetStorage: AssetStorage;
   private readonly database: DatabaseSync;
 
-  constructor(databasePath: string) {
+  constructor(databasePath: string, assetsDirectoryPath = path.join(path.dirname(databasePath), "assets")) {
     mkdirSync(path.dirname(databasePath), { recursive: true });
     this.database = new DatabaseSync(databasePath);
+    this.assetStorage = new AssetStorage(assetsDirectoryPath);
     this.database.exec("PRAGMA journal_mode = WAL;");
     this.database.exec("PRAGMA foreign_keys = ON;");
     this.initialize();
@@ -169,6 +211,7 @@ export class ProjectStore {
     return {
       document,
       project: this.toSummary(row),
+      resolved_assets: this.assetStorage.resolveDocumentAssets(projectId, document.assets),
       revision: row.revision
     };
   }
@@ -180,7 +223,8 @@ export class ProjectStore {
       return null;
     }
 
-    const document = normalizeDocument(JSON.parse(row.current_document_json), {
+    const rawDocument = JSON.parse(row.current_document_json) as RendererDocument;
+    const document = normalizeDocument(this.hydratePersistedDocument(projectId, rawDocument), {
       fallbackDocumentId: row.document_id,
       fallbackName: row.name
     });
@@ -188,6 +232,7 @@ export class ProjectStore {
     return {
       document,
       project: this.toSummary(row),
+      resolved_assets: this.assetStorage.resolveDocumentAssets(projectId, document.assets),
       revision: row.revision
     };
   }
@@ -199,6 +244,8 @@ export class ProjectStore {
     history?: ProjectHistory
   ): PersistProjectDocumentResult {
     const now = new Date().toISOString();
+    const catalogAssets = Object.values(document.assets).filter((asset) => isAssetStoreSource(asset.source));
+    const serializedDocument = JSON.stringify(this.serializeCurrentDocument(document));
     this.database.exec("BEGIN IMMEDIATE;");
 
     try {
@@ -213,7 +260,7 @@ export class ProjectStore {
           `
         )
         .run({
-          current_document_json: JSON.stringify(document),
+          current_document_json: serializedDocument,
           expected_revision: expectedRevision,
           project_id: projectId,
           updated_at: now
@@ -236,6 +283,8 @@ export class ProjectStore {
           revision: currentRow.revision
         };
       }
+
+      this.replacePersistedAssetRows(projectId, catalogAssets, now);
 
       if (history) {
         this.saveHistoryRow(projectId, history, now);
@@ -284,6 +333,110 @@ export class ProjectStore {
     const row = this.getRow(projectId);
 
     return row ? this.toSummary(row) : null;
+  }
+
+  resolveAssetFilePath(projectId: string, assetId: string): string | null {
+    const row = this.database
+      .prepare(
+        `
+          SELECT project_id, asset_id, kind, mime_type, width, height, metadata_json, source_kind, content_hash,
+                 original_filename, size_bytes, created_at, updated_at
+          FROM project_assets
+          WHERE project_id = ? AND asset_id = ?
+        `
+      )
+      .get(projectId, assetId) as ProjectAssetRow | undefined;
+
+    if (!row) {
+      const project = this.getProject(projectId);
+      const asset = project?.document.assets[assetId];
+
+      if (!asset || !isAssetStoreSource(asset.source)) {
+        return null;
+      }
+
+      return this.assetStorage.findStoredAssetFilePath(asset.source.content_hash);
+    }
+
+    return this.assetStorage.findStoredAssetFilePath(row.content_hash);
+  }
+
+  resolveDocumentAssets(projectId: string, document: RendererDocument): ResolvedAssetsById {
+    return this.assetStorage.resolveDocumentAssets(projectId, document.assets);
+  }
+
+  migrateEmbeddedAssets(): EmbeddedAssetMigrationReport {
+    const projectRows = this.database
+      .prepare(
+        `
+          SELECT id, name, document_id, current_document_json, revision, created_at, updated_at, last_opened_at
+          FROM projects
+          WHERE archived_at IS NULL
+          ORDER BY created_at ASC
+        `
+      )
+      .all() as ProjectRow[];
+    const projects: EmbeddedAssetMigrationProjectReport[] = [];
+    let migratedAssetCount = 0;
+    let unresolvedAssetCount = 0;
+
+    for (const row of projectRows) {
+      const storedProject = this.getProject(row.id);
+
+      if (!storedProject) {
+        continue;
+      }
+
+      const nextCurrentDocument = this.rewriteEmbeddedAssets(storedProject.document);
+      const nextHistory = this.rewriteEmbeddedAssetHistory(this.getProjectHistory(row.id));
+      const migratedAssetIds = new Set<string>(nextCurrentDocument.migrated_asset_ids);
+      const reusedContentHashes = new Set<string>(nextCurrentDocument.reused_content_hashes);
+      const unresolvedAssetIds = new Set<string>(nextCurrentDocument.unresolved_asset_ids);
+
+      for (const entry of nextHistory.entries) {
+        for (const assetId of entry.migrated_asset_ids) {
+          migratedAssetIds.add(assetId);
+        }
+
+        for (const contentHash of entry.reused_content_hashes) {
+          reusedContentHashes.add(contentHash);
+        }
+
+        for (const assetId of entry.unresolved_asset_ids) {
+          unresolvedAssetIds.add(assetId);
+        }
+      }
+
+      if (migratedAssetIds.size === 0 && unresolvedAssetIds.size === 0) {
+        continue;
+      }
+
+      const saved = this.saveProjectDocument(
+        row.id,
+        nextCurrentDocument.document,
+        row.revision,
+        nextHistory.history
+      );
+
+      if (!saved.ok) {
+        throw new Error(`Failed to persist embedded-asset migration for project ${row.id}`);
+      }
+
+      migratedAssetCount += migratedAssetIds.size;
+      unresolvedAssetCount += unresolvedAssetIds.size;
+      projects.push({
+        migrated_asset_ids: [...migratedAssetIds].sort(),
+        project_id: row.id,
+        reused_content_hashes: [...reusedContentHashes].sort(),
+        unresolved_asset_ids: [...unresolvedAssetIds].sort()
+      });
+    }
+
+    return {
+      migrated_asset_count: migratedAssetCount,
+      projects,
+      unresolved_asset_count: unresolvedAssetCount
+    };
   }
 
   close(): void {
@@ -351,6 +504,25 @@ export class ProjectStore {
       );
     `);
 
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS project_assets (
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        asset_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        width REAL,
+        height REAL,
+        metadata_json TEXT,
+        source_kind TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        original_filename TEXT,
+        size_bytes INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (project_id, asset_id)
+      );
+    `);
+
     const tableInfo = this.database
       .prepare("PRAGMA table_info(projects)")
       .all() as TableInfoRow[];
@@ -360,6 +532,216 @@ export class ProjectStore {
         `ALTER TABLE projects ADD COLUMN revision INTEGER NOT NULL DEFAULT ${INITIAL_PROJECT_REVISION};`
       );
     }
+  }
+
+  private hydratePersistedDocument(
+    projectId: string,
+    rawDocument: RendererDocument
+  ): RendererDocument {
+    const rawAssets =
+      rawDocument.assets && typeof rawDocument.assets === "object" ? rawDocument.assets : {};
+    const mergedAssets = {
+      ...rawAssets,
+      ...this.getPersistedAssetRecordMap(projectId)
+    };
+
+    return {
+      ...rawDocument,
+      assets: mergedAssets
+    };
+  }
+
+  private getPersistedAssetRecordMap(projectId: string): Record<string, AssetRecord> {
+    return Object.fromEntries(
+      this.listPersistedAssetRows(projectId).map((row) => [row.asset_id, this.rowToAssetRecord(row)])
+    );
+  }
+
+  private listPersistedAssetRows(projectId: string): ProjectAssetRow[] {
+    return this.database
+      .prepare(
+        `
+          SELECT project_id, asset_id, kind, mime_type, width, height, metadata_json, source_kind, content_hash,
+                 original_filename, size_bytes, created_at, updated_at
+          FROM project_assets
+          WHERE project_id = ?
+          ORDER BY asset_id ASC
+        `
+      )
+      .all(projectId) as ProjectAssetRow[];
+  }
+
+  private rowToAssetRecord(row: ProjectAssetRow): AssetRecord {
+    return {
+      id: row.asset_id,
+      kind: row.kind,
+      mime_type: row.mime_type,
+      ...(row.width === null ? {} : { width: row.width }),
+      ...(row.height === null ? {} : { height: row.height }),
+      ...(row.metadata_json === null ? {} : { metadata: this.parseMetadataJson(row.metadata_json) }),
+      source: {
+        kind: "asset_store",
+        content_hash: row.content_hash,
+        ...(row.original_filename === null ? {} : { original_filename: row.original_filename })
+      }
+    };
+  }
+
+  private parseMetadataJson(serializedMetadata: string): Record<string, OpaqueValue> {
+    try {
+      const parsed = JSON.parse(serializedMetadata);
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, OpaqueValue>) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private serializeCurrentDocument(document: RendererDocument): RendererDocument {
+    const serializedDocument = structuredClone(document);
+    serializedDocument.assets = Object.fromEntries(
+      Object.entries(serializedDocument.assets).filter(([, asset]) => !isAssetStoreSource(asset.source))
+    );
+    return serializedDocument;
+  }
+
+  private replacePersistedAssetRows(
+    projectId: string,
+    assets: AssetRecord[],
+    updatedAt: string
+  ): void {
+    this.database.prepare("DELETE FROM project_assets WHERE project_id = ?").run(projectId);
+
+    for (const asset of assets) {
+      if (!isAssetStoreSource(asset.source)) {
+        continue;
+      }
+
+      const assetFilePath = this.assetStorage.findStoredAssetFilePath(asset.source.content_hash);
+
+      this.database
+        .prepare(
+          `
+            INSERT INTO project_assets (
+              project_id,
+              asset_id,
+              kind,
+              mime_type,
+              width,
+              height,
+              metadata_json,
+              source_kind,
+              content_hash,
+              original_filename,
+              size_bytes,
+              created_at,
+              updated_at
+            )
+            VALUES (
+              @project_id,
+              @asset_id,
+              @kind,
+              @mime_type,
+              @width,
+              @height,
+              @metadata_json,
+              'asset_store',
+              @content_hash,
+              @original_filename,
+              @size_bytes,
+              @updated_at,
+              @updated_at
+            )
+          `
+        )
+        .run({
+          asset_id: asset.id,
+          content_hash: asset.source.content_hash,
+          height: asset.height ?? null,
+          kind: asset.kind,
+          metadata_json: asset.metadata ? JSON.stringify(asset.metadata) : null,
+          mime_type: asset.mime_type,
+          original_filename: asset.source.original_filename ?? null,
+          project_id: projectId,
+          size_bytes: assetFilePath ? statSync(assetFilePath).size : null,
+          updated_at: updatedAt,
+          width: asset.width ?? null
+        });
+    }
+  }
+
+  private rewriteEmbeddedAssets(document: RendererDocument): {
+    document: RendererDocument;
+    migrated_asset_ids: string[];
+    reused_content_hashes: string[];
+    unresolved_asset_ids: string[];
+  } {
+    const replacements: Record<string, AssetRecord["source"] | undefined> = {};
+    const migratedAssetIds: string[] = [];
+    const reusedContentHashes = new Set<string>();
+    const unresolvedAssetIds: string[] = [];
+
+    for (const asset of collectEmbeddedAssets(document)) {
+      const decoded = this.assetStorage.decodeEmbeddedAsset(asset);
+
+      if (!decoded) {
+        unresolvedAssetIds.push(asset.id);
+        continue;
+      }
+
+      if (this.assetStorage.findStoredAssetFilePath(decoded.contentHash)) {
+        reusedContentHashes.add(decoded.contentHash);
+      }
+
+      this.assetStorage.ensureStoredBytes(decoded.contentHash, decoded.bytes);
+      replacements[asset.id] = {
+        kind: "asset_store",
+        content_hash: decoded.contentHash
+      };
+      migratedAssetIds.push(asset.id);
+    }
+
+    return {
+      document: replaceAssetSources(document, replacements),
+      migrated_asset_ids: migratedAssetIds,
+      reused_content_hashes: [...reusedContentHashes],
+      unresolved_asset_ids: unresolvedAssetIds
+    };
+  }
+
+  private rewriteEmbeddedAssetHistory(history: ProjectHistory): {
+    entries: Array<{
+      migrated_asset_ids: string[];
+      reused_content_hashes: string[];
+      unresolved_asset_ids: string[];
+    }>;
+    history: ProjectHistory;
+  } {
+    const entries: Array<{
+      migrated_asset_ids: string[];
+      reused_content_hashes: string[];
+      unresolved_asset_ids: string[];
+    }> = [];
+    const rewriteStack = (stack: ProjectHistoryEntry[]) =>
+      stack.map((entry) => {
+        const rewritten = this.rewriteEmbeddedAssets(entry.document);
+        entries.push({
+          migrated_asset_ids: rewritten.migrated_asset_ids,
+          reused_content_hashes: rewritten.reused_content_hashes,
+          unresolved_asset_ids: rewritten.unresolved_asset_ids
+        });
+        return {
+          ...entry,
+          document: rewritten.document
+        };
+      });
+
+    return {
+      entries,
+      history: {
+        redo: rewriteStack(history.redo),
+        undo: rewriteStack(history.undo)
+      }
+    };
   }
 
   private toSummary(row: ProjectRow): ProjectSummary {

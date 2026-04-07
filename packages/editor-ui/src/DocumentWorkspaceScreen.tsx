@@ -1,4 +1,3 @@
-import type { AssetRecord } from "@ai-canvas/document-core";
 import type {
   ActiveProject,
   AppResult,
@@ -121,33 +120,6 @@ function formatRuntimeMode(capabilities: RuntimeCapabilities | null): string {
   return capabilities.mode === "read_write" ? "Read/write" : "Read only";
 }
 
-function resolveAssetUrl(asset: AssetRecord): string | null {
-  switch (asset.source.kind) {
-    case "data_uri":
-      return asset.source.data_uri;
-    case "base64":
-      return `data:${asset.mime_type};base64,${asset.source.base64}`;
-    case "asset_store":
-      return null;
-  }
-}
-
-function resolveDocumentAssets(activeProject: ActiveProject): ResolvedAssetsById {
-  const resolvedAssetsById: ResolvedAssetsById = {};
-
-  for (const asset of Object.values(activeProject.document.assets)) {
-    const url = resolveAssetUrl(asset);
-
-    if (!url) {
-      continue;
-    }
-
-    resolvedAssetsById[asset.id] = { url };
-  }
-
-  return resolvedAssetsById;
-}
-
 function CanvasToolBar({
   activeTool,
   canCreateNodes,
@@ -265,7 +237,7 @@ export function DocumentWorkspaceScreen({
   onUndo,
   runtimeCapabilities
 }: DocumentWorkspaceScreenProps) {
-  const resolvedAssetsById = resolveDocumentAssets(activeProject);
+  const resolvedAssetsById = activeProject.resolved_assets as ResolvedAssetsById;
   const sceneCount = Object.keys(activeProject.document.scenes).length;
   const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
   const rendererRef = useRef<RendererMeasurementHandle | null>(null);

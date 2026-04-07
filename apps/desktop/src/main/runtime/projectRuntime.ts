@@ -176,6 +176,7 @@ export class ProjectRuntime {
       this.activeSession = {
         document: storedProject.document,
         project: openedProject,
+        resolved_assets: storedProject.resolved_assets,
         revision: storedProject.revision
       };
       this.activeHistory = this.store.getProjectHistory(openedProject.id);
@@ -459,6 +460,10 @@ export class ProjectRuntime {
     this.activeSession = {
       document: commandResult.document,
       project: persistedProject.project,
+      resolved_assets: this.store.resolveDocumentAssets(
+        this.activeSession.project.id,
+        commandResult.document
+      ),
       revision: persistedProject.revision
     };
     this.activeHistory = nextHistory;
@@ -556,6 +561,10 @@ export class ProjectRuntime {
     this.activeSession = {
       document: restoredDocument,
       project: persistedProject.project,
+      resolved_assets: this.store.resolveDocumentAssets(
+        this.activeSession.project.id,
+        restoredDocument
+      ),
       revision: persistedProject.revision
     };
     this.activeHistory = nextHistory;
@@ -635,6 +644,7 @@ export class ProjectRuntime {
     this.emitRuntimeEvent({
       document: this.activeSession.document,
       project: this.activeSession.project,
+      resolved_assets: this.activeSession.resolved_assets,
       revision: this.activeSession.revision,
       runtimeCapabilities: this.buildRuntimeCapabilities(),
       type: "document_changed"

@@ -265,8 +265,8 @@ Typical structure:
   recovery/
 ```
 
-- `app.db` stores project records, each project's sole `current_document_json` in v1, preferences, recent projects, and local history metadata
-- `assets/` stores binary assets
+- `app.db` stores project records, each project's sole `current_document_json` in v1, asset catalog metadata, preferences, recent projects, and local history metadata
+- `assets/` stores content-addressed binary asset payloads
 - `exports/` stores exported project snapshots
 - `imports/` optionally stages imported project snapshots or other source bundles
 - `recovery/` stores recovery artifacts for crash or autosave flows

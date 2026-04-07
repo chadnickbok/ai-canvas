@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 import {
-  assetRecordSchema,
+  assetKindSchema,
   assetSourceAttributeValueSchema,
-  assetSourceSchema,
   canvasSemanticSlotSchema,
+  liveAssetSourceSchema,
   nodeSemanticSlotSchema,
   opaqueValueSchema,
   renderStyleValueSchema,
@@ -542,7 +542,17 @@ export const deleteStyleCommandSchema = z
 export const createAssetCommandSchema = z
   .object({
     type: z.literal("create_asset"),
-    asset: assetRecordSchema
+    asset: z
+      .object({
+        id: z.string(),
+        kind: assetKindSchema,
+        mime_type: z.string(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        metadata: z.record(z.string(), opaqueValueSchema).optional(),
+        source: liveAssetSourceSchema
+      })
+      .strict()
   })
   .strict();
 
@@ -555,7 +565,7 @@ export const updateAssetCommandSchema = z
         width: z.number().nullable().optional(),
         height: z.number().nullable().optional(),
         metadata: z.record(z.string(), opaqueValueSchema).nullable().optional(),
-        source: assetSourceSchema.optional()
+        source: liveAssetSourceSchema.optional()
       })
       .strict()
   })

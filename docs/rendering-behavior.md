@@ -442,6 +442,8 @@ The goal is to support safe document rendering, not arbitrary embedded behavior.
 
 Assets are resolved from the document’s `assets` map.
 
+In the desktop runtime, that document-level asset metadata is hydrated from the project-local asset catalog, and the renderer consumes only resolved browser-usable sources supplied by the runtime.
+
 In v1, nodes reference assets through concrete document fields.
 
 The only documented node-level asset reference is:
@@ -458,7 +460,7 @@ and that asset exists, the renderer should resolve that into a usable browser re
 
 Depending on asset source kind, that means:
 
-- embedded data directly
+- embedded data directly for legacy compatibility
 - or local asset-store content resolved to a loadable URL/data source in the desktop runtime
 
 ## 14.2 Asset source kinds
@@ -473,7 +475,7 @@ The canonical asset source kinds are:
 
 The renderer should not care how the asset store is implemented internally.
 
-It only needs a renderable resolved source.
+It only needs a renderable resolved source, and it should not derive raw OS file paths itself.
 
 ## 14.3 Missing assets
 

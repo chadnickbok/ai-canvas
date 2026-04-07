@@ -778,10 +778,7 @@ type AssetRecord = {
   width?: number;
   height?: number;
   metadata?: Record<string, OpaqueValue>;
-  source:
-    | { kind: "data_uri"; data_uri: string }
-    | { kind: "base64"; base64: string }
-    | { kind: "asset_store"; content_hash: string; original_filename?: string };
+  source: { kind: "asset_store"; content_hash: string; original_filename?: string };
 };
 
 type CreateAssetCommand = {
@@ -800,10 +797,7 @@ type UpdateAssetCommand = {
     width?: number | null;
     height?: number | null;
     metadata?: Record<string, OpaqueValue> | null;
-    source?:
-      | { kind: "data_uri"; data_uri: string }
-      | { kind: "base64"; base64: string }
-      | { kind: "asset_store"; content_hash: string; original_filename?: string };
+    source?: { kind: "asset_store"; content_hash: string; original_filename?: string };
   };
 };
 ```
@@ -812,6 +806,7 @@ Rules:
 
 * `width: null` or `height: null` clears that dimension
 * `metadata: null` clears metadata
+* live desktop command payloads should create or switch assets only to `asset_store` sources
 * asset `id`, `kind`, and `mime_type` are immutable through `update_asset`
 
 ## 10.3 `delete_asset`
