@@ -1,15 +1,17 @@
-@import "@fontsource-variable/ibm-plex-sans/wght.css";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/500.css";
-@import "@fontsource/ibm-plex-mono/600.css";
-@import "tailwindcss" source("../../../../");
+@import '@fontsource-variable/ibm-plex-sans/wght.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+@import 'tailwindcss' source('../../../../');
 
 @source "../../../../packages/editor-ui/src";
 
 :root {
-  --font-ui: "IBM Plex Sans Variable", "IBM Plex Sans", "Avenir Next", "Segoe UI", system-ui,
-    sans-serif;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", "SF Mono", Monaco, Consolas, monospace;
+  --font-ui:
+    'IBM Plex Sans Variable', 'IBM Plex Sans', 'Avenir Next', 'Segoe UI',
+    system-ui, sans-serif;
+  --font-mono:
+    'IBM Plex Mono', 'SFMono-Regular', 'SF Mono', Monaco, Consolas, monospace;
   --canvas-background: #ffffff;
   --canvas-ink: #111111;
   --canvas-line: rgb(17 17 17 / 0.032);

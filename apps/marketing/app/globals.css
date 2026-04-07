@@ -1,12 +1,14 @@
-@import "@fontsource-variable/ibm-plex-sans/wght.css";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/500.css";
-@import "@fontsource/ibm-plex-mono/600.css";
+@import '@fontsource-variable/ibm-plex-sans/wght.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
 
 :root {
-  --font-ui: "IBM Plex Sans Variable", "IBM Plex Sans", "Avenir Next", "Segoe UI", system-ui,
-    sans-serif;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", "SF Mono", Monaco, Consolas, monospace;
+  --font-ui:
+    'IBM Plex Sans Variable', 'IBM Plex Sans', 'Avenir Next', 'Segoe UI',
+    system-ui, sans-serif;
+  --font-mono:
+    'IBM Plex Mono', 'SFMono-Regular', 'SF Mono', Monaco, Consolas, monospace;
   --surface-base: #f3f3f3;
   --surface-panel: rgba(255, 255, 255, 0.94);
   --surface-panel-solid: #ffffff;

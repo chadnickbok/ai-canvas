@@ -1,20 +1,20 @@
-import { spawn } from "node:child_process";
+import { spawn } from 'node:child_process';
 
-const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const childProcesses = [];
 
 function spawnProcess(label, args) {
   const child = spawn(pnpmCommand, args, {
     env: process.env,
-    stdio: "inherit"
+    stdio: 'inherit',
   });
 
-  child.on("error", (error) => {
+  child.on('error', (error) => {
     console.error(`${label} failed to start:`, error);
     shutdown(1);
   });
 
-  child.on("exit", (code, signal) => {
+  child.on('exit', (code, signal) => {
     if (signal) {
       console.error(`${label} exited with signal ${signal}.`);
       shutdown(1);
@@ -44,14 +44,14 @@ function shutdown(exitCode) {
 
   for (const child of childProcesses) {
     if (!child.killed) {
-      child.kill("SIGTERM");
+      child.kill('SIGTERM');
     }
   }
 
   setTimeout(() => {
     for (const child of childProcesses) {
       if (!child.killed) {
-        child.kill("SIGKILL");
+        child.kill('SIGKILL');
       }
     }
   }, 5_000).unref();
@@ -59,9 +59,9 @@ function shutdown(exitCode) {
   process.exitCode = exitCode;
 }
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
+for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => shutdown(0));
 }
 
-spawnProcess("packages watcher", ["watch:packages"]);
-spawnProcess("desktop dev", ["--filter", "@ai-canvas/desktop", "dev:app"]);
+spawnProcess('packages watcher', ['watch:packages']);
+spawnProcess('desktop dev', ['--filter', '@ai-canvas/desktop', 'dev:app']);

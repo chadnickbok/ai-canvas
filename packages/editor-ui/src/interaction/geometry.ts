@@ -1,6 +1,10 @@
-import type { RenderStyleValue, RendererDocument, RendererNode } from "@ai-canvas/document-core";
+import type {
+  RenderStyleValue,
+  RendererDocument,
+  RendererNode,
+} from '@ai-canvas/document-core';
 
-import type { RendererMeasurementHandle } from "../rendering/types.js";
+import type { RendererMeasurementHandle } from '../rendering/types.js';
 
 export type CanvasPoint = {
   x: number;
@@ -23,11 +27,20 @@ export type EdgeInsets = {
   top: number;
 };
 
-export type ResizeHandle = "e" | "n" | "ne" | "nw" | "s" | "se" | "sw" | "w";
+export type ResizeHandle = 'e' | 'n' | 'ne' | 'nw' | 's' | 'se' | 'sw' | 'w';
 
 const NUMERIC_VALUE_PATTERN = /^-?\d+(\.\d+)?$/;
 const PIXEL_VALUE_PATTERN = /^-?\d+(\.\d+)?px$/i;
-const RESIZE_HANDLES = new Set<ResizeHandle>(["n", "s", "e", "w", "nw", "ne", "sw", "se"]);
+const RESIZE_HANDLES = new Set<ResizeHandle>([
+  'n',
+  's',
+  'e',
+  'w',
+  'nw',
+  'ne',
+  'sw',
+  'se',
+]);
 
 export function createCanvasRect(input: {
   height: number;
@@ -41,7 +54,7 @@ export function createCanvasRect(input: {
     right: input.x + input.width,
     width: input.width,
     x: input.x,
-    y: input.y
+    y: input.y,
   };
 }
 
@@ -49,12 +62,14 @@ export function roundCanvasNumber(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-export function parseFiniteCanvasLength(value: RenderStyleValue | undefined): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
+export function parseFiniteCanvasLength(
+  value: RenderStyleValue | undefined,
+): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
 
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
 
@@ -64,7 +79,10 @@ export function parseFiniteCanvasLength(value: RenderStyleValue | undefined): nu
     return null;
   }
 
-  if (NUMERIC_VALUE_PATTERN.test(trimmedValue) || PIXEL_VALUE_PATTERN.test(trimmedValue)) {
+  if (
+    NUMERIC_VALUE_PATTERN.test(trimmedValue) ||
+    PIXEL_VALUE_PATTERN.test(trimmedValue)
+  ) {
     const parsedValue = Number.parseFloat(trimmedValue);
 
     return Number.isFinite(parsedValue) ? parsedValue : null;
@@ -73,38 +91,50 @@ export function parseFiniteCanvasLength(value: RenderStyleValue | undefined): nu
   return null;
 }
 
-export function isResizeHandle(value: string | null | undefined): value is ResizeHandle {
-  return value !== undefined && value !== null && RESIZE_HANDLES.has(value as ResizeHandle);
+export function isResizeHandle(
+  value: string | null | undefined,
+): value is ResizeHandle {
+  return (
+    value !== undefined &&
+    value !== null &&
+    RESIZE_HANDLES.has(value as ResizeHandle)
+  );
 }
 
-export function resolveInteractionTargetNodeId(target: EventTarget | null): string | null {
+export function resolveInteractionTargetNodeId(
+  target: EventTarget | null,
+): string | null {
   if (!(target instanceof Element)) {
     return null;
   }
 
-  const interactionNodeElement = target.closest("[data-interaction-node-id]");
+  const interactionNodeElement = target.closest('[data-interaction-node-id]');
 
   if (interactionNodeElement instanceof HTMLElement) {
     return interactionNodeElement.dataset.interactionNodeId ?? null;
   }
 
-  const renderedNodeElement = target.closest("[data-node-id]");
+  const renderedNodeElement = target.closest('[data-node-id]');
 
-  return renderedNodeElement?.getAttribute("data-node-id") ?? null;
+  return renderedNodeElement?.getAttribute('data-node-id') ?? null;
 }
 
-export function resolveResizeHandleFromTarget(target: EventTarget | null): ResizeHandle | null {
+export function resolveResizeHandleFromTarget(
+  target: EventTarget | null,
+): ResizeHandle | null {
   if (!(target instanceof Element)) {
     return null;
   }
 
-  const handleElement = target.closest("[data-interaction-handle]");
+  const handleElement = target.closest('[data-interaction-handle]');
 
   if (!(handleElement instanceof HTMLElement)) {
     return null;
   }
 
-  return isResizeHandle(handleElement.dataset.interactionHandle) ? handleElement.dataset.interactionHandle : null;
+  return isResizeHandle(handleElement.dataset.interactionHandle)
+    ? handleElement.dataset.interactionHandle
+    : null;
 }
 
 export function resolveCanvasPointFromClientCoordinates(input: {
@@ -122,7 +152,7 @@ export function resolveCanvasPointFromClientCoordinates(input: {
 
   return {
     x: (input.clientX - viewportRect.left - input.viewportState.panX) / zoom,
-    y: (input.clientY - viewportRect.top - input.viewportState.panY) / zoom
+    y: (input.clientY - viewportRect.top - input.viewportState.panY) / zoom,
   };
 }
 
@@ -131,23 +161,23 @@ export function resolveNodeCanvasRect(
   nodeId: string,
   measurementHandle: RendererMeasurementHandle | null,
   zoom: number,
-  currentDocumentRevision?: number
+  currentDocumentRevision?: number,
 ): CanvasRect | null {
   const resolvedRect = resolveNodeCanvasRectWithSource(
     document,
     nodeId,
     measurementHandle,
     zoom,
-    currentDocumentRevision
+    currentDocumentRevision,
   );
 
   return resolvedRect?.rect ?? null;
 }
 
 export type NodeCanvasRectSource =
-  | "authored_render_style"
-  | "computed_layout"
-  | "measured_dom";
+  | 'authored_render_style'
+  | 'computed_layout'
+  | 'measured_dom';
 
 export type NodeCanvasRectResolution = {
   rect: CanvasRect;
@@ -158,14 +188,19 @@ export function resolveMeasuredNodeCanvasRect(
   nodeId: string,
   measurementHandle: RendererMeasurementHandle | null,
   zoom: number,
-  currentDocumentRevision?: number
+  currentDocumentRevision?: number,
 ): CanvasRect | null {
-  return resolveMeasuredCanvasRect(nodeId, measurementHandle, zoom, currentDocumentRevision);
+  return resolveMeasuredCanvasRect(
+    nodeId,
+    measurementHandle,
+    zoom,
+    currentDocumentRevision,
+  );
 }
 
 export function resolveDocumentNodeCanvasRectWithSource(
   document: RendererDocument,
-  nodeId: string
+  nodeId: string,
 ): NodeCanvasRectResolution | null {
   const node = document.nodes[nodeId];
 
@@ -176,7 +211,7 @@ export function resolveDocumentNodeCanvasRectWithSource(
   if (node.computed_layout) {
     return {
       rect: createCanvasRect(node.computed_layout),
-      source: "computed_layout"
+      source: 'computed_layout',
     };
   }
 
@@ -194,9 +229,9 @@ export function resolveDocumentNodeCanvasRectWithSource(
       height,
       width,
       x,
-      y
+      y,
     }),
-    source: "authored_render_style"
+    source: 'authored_render_style',
   };
 }
 
@@ -205,35 +240,42 @@ export function resolveNodeCanvasRectWithSource(
   nodeId: string,
   measurementHandle: RendererMeasurementHandle | null,
   zoom: number,
-  currentDocumentRevision?: number
+  currentDocumentRevision?: number,
 ): NodeCanvasRectResolution | null {
   const measuredRect = resolveMeasuredCanvasRect(
     nodeId,
     measurementHandle,
     zoom,
-    currentDocumentRevision
+    currentDocumentRevision,
   );
 
   if (measuredRect) {
     return {
       rect: measuredRect,
-      source: "measured_dom"
+      source: 'measured_dom',
     };
   }
 
   return resolveDocumentNodeCanvasRectWithSource(document, nodeId);
 }
 
-export function isSceneFrameNode(document: RendererDocument, node: RendererNode): boolean {
-  return node.kind === "frame" && node.scene_id === node.id && document.scenes[node.id] !== undefined;
+export function isSceneFrameNode(
+  document: RendererDocument,
+  node: RendererNode,
+): boolean {
+  return (
+    node.kind === 'frame' &&
+    node.scene_id === node.id &&
+    document.scenes[node.id] !== undefined
+  );
 }
 
 export function isNodeDirectlyManipulable(
   document: RendererDocument,
   node: RendererNode,
-  allowMutation: boolean
+  allowMutation: boolean,
 ): boolean {
-  if (!allowMutation || node.is_locked || node.kind === "svg-visual-element") {
+  if (!allowMutation || node.is_locked || node.kind === 'svg-visual-element') {
     return false;
   }
 
@@ -245,11 +287,13 @@ export function isNodeDirectlyManipulable(
     return true;
   }
 
-  return node.render_style.position === "absolute";
+  return node.render_style.position === 'absolute';
 }
 
-export function resolveFramePaddingInsets(node: RendererNode): EdgeInsets | null {
-  if (node.kind !== "frame") {
+export function resolveFramePaddingInsets(
+  node: RendererNode,
+): EdgeInsets | null {
+  if (node.kind !== 'frame') {
     return null;
   }
 
@@ -257,7 +301,7 @@ export function resolveFramePaddingInsets(node: RendererNode): EdgeInsets | null
     bottom: parseFiniteCanvasLength(node.render_style.paddingBottom),
     left: parseFiniteCanvasLength(node.render_style.paddingLeft),
     right: parseFiniteCanvasLength(node.render_style.paddingRight),
-    top: parseFiniteCanvasLength(node.render_style.paddingTop)
+    top: parseFiniteCanvasLength(node.render_style.paddingTop),
   };
 
   if (Object.values(individualInsets).every((value) => value !== null)) {
@@ -269,30 +313,21 @@ export function resolveFramePaddingInsets(node: RendererNode): EdgeInsets | null
   const paddingInline = parsePairInset(node.render_style.paddingInline);
 
   const top =
-    individualInsets.top ??
-    paddingBlock?.start ??
-    paddingInsets?.top ??
-    0;
+    individualInsets.top ?? paddingBlock?.start ?? paddingInsets?.top ?? 0;
   const right =
-    individualInsets.right ??
-    paddingInline?.end ??
-    paddingInsets?.right ??
-    0;
+    individualInsets.right ?? paddingInline?.end ?? paddingInsets?.right ?? 0;
   const bottom =
-    individualInsets.bottom ??
-    paddingBlock?.end ??
-    paddingInsets?.bottom ??
-    0;
+    individualInsets.bottom ?? paddingBlock?.end ?? paddingInsets?.bottom ?? 0;
   const left =
-    individualInsets.left ??
-    paddingInline?.start ??
-    paddingInsets?.left ??
-    0;
+    individualInsets.left ?? paddingInline?.start ?? paddingInsets?.left ?? 0;
 
   return { bottom, left, right, top };
 }
 
-export function insetCanvasRect(rect: CanvasRect, insets: EdgeInsets): CanvasRect | null {
+export function insetCanvasRect(
+  rect: CanvasRect,
+  insets: EdgeInsets,
+): CanvasRect | null {
   const width = rect.width - insets.left - insets.right;
   const height = rect.height - insets.top - insets.bottom;
 
@@ -304,21 +339,24 @@ export function insetCanvasRect(rect: CanvasRect, insets: EdgeInsets): CanvasRec
     height,
     width,
     x: rect.x + insets.left,
-    y: rect.y + insets.top
+    y: rect.y + insets.top,
   });
 }
 
-export function resolveFlexAxis(node: RendererNode): "x" | "y" | null {
-  if (node.kind !== "frame" || node.render_style.display !== "flex") {
+export function resolveFlexAxis(node: RendererNode): 'x' | 'y' | null {
+  if (node.kind !== 'frame' || node.render_style.display !== 'flex') {
     return null;
   }
 
-  if (node.render_style.flexDirection === "column" || node.render_style.flexDirection === undefined) {
-    return "y";
+  if (
+    node.render_style.flexDirection === 'column' ||
+    node.render_style.flexDirection === undefined
+  ) {
+    return 'y';
   }
 
-  if (node.render_style.flexDirection === "row") {
-    return "x";
+  if (node.render_style.flexDirection === 'row') {
+    return 'x';
   }
 
   return null;
@@ -328,7 +366,7 @@ function resolveMeasuredCanvasRect(
   nodeId: string,
   measurementHandle: RendererMeasurementHandle | null,
   zoom: number,
-  currentDocumentRevision?: number
+  currentDocumentRevision?: number,
 ): CanvasRect | null {
   if (
     currentDocumentRevision !== undefined &&
@@ -352,23 +390,27 @@ function resolveMeasuredCanvasRect(
     height: nodeRect.height / safeZoom,
     width: nodeRect.width / safeZoom,
     x: (nodeRect.left - rootRect.left) / safeZoom,
-    y: (nodeRect.top - rootRect.top) / safeZoom
+    y: (nodeRect.top - rootRect.top) / safeZoom,
   });
 }
 
-function hasNonPixelGeometryInputs(renderStyle: RendererNode["render_style"]): boolean {
-  return ["left", "top", "width", "height"].some((key) => {
+function hasNonPixelGeometryInputs(
+  renderStyle: RendererNode['render_style'],
+): boolean {
+  return ['left', 'top', 'width', 'height'].some((key) => {
     const value = renderStyle[key];
     return value !== undefined && parseFiniteCanvasLength(value) === null;
   });
 }
 
-function parseInsetTokens(value: RenderStyleValue | undefined): number[] | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
+function parseInsetTokens(
+  value: RenderStyleValue | undefined,
+): number[] | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return [value];
   }
 
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
 
@@ -385,7 +427,9 @@ function parseInsetTokens(value: RenderStyleValue | undefined): number[] | null 
   return tokens;
 }
 
-function parseShorthandInsets(value: RenderStyleValue | undefined): EdgeInsets | null {
+function parseShorthandInsets(
+  value: RenderStyleValue | undefined,
+): EdgeInsets | null {
   const tokens = parseInsetTokens(value);
 
   if (!tokens) {
@@ -393,21 +437,43 @@ function parseShorthandInsets(value: RenderStyleValue | undefined): EdgeInsets |
   }
 
   if (tokens.length === 1) {
-    return { bottom: tokens[0], left: tokens[0], right: tokens[0], top: tokens[0] };
+    return {
+      bottom: tokens[0],
+      left: tokens[0],
+      right: tokens[0],
+      top: tokens[0],
+    };
   }
 
   if (tokens.length === 2) {
-    return { bottom: tokens[0], left: tokens[1], right: tokens[1], top: tokens[0] };
+    return {
+      bottom: tokens[0],
+      left: tokens[1],
+      right: tokens[1],
+      top: tokens[0],
+    };
   }
 
   if (tokens.length === 3) {
-    return { bottom: tokens[2], left: tokens[1], right: tokens[1], top: tokens[0] };
+    return {
+      bottom: tokens[2],
+      left: tokens[1],
+      right: tokens[1],
+      top: tokens[0],
+    };
   }
 
-  return { bottom: tokens[2], left: tokens[3], right: tokens[1], top: tokens[0] };
+  return {
+    bottom: tokens[2],
+    left: tokens[3],
+    right: tokens[1],
+    top: tokens[0],
+  };
 }
 
-function parsePairInset(value: RenderStyleValue | undefined): { end: number; start: number } | null {
+function parsePairInset(
+  value: RenderStyleValue | undefined,
+): { end: number; start: number } | null {
   const tokens = parseInsetTokens(value);
 
   if (!tokens) {

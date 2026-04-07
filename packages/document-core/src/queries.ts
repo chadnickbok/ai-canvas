@@ -10,8 +10,8 @@ import type {
   RendererStyles,
   RendererVariables,
   SceneRecord,
-  StyleFamily
-} from "./types.js";
+  StyleFamily,
+} from './types.js';
 import {
   CANVAS_SEMANTIC_SLOT_TO_RENDER_FIELD,
   NODE_SEMANTIC_SLOT_TO_RENDER_KEY,
@@ -19,8 +19,8 @@ import {
   resolveCanvasSemanticState,
   resolveNodeSemanticState,
   type ResolvedCanvasSemanticValue,
-  type ResolvedNodeSemanticValue
-} from "./semanticResolution.js";
+  type ResolvedNodeSemanticValue,
+} from './semanticResolution.js';
 
 export type DocumentInspection = {
   asset_count: number;
@@ -44,7 +44,7 @@ export type TreeNodeInspection = {
   id: string;
   is_locked: boolean;
   is_visible: boolean;
-  kind: RendererNode["kind"];
+  kind: RendererNode['kind'];
   name: string;
   parent_id: string | null;
   scene_id: string | null;
@@ -84,14 +84,14 @@ export type NodeSemanticSlotInspection = {
 
 export type NodePathInspection = {
   id: string;
-  kind: RendererNode["kind"];
+  kind: RendererNode['kind'];
   name: string;
 };
 
 export type BackgroundAssetInspection = {
   asset: AssetRecord;
   asset_id: string;
-  source_kind: AssetRecord["source"]["kind"];
+  source_kind: AssetRecord['source']['kind'];
 };
 
 export type NodeInspectorInspection = {
@@ -104,11 +104,11 @@ export type NodeInspectorInspection = {
   is_scene_root: boolean;
   is_top_level: boolean;
   is_visible: boolean;
-  kind: RendererNode["kind"];
+  kind: RendererNode['kind'];
   name: string;
   parent_id: string | null;
   parent_name?: string;
-  raw_render_style: RendererNode["render_style"];
+  raw_render_style: RendererNode['render_style'];
   scene_id: string | null;
   scene_name?: string;
   semantic_slots: NodeSemanticSlotInspection[];
@@ -121,7 +121,7 @@ export type SceneInspectorInspection = {
   frame_node_id: string;
   frame_node: NodeInspectorInspection;
   id: string;
-  metadata: SceneRecord["scene_metadata"];
+  metadata: SceneRecord['scene_metadata'];
   name: string;
 };
 
@@ -134,27 +134,34 @@ export type DocumentSummaryInspection = DocumentInspection & {
 export type SelectionInspection =
   | {
       document: DocumentSummaryInspection;
-      kind: "document";
+      kind: 'document';
     }
   | {
       document: DocumentSummaryInspection;
-      kind: "node";
+      kind: 'node';
       node: NodeInspectorInspection;
     }
   | {
       document: DocumentSummaryInspection;
-      kind: "scene";
+      kind: 'scene';
       node: NodeInspectorInspection;
       scene: SceneInspectorInspection;
     };
 
-const ASSET_BACKGROUND_IMAGE_PATTERN = /url\(\s*(['"]?)asset:\/\/([^'")]+)\1\s*\)/i;
+const ASSET_BACKGROUND_IMAGE_PATTERN =
+  /url\(\s*(['"]?)asset:\/\/([^'")]+)\1\s*\)/i;
 
-export function getNode(document: RendererDocument, nodeId: string): RendererNode | undefined {
+export function getNode(
+  document: RendererDocument,
+  nodeId: string,
+): RendererNode | undefined {
   return document.nodes[nodeId];
 }
 
-export function requireNode(document: RendererDocument, nodeId: string): RendererNode {
+export function requireNode(
+  document: RendererDocument,
+  nodeId: string,
+): RendererNode {
   const node = getNode(document, nodeId);
 
   if (!node) {
@@ -164,7 +171,10 @@ export function requireNode(document: RendererDocument, nodeId: string): Rendere
   return node;
 }
 
-export function getScene(document: RendererDocument, sceneId: string): SceneRecord | undefined {
+export function getScene(
+  document: RendererDocument,
+  sceneId: string,
+): SceneRecord | undefined {
   return document.scenes[sceneId];
 }
 
@@ -172,7 +182,10 @@ export function isTopLevelNode(node: RendererNode): boolean {
   return node.parent_id === null;
 }
 
-export function getChildren(document: RendererDocument, nodeId: string): RendererNode[] {
+export function getChildren(
+  document: RendererDocument,
+  nodeId: string,
+): RendererNode[] {
   const node = getNode(document, nodeId);
 
   if (!node) {
@@ -184,7 +197,10 @@ export function getChildren(document: RendererDocument, nodeId: string): Rendere
     .filter((child): child is RendererNode => child !== undefined);
 }
 
-export function collectSubtreeIds(document: RendererDocument, rootNodeId: string): string[] {
+export function collectSubtreeIds(
+  document: RendererDocument,
+  rootNodeId: string,
+): string[] {
   const rootNode = getNode(document, rootNodeId);
 
   if (!rootNode) {
@@ -219,12 +235,12 @@ export function collectSubtreeIds(document: RendererDocument, rootNodeId: string
 
 function resolveTopLevelComputedLayoutRootId(
   document: RendererDocument,
-  nodeId: string
+  nodeId: string,
 ): string | null {
   let currentNodeId: string | null = nodeId;
 
   while (currentNodeId) {
-    const currentNode: RendererDocument["nodes"][string] | undefined =
+    const currentNode: RendererDocument['nodes'][string] | undefined =
       document.nodes[currentNodeId];
 
     if (!currentNode) {
@@ -243,7 +259,7 @@ function resolveTopLevelComputedLayoutRootId(
 
 export function resolveComputedLayoutRootIds(
   document: RendererDocument,
-  changedNodeIds: string[]
+  changedNodeIds: string[],
 ): string[] {
   const rootIds = new Set<string>();
 
@@ -254,12 +270,19 @@ export function resolveComputedLayoutRootIds(
       continue;
     }
 
-    if (node.scene_id && document.scenes[node.scene_id] && document.nodes[node.scene_id]) {
+    if (
+      node.scene_id &&
+      document.scenes[node.scene_id] &&
+      document.nodes[node.scene_id]
+    ) {
       rootIds.add(node.scene_id);
       continue;
     }
 
-    const topLevelRootId = resolveTopLevelComputedLayoutRootId(document, node.id);
+    const topLevelRootId = resolveTopLevelComputedLayoutRootId(
+      document,
+      node.id,
+    );
 
     if (topLevelRootId) {
       rootIds.add(topLevelRootId);
@@ -269,7 +292,9 @@ export function resolveComputedLayoutRootIds(
   return [...rootIds];
 }
 
-export function inspectDocument(document: RendererDocument): DocumentInspection {
+export function inspectDocument(
+  document: RendererDocument,
+): DocumentInspection {
   let variableCount = 0;
 
   for (const collection of Object.values(document.variables.collections)) {
@@ -287,40 +312,52 @@ export function inspectDocument(document: RendererDocument): DocumentInspection 
     root_id: document.root.id,
     scene_count: Object.keys(document.scenes).length,
     text_style_count: Object.keys(document.styles.text).length,
-    variable_collection_count: Object.keys(document.variables.collections).length,
-    variable_count: variableCount
+    variable_collection_count: Object.keys(document.variables.collections)
+      .length,
+    variable_count: variableCount,
   };
 }
 
 export function inspectDocumentSummary(
-  document: RendererDocument
+  document: RendererDocument,
 ): DocumentSummaryInspection {
   const baseInspection = inspectDocument(document);
   const canvasSemanticState = resolveCanvasSemanticState(document);
   const canvasSemanticSlots: CanvasSemanticSlotInspection[] = Object.values(
-    canvasSemanticState
+    canvasSemanticState,
   ).map((resolvedSlot) => {
     const renderField = CANVAS_SEMANTIC_SLOT_TO_RENDER_FIELD[resolvedSlot.slot];
 
     return {
-      ...(document.canvas.authoring.local_values[resolvedSlot.slot] === undefined
+      ...(document.canvas.authoring.local_values[resolvedSlot.slot] ===
+      undefined
         ? {}
-        : { local_value: document.canvas.authoring.local_values[resolvedSlot.slot] }),
-      ...(document.canvas.authoring.variable_bindings[resolvedSlot.slot] === undefined
+        : {
+            local_value:
+              document.canvas.authoring.local_values[resolvedSlot.slot],
+          }),
+      ...(document.canvas.authoring.variable_bindings[resolvedSlot.slot] ===
+      undefined
         ? {}
-        : { variable_id: document.canvas.authoring.variable_bindings[resolvedSlot.slot] }),
+        : {
+            variable_id:
+              document.canvas.authoring.variable_bindings[resolvedSlot.slot],
+          }),
       render_field: renderField,
       ...(document.canvas[renderField] === undefined
         ? {}
         : { render_value: document.canvas[renderField] }),
       resolved: resolvedSlot,
-      slot: resolvedSlot.slot
+      slot: resolvedSlot.slot,
     };
   });
   let looseTopLevelNodeCount = 0;
 
   for (const childId of document.root.child_ids) {
-    if (!document.scenes[childId] && document.nodes[childId]?.parent_id === null) {
+    if (
+      !document.scenes[childId] &&
+      document.nodes[childId]?.parent_id === null
+    ) {
       looseTopLevelNodeCount += 1;
     }
   }
@@ -331,17 +368,20 @@ export function inspectDocumentSummary(
       ? {}
       : { canvas_background_color: document.canvas.background_color }),
     canvas_semantic_slots: canvasSemanticSlots,
-    loose_top_level_node_count: looseTopLevelNodeCount
+    loose_top_level_node_count: looseTopLevelNodeCount,
   };
 }
 
-export function inspectNode(document: RendererDocument, nodeId: string): RendererNode | undefined {
+export function inspectNode(
+  document: RendererDocument,
+  nodeId: string,
+): RendererNode | undefined {
   return getNode(document, nodeId);
 }
 
 export function inspectNodeForInspector(
   document: RendererDocument,
-  nodeId: string
+  nodeId: string,
 ): NodeInspectorInspection | undefined {
   const node = getNode(document, nodeId);
 
@@ -350,12 +390,15 @@ export function inspectNodeForInspector(
   }
 
   const resolvedSemanticState = resolveNodeSemanticState(document, node);
-  const backgroundAssetInspection = resolveBackgroundAssetInspection(document, node);
+  const backgroundAssetInspection = resolveBackgroundAssetInspection(
+    document,
+    node,
+  );
   const localValues = getNodeLocalValues(node);
   const variableBindings = getNodeVariableBindings(node);
   const styleBindings = getNodeStyleBindings(node);
   const semanticSlots: NodeSemanticSlotInspection[] = Object.values(
-    resolvedSemanticState
+    resolvedSemanticState,
   ).map((resolvedSlot) => {
     const renderKey = NODE_SEMANTIC_SLOT_TO_RENDER_KEY[resolvedSlot.slot];
     const styleFamily = getNodeStyleFamilyForSlot(resolvedSlot.slot);
@@ -376,10 +419,12 @@ export function inspectNodeForInspector(
         : { style_id: styleBindings[styleFamily] }),
       ...(variableBindings[resolvedSlot.slot] === undefined
         ? {}
-        : { variable_id: variableBindings[resolvedSlot.slot] })
+        : { variable_id: variableBindings[resolvedSlot.slot] }),
     };
   });
-  const parentNode = node.parent_id ? getNode(document, node.parent_id) : undefined;
+  const parentNode = node.parent_id
+    ? getNode(document, node.parent_id)
+    : undefined;
   const scene = node.scene_id ? getScene(document, node.scene_id) : undefined;
 
   return {
@@ -388,10 +433,13 @@ export function inspectNodeForInspector(
       ? {}
       : { background_asset: backgroundAssetInspection }),
     child_count: node.child_ids.length,
-    ...(node.computed_layout === undefined ? {} : { computed_layout: node.computed_layout }),
+    ...(node.computed_layout === undefined
+      ? {}
+      : { computed_layout: node.computed_layout }),
     id: node.id,
     is_locked: node.is_locked,
-    is_scene_root: node.kind === "frame" && node.scene_id === node.id && scene !== undefined,
+    is_scene_root:
+      node.kind === 'frame' && node.scene_id === node.id && scene !== undefined,
     is_top_level: node.parent_id === null,
     is_visible: node.is_visible,
     kind: node.kind,
@@ -399,19 +447,21 @@ export function inspectNodeForInspector(
     parent_id: node.parent_id,
     ...(parentNode === undefined ? {} : { parent_name: parentNode.name }),
     raw_render_style: {
-      ...node.render_style
+      ...node.render_style,
     },
     scene_id: node.scene_id,
     ...(scene === undefined ? {} : { scene_name: scene.name }),
     semantic_slots: semanticSlots,
     style_bindings: {
-      ...styleBindings
+      ...styleBindings,
     },
-    ...(node.kind === "text" ? { text_content: node.text.content } : {})
+    ...(node.kind === 'text' ? { text_content: node.text.content } : {}),
   };
 }
 
-export function inspectRootTree(document: RendererDocument): TreeNodeInspection[] {
+export function inspectRootTree(
+  document: RendererDocument,
+): TreeNodeInspection[] {
   return document.root.child_ids
     .map((nodeId) => getNode(document, nodeId))
     .filter((node): node is RendererNode => node !== undefined)
@@ -420,7 +470,7 @@ export function inspectRootTree(document: RendererDocument): TreeNodeInspection[
 
 export function inspectSubtree(
   document: RendererDocument,
-  rootNodeId: string
+  rootNodeId: string,
 ): TreeNodeInspection | undefined {
   const node = getNode(document, rootNodeId);
 
@@ -462,7 +512,7 @@ export function inspectScenes(document: RendererDocument): SceneInspection[] {
     scenes.push({
       child_ids: [...frame.child_ids],
       frame,
-      scene
+      scene,
     });
   }
 
@@ -471,7 +521,7 @@ export function inspectScenes(document: RendererDocument): SceneInspection[] {
 
 export function inspectSceneForInspector(
   document: RendererDocument,
-  sceneId: string
+  sceneId: string,
 ): SceneInspectorInspection | undefined {
   const scene = getScene(document, sceneId);
 
@@ -492,22 +542,22 @@ export function inspectSceneForInspector(
     id: scene.id,
     metadata: {
       ...scene.scene_metadata,
-      tags: [...scene.scene_metadata.tags]
+      tags: [...scene.scene_metadata.tags],
     },
-    name: scene.name
+    name: scene.name,
   };
 }
 
 export function inspectSelection(
   document: RendererDocument,
-  selectedNodeId: string | null | undefined
+  selectedNodeId: string | null | undefined,
 ): SelectionInspection {
   const documentInspection = inspectDocumentSummary(document);
 
   if (!selectedNodeId) {
     return {
       document: documentInspection,
-      kind: "document"
+      kind: 'document',
     };
   }
 
@@ -516,7 +566,7 @@ export function inspectSelection(
   if (!nodeInspection) {
     return {
       document: documentInspection,
-      kind: "document"
+      kind: 'document',
     };
   }
 
@@ -525,50 +575,54 @@ export function inspectSelection(
   if (sceneInspection) {
     return {
       document: documentInspection,
-      kind: "scene",
+      kind: 'scene',
       node: nodeInspection,
-      scene: sceneInspection
+      scene: sceneInspection,
     };
   }
 
   return {
     document: documentInspection,
-    kind: "node",
-    node: nodeInspection
+    kind: 'node',
+    node: nodeInspection,
   };
 }
 
-export function inspectDesignSystem(document: RendererDocument): DesignSystemInspection {
+export function inspectDesignSystem(
+  document: RendererDocument,
+): DesignSystemInspection {
   return {
     canvas: document.canvas,
     styles: document.styles,
-    variables: document.variables
+    variables: document.variables,
   };
 }
 
 function buildTreeNodeInspection(
   document: RendererDocument,
-  node: RendererNode
+  node: RendererNode,
 ): TreeNodeInspection {
   return {
     child_ids: [...node.child_ids],
     children: getChildren(document, node.id).map((childNode) =>
-      buildTreeNodeInspection(document, childNode)
+      buildTreeNodeInspection(document, childNode),
     ),
-    ...(node.computed_layout === undefined ? {} : { computed_layout: node.computed_layout }),
+    ...(node.computed_layout === undefined
+      ? {}
+      : { computed_layout: node.computed_layout }),
     id: node.id,
     is_locked: node.is_locked,
     is_visible: node.is_visible,
     kind: node.kind,
     name: node.name,
     parent_id: node.parent_id,
-    scene_id: node.scene_id
+    scene_id: node.scene_id,
   };
 }
 
 function buildNodeAncestorPath(
   document: RendererDocument,
-  node: RendererNode
+  node: RendererNode,
 ): NodePathInspection[] {
   const ancestorPath: NodePathInspection[] = [];
   let currentParentId = node.parent_id;
@@ -583,7 +637,7 @@ function buildNodeAncestorPath(
     ancestorPath.unshift({
       id: parentNode.id,
       kind: parentNode.kind,
-      name: parentNode.name
+      name: parentNode.name,
     });
     currentParentId = parentNode.parent_id;
   }
@@ -593,11 +647,11 @@ function buildNodeAncestorPath(
 
 function resolveBackgroundAssetInspection(
   document: RendererDocument,
-  node: RendererNode
+  node: RendererNode,
 ): BackgroundAssetInspection | undefined {
   const backgroundImage = node.render_style.backgroundImage;
 
-  if (typeof backgroundImage !== "string") {
+  if (typeof backgroundImage !== 'string') {
     return undefined;
   }
 
@@ -616,29 +670,35 @@ function resolveBackgroundAssetInspection(
   return {
     asset,
     asset_id: asset.id,
-    source_kind: asset.source.kind
+    source_kind: asset.source.kind,
   };
 }
 
 function getNodeLocalValues(
-  node: RendererNode
+  node: RendererNode,
 ): Partial<Record<NodeSemanticSlot, RenderStyleValue>> {
-  return node.authoring.local_values as Partial<Record<NodeSemanticSlot, RenderStyleValue>>;
+  return node.authoring.local_values as Partial<
+    Record<NodeSemanticSlot, RenderStyleValue>
+  >;
 }
 
 function getNodeVariableBindings(
-  node: RendererNode
+  node: RendererNode,
 ): Partial<Record<NodeSemanticSlot, string>> {
-  return node.authoring.variable_bindings as Partial<Record<NodeSemanticSlot, string>>;
+  return node.authoring.variable_bindings as Partial<
+    Record<NodeSemanticSlot, string>
+  >;
 }
 
 function getNodeStyleBindings(
-  node: RendererNode
+  node: RendererNode,
 ): Partial<Record<StyleFamily, string>> {
   return node.authoring.style_bindings as Partial<Record<StyleFamily, string>>;
 }
 
-function getNodeStyleFamilyForSlot(slot: NodeSemanticSlot): StyleFamily | undefined {
+function getNodeStyleFamilyForSlot(
+  slot: NodeSemanticSlot,
+): StyleFamily | undefined {
   return NODE_SEMANTIC_SLOT_TO_STYLE_FAMILY[
     slot as keyof typeof NODE_SEMANTIC_SLOT_TO_STYLE_FAMILY
   ];

@@ -605,27 +605,32 @@ The renderer should not redo those responsibilities.
 ## 19. Minimal Render Expectations by Kind
 
 ### `frame`
+
 - renders as HTML box/container
 - may have children
 - consumes `render_style`
 - may clip descendants
 
 ### `rectangle`
+
 - renders as HTML leaf box
 - no children
 - consumes `render_style`
 
 ### `text`
+
 - renders as text element
 - uses `text.content`
 - consumes text-related `render_style`
 
 ### `svg`
+
 - renders as SVG root
 - may contain SVG primitives
 - consumes typed SVG payload plus box-level render style
 
 ### `svg-visual-element`
+
 - renders only as an SVG primitive under an SVG root
 - normalized docs should not contain detached instances; unexpected non-normalized input may fall back visibly
 

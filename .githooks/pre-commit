@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pre-commit: pnpm is required to run Prettier."
+  exit 1
+fi
+
+if ! pnpm exec prettier --version >/dev/null 2>&1; then
+  echo "pre-commit: Prettier is not installed. Run: pnpm add -Dw prettier"
+  exit 1
+fi
+
+prettier_targets=()
+
+while IFS= read -r file_path; do
+  case "$file_path" in
+    *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs|*.json|*.md|*.css|*.scss|*.html|*.yml|*.yaml)
+      if [[ -f "$file_path" ]]; then
+        prettier_targets+=("$file_path")
+      fi
+      ;;
+  esac
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+if [[ ${#prettier_targets[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+echo "pre-commit: formatting staged files with Prettier..."
+pnpm exec prettier --write "${prettier_targets[@]}"
+git add "${prettier_targets[@]}"

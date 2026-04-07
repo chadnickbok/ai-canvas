@@ -143,7 +143,7 @@ The canonical persisted document shape is:
 ```ts
 type RendererDocument = {
   schema_version: 1;
-  render_canon: "browser-css";
+  render_canon: 'browser-css';
   document_id: string;
   name: string;
   page_name: string;
@@ -162,7 +162,7 @@ type RendererDocument = {
 
 ```ts
 type RendererDocumentSource = {
-  kind: "ai-canvas";
+  kind: 'ai-canvas';
   created_at?: string;
   imported_at?: string;
   source_document_id?: string;
@@ -173,9 +173,9 @@ type RendererDocumentSource = {
 
 ### Rules
 
-* New documents SHOULD use `kind: "ai-canvas"`.
-* `created_at` and `imported_at` are optional metadata fields.
-* `source_*` fields are informational only. They do not affect rendering or mutation semantics.
+- New documents SHOULD use `kind: "ai-canvas"`.
+- `created_at` and `imported_at` are optional metadata fields.
+- `source_*` fields are informational only. They do not affect rendering or mutation semantics.
 
 ## 6. Canvas and Root
 
@@ -183,7 +183,7 @@ type RendererDocumentSource = {
 
 ```ts
 type RendererCanvas = {
-  extent_mode: "infinite";
+  extent_mode: 'infinite';
   background_color?: string;
   authoring: RendererCanvasAuthoring;
 };
@@ -197,8 +197,8 @@ The authoring source of truth lives in `canvas.authoring`.
 
 ```ts
 type RendererCanvasAuthoring = {
-  local_values: Partial<Record<"canvas.background_color", string | number>>;
-  variable_bindings: Partial<Record<"canvas.background_color", string>>;
+  local_values: Partial<Record<'canvas.background_color', string | number>>;
+  variable_bindings: Partial<Record<'canvas.background_color', string>>;
 };
 ```
 
@@ -213,17 +213,16 @@ type CanvasRoot = {
 
 ### Rules
 
-* `root.child_ids` is the ordered list of top-level content on the infinite canvas.
-* The order is meaningful for hierarchy and paint order.
-* Every top-level node MUST appear in `root.child_ids`.
-* Every id in `root.child_ids` MUST exist either:
-
-  * as a top-level node in `nodes`, or
-  * as a scene-backed frame node which also exists in `nodes`
+- `root.child_ids` is the ordered list of top-level content on the infinite canvas.
+- The order is meaningful for hierarchy and paint order.
+- Every top-level node MUST appear in `root.child_ids`.
+- Every id in `root.child_ids` MUST exist either:
+  - as a top-level node in `nodes`, or
+  - as a scene-backed frame node which also exists in `nodes`
 
 Observed convention:
 
-* `root.id` is usually `"canvas_root"`
+- `root.id` is usually `"canvas_root"`
 
 ## 7. Scenes
 
@@ -243,13 +242,13 @@ type SceneRecord = {
 
 For every scene `A`:
 
-* `scenes[A].id === A`
-* `scenes[A].frame_node_id === A`
-* `nodes[A]` MUST exist
-* `nodes[A].kind === "frame"`
-* `nodes[A].parent_id === null`
-* `nodes[A].scene_id === A`
-* `A` MUST appear in `root.child_ids`
+- `scenes[A].id === A`
+- `scenes[A].frame_node_id === A`
+- `nodes[A]` MUST exist
+- `nodes[A].kind === "frame"`
+- `nodes[A].parent_id === null`
+- `nodes[A].scene_id === A`
+- `A` MUST appear in `root.child_ids`
 
 ### 7.2 Scene child count
 
@@ -258,7 +257,7 @@ For every scene `A`:
 It MUST equal:
 
 ```ts
-nodes[frame_node_id].child_ids.length
+nodes[frame_node_id].child_ids.length;
 ```
 
 It is never independently authoritative.
@@ -271,8 +270,8 @@ Scene geometry is not duplicated on the scene record.
 
 The scene's backing frame node is the only geometry source:
 
-* authored scene geometry lives in `nodes[scene_id].render_style`
-* resolved scene geometry lives in `nodes[scene_id].computed_layout`
+- authored scene geometry lives in `nodes[scene_id].render_style`
+- resolved scene geometry lives in `nodes[scene_id].computed_layout`
 
 Queries that need scene bounds should read the backing frame node.
 
@@ -282,8 +281,8 @@ Scene background is stored on the backing frame node, not on the scene record.
 
 Typical source:
 
-* `nodes[scene_id].render_style.backgroundColor`
-* and/or the mapped semantic authoring slot for background color
+- `nodes[scene_id].render_style.backgroundColor`
+- and/or the mapped semantic authoring slot for background color
 
 ## 8. Scene Metadata
 
@@ -301,8 +300,8 @@ type RendererSceneMetadata = {
 
 ### Rules
 
-* `tags` MUST always be present.
-* `tags` defaults to `[]`.
+- `tags` MUST always be present.
+- `tags` defaults to `[]`.
 
 ## 9. Nodes
 
@@ -328,56 +327,56 @@ type BaseNode = {
 
 The canonical normalized kinds are:
 
-* `frame`
-* `rectangle`
-* `text`
-* `svg`
-* `svg-visual-element`
+- `frame`
+- `rectangle`
+- `text`
+- `svg`
+- `svg-visual-element`
 
 ```ts
 type RendererNodeKind =
-  | "frame"
-  | "rectangle"
-  | "text"
-  | "svg"
-  | "svg-visual-element";
+  | 'frame'
+  | 'rectangle'
+  | 'text'
+  | 'svg'
+  | 'svg-visual-element';
 ```
 
 ### 9.2 Structural invariants
 
 For all nodes:
 
-* node map key MUST equal `node.id`
-* if `parent_id === null`, the node MUST appear in `root.child_ids`
-* if `parent_id !== null`, the parent MUST exist
-* the parent's `child_ids` MUST include this node id
-* every listed child id MUST exist and point back via `parent_id`
-* a child MUST share `scene_id` with its parent
+- node map key MUST equal `node.id`
+- if `parent_id === null`, the node MUST appear in `root.child_ids`
+- if `parent_id !== null`, the parent MUST exist
+- the parent's `child_ids` MUST include this node id
+- every listed child id MUST exist and point back via `parent_id`
+- a child MUST share `scene_id` with its parent
 
 Additional top-level rules:
 
-* loose top-level nodes have `parent_id: null` and `scene_id: null`
-* scene frame nodes have `parent_id: null` and `scene_id: <their own scene id>`
+- loose top-level nodes have `parent_id: null` and `scene_id: null`
+- scene frame nodes have `parent_id: null` and `scene_id: <their own scene id>`
 
 ### 9.3 Leaf and container restrictions
 
 These kinds MUST have no children:
 
-* `text`
-* `rectangle`
-* `svg-visual-element`
+- `text`
+- `rectangle`
+- `svg-visual-element`
 
 These kinds MAY have children:
 
-* `frame`
-* `svg`
+- `frame`
+- `svg`
 
 ### 9.4 Geometry layers
 
 Every node has:
 
-* `render_style`, the input layer
-* optional `computed_layout`, the computed output layer cache
+- `render_style`, the input layer
+- optional `computed_layout`, the computed output layer cache
 
 ```ts
 type ComputedLayout = {
@@ -393,20 +392,20 @@ It is a measured geometry snapshot, not a browser "computed style" dump.
 
 Rules:
 
-* `render_style.width` and `render_style.height` MAY be absolute, relative, or absent
-* omitted width/height in `render_style` are meaningful and MUST not be synthesized just to mirror outputs
-* relative or flexible layout inputs MUST round-trip unchanged in `render_style`
-* `computed_layout` SHOULD be refreshed when a mutation changes resolved geometry and measurement is available
-* persisted computed outputs SHOULD capture the latest resolved box for any node affected by layout reflow
+- `render_style.width` and `render_style.height` MAY be absolute, relative, or absent
+- omitted width/height in `render_style` are meaningful and MUST not be synthesized just to mirror outputs
+- relative or flexible layout inputs MUST round-trip unchanged in `render_style`
+- `computed_layout` SHOULD be refreshed when a mutation changes resolved geometry and measurement is available
+- persisted computed outputs SHOULD capture the latest resolved box for any node affected by layout reflow
 
 ### 9.5 Creation-time defaults
 
 When commands create a node or a scene backing frame and omit optional authored fields, the initialized document state is:
 
-* `is_visible: true`
-* `is_locked: false`
-* `child_ids: []`
-* `render_style: {}`
+- `is_visible: true`
+- `is_locked: false`
+- `child_ids: []`
+- `render_style: {}`
 
 `computed_layout` is derived rather than caller-authored.
 
@@ -420,7 +419,7 @@ Committed and persisted document state SHOULD carry the latest measured layout s
 
 ```ts
 type FrameNode = BaseNode & {
-  kind: "frame";
+  kind: 'frame';
 };
 ```
 
@@ -428,7 +427,7 @@ type FrameNode = BaseNode & {
 
 ```ts
 type RectangleNode = BaseNode & {
-  kind: "rectangle";
+  kind: 'rectangle';
 };
 ```
 
@@ -436,7 +435,7 @@ type RectangleNode = BaseNode & {
 
 ```ts
 type TextNode = BaseNode & {
-  kind: "text";
+  kind: 'text';
   text: {
     content: string;
   };
@@ -445,15 +444,15 @@ type TextNode = BaseNode & {
 
 Rules:
 
-* `text.content` MAY be empty
-* the UI MAY create text nodes with default placeholder content for convenience
-* persistence MUST allow empty string content
+- `text.content` MAY be empty
+- the UI MAY create text nodes with default placeholder content for convenience
+- persistence MUST allow empty string content
 
 ### 10.4 SVG root
 
 ```ts
 type SvgNode = BaseNode & {
-  kind: "svg";
+  kind: 'svg';
   svg: {
     definitions?: Array<{
       id?: string;
@@ -471,7 +470,7 @@ type SvgNode = BaseNode & {
 
 ```ts
 type SvgVisualElementNode = BaseNode & {
-  kind: "svg-visual-element";
+  kind: 'svg-visual-element';
   svg_primitive: {
     element_name: string;
     order: number;
@@ -482,9 +481,8 @@ type SvgVisualElementNode = BaseNode & {
 
 Rules:
 
-* `svg-visual-element` is meaningful only inside an `svg` node
-* render order inside an `svg` root is determined by:
-
+- `svg-visual-element` is meaningful only inside an `svg` node
+- render order inside an `svg` root is determined by:
   1. `svg_primitive.order`
   2. original child order as a tiebreaker
 
@@ -501,14 +499,14 @@ type RenderStyleBag = Record<string, RenderStyleValue | undefined>;
 
 ### Rules
 
-* `render_style` stores direct render inputs, not resolved output geometry
-* `render_style` is render-oriented, not semantic-authoring-oriented
-* unknown keys are allowed and MUST be preserved
-* stored values are only strings or numbers
-* `null` is not a persisted style value
-* property deletion is represented by removing the property from the stored bag
-* relative values such as percentages MUST be preserved as values, not rewritten into computed pixels
-* width/height may be omitted when layout is determined by other inputs such as flex rules
+- `render_style` stores direct render inputs, not resolved output geometry
+- `render_style` is render-oriented, not semantic-authoring-oriented
+- unknown keys are allowed and MUST be preserved
+- stored values are only strings or numbers
+- `null` is not a persisted style value
+- property deletion is represented by removing the property from the stored bag
+- relative values such as percentages MUST be preserved as values, not rewritten into computed pixels
+- width/height may be omitted when layout is determined by other inputs such as flex rules
 
 The render lifecycle is:
 
@@ -525,58 +523,58 @@ The render lifecycle is:
 
 Common observed and supported keys include:
 
-* `display`
-* `position`
-* `left`
-* `top`
-* `right`
-* `bottom`
-* `width`
-* `height`
-* `overflow`
-* `gap`
-* `flexDirection`
-* `flexGrow`
-* `flexBasis`
-* `justifyContent`
-* `alignItems`
-* `alignSelf`
-* `paddingTop`
-* `paddingRight`
-* `paddingBottom`
-* `paddingLeft`
-* `paddingBlock`
-* `paddingInline`
-* `minWidth`
-* `minHeight`
-* `maxHeight`
-* `backgroundColor`
-* `backgroundImage`
-* `backgroundPosition`
-* `backgroundRepeat`
-* `backgroundSize`
-* `borderRadius`
-* `boxShadow`
-* `backdropFilter`
-* `filter`
-* `opacity`
-* `fontFamily`
-* `fontSize`
-* `fontWeight`
-* `lineHeight`
-* `letterSpacing`
-* `color`
-* `whiteSpace`
-* `textAlign`
-* `textTransform`
-* `maxWidth`
-* `outline`
-* `outlineOffset`
-* `transform`
-* `transformOrigin`
-* `translate`
-* `rotate`
-* `flexShrink`
+- `display`
+- `position`
+- `left`
+- `top`
+- `right`
+- `bottom`
+- `width`
+- `height`
+- `overflow`
+- `gap`
+- `flexDirection`
+- `flexGrow`
+- `flexBasis`
+- `justifyContent`
+- `alignItems`
+- `alignSelf`
+- `paddingTop`
+- `paddingRight`
+- `paddingBottom`
+- `paddingLeft`
+- `paddingBlock`
+- `paddingInline`
+- `minWidth`
+- `minHeight`
+- `maxHeight`
+- `backgroundColor`
+- `backgroundImage`
+- `backgroundPosition`
+- `backgroundRepeat`
+- `backgroundSize`
+- `borderRadius`
+- `boxShadow`
+- `backdropFilter`
+- `filter`
+- `opacity`
+- `fontFamily`
+- `fontSize`
+- `fontWeight`
+- `lineHeight`
+- `letterSpacing`
+- `color`
+- `whiteSpace`
+- `textAlign`
+- `textTransform`
+- `maxWidth`
+- `outline`
+- `outlineOffset`
+- `transform`
+- `transformOrigin`
+- `translate`
+- `rotate`
+- `flexShrink`
 
 ## 12. Semantic Authoring Layer
 
@@ -584,30 +582,30 @@ The semantic layer is project-local and explicit in the persisted schema.
 
 It consists of:
 
-* canvas authoring
-* node authoring
-* variables
-* styles
-* scene metadata
+- canvas authoring
+- node authoring
+- variables
+- styles
+- scene metadata
 
 ### 12.1 Node semantic slots
 
 ```ts
 type NodeSemanticSlot =
-  | "node.layout.gap"
-  | "node.layout.padding_top"
-  | "node.layout.padding_right"
-  | "node.layout.padding_bottom"
-  | "node.layout.padding_left"
-  | "node.paint.background_color"
-  | "node.paint.opacity"
-  | "node.shape.border_radius"
-  | "node.text.color"
-  | "node.typography.font_family"
-  | "node.typography.font_size"
-  | "node.typography.font_weight"
-  | "node.typography.line_height"
-  | "node.typography.letter_spacing";
+  | 'node.layout.gap'
+  | 'node.layout.padding_top'
+  | 'node.layout.padding_right'
+  | 'node.layout.padding_bottom'
+  | 'node.layout.padding_left'
+  | 'node.paint.background_color'
+  | 'node.paint.opacity'
+  | 'node.shape.border_radius'
+  | 'node.text.color'
+  | 'node.typography.font_family'
+  | 'node.typography.font_size'
+  | 'node.typography.font_weight'
+  | 'node.typography.line_height'
+  | 'node.typography.letter_spacing';
 ```
 
 ### 12.2 Node authoring
@@ -616,7 +614,7 @@ type NodeSemanticSlot =
 type RendererNodeAuthoring = {
   local_values: Partial<Record<NodeSemanticSlot, string | number>>;
   variable_bindings: Partial<Record<NodeSemanticSlot, string>>;
-  style_bindings: Partial<Record<"paint" | "text", string>>;
+  style_bindings: Partial<Record<'paint' | 'text', string>>;
 };
 ```
 
@@ -652,28 +650,28 @@ Raw `render_style` may still carry non-semantic properties outside this matrix w
 
 Only the following render properties participate in semantic authoring:
 
-* `canvas.background_color` -> `canvas.background_color`
-* `node.paint.background_color` -> `backgroundColor`
-* `node.text.color` -> `color`
-* `node.shape.border_radius` -> `borderRadius`
-* `node.layout.gap` -> `gap`
-* `node.layout.padding_top` -> `paddingTop`
-* `node.layout.padding_right` -> `paddingRight`
-* `node.layout.padding_bottom` -> `paddingBottom`
-* `node.layout.padding_left` -> `paddingLeft`
-* `node.typography.font_family` -> `fontFamily`
-* `node.typography.font_size` -> `fontSize`
-* `node.typography.font_weight` -> `fontWeight`
-* `node.typography.line_height` -> `lineHeight`
-* `node.typography.letter_spacing` -> `letterSpacing`
-* `node.paint.opacity` -> `opacity`
+- `canvas.background_color` -> `canvas.background_color`
+- `node.paint.background_color` -> `backgroundColor`
+- `node.text.color` -> `color`
+- `node.shape.border_radius` -> `borderRadius`
+- `node.layout.gap` -> `gap`
+- `node.layout.padding_top` -> `paddingTop`
+- `node.layout.padding_right` -> `paddingRight`
+- `node.layout.padding_bottom` -> `paddingBottom`
+- `node.layout.padding_left` -> `paddingLeft`
+- `node.typography.font_family` -> `fontFamily`
+- `node.typography.font_size` -> `fontSize`
+- `node.typography.font_weight` -> `fontWeight`
+- `node.typography.line_height` -> `lineHeight`
+- `node.typography.letter_spacing` -> `letterSpacing`
+- `node.paint.opacity` -> `opacity`
 
 All other render properties remain raw `render_style` only.
 
 ### 12.5 Semantic slot namespace
 
 ```ts
-type RendererSemanticSlot = "canvas.background_color" | NodeSemanticSlot;
+type RendererSemanticSlot = 'canvas.background_color' | NodeSemanticSlot;
 ```
 
 ## 13. Variables
@@ -693,31 +691,31 @@ type RendererVariableCollection = {
 };
 
 type VariableModeValue<T> =
-  | { kind: "value"; value: T }
-  | { kind: "alias"; variable_id: string };
+  | { kind: 'value'; value: T }
+  | { kind: 'alias'; variable_id: string };
 ```
 
 Supported variable kinds:
 
-* `color`
-* `radius`
-* `spacing`
-* `typography`
+- `color`
+- `radius`
+- `spacing`
+- `typography`
 
 All variables share:
 
-* `id`
-* `collection_id`
-* `group_path: string[]`
-* `name`
-* `scopes: RendererSemanticSlot[]`
-* `values_by_mode`
-* optional `description`
+- `id`
+- `collection_id`
+- `group_path: string[]`
+- `name`
+- `scopes: RendererSemanticSlot[]`
+- `values_by_mode`
+- optional `description`
 
 Mode values are:
 
-* `{ kind: "value", value: ... }`
-* `{ kind: "alias", variable_id: "..." }`
+- `{ kind: "value", value: ... }`
+- `{ kind: "alias", variable_id: "..." }`
 
 Typography variable values are:
 
@@ -742,10 +740,10 @@ type RendererVariableBase<TKind extends string, TValue> = {
 };
 
 type RendererVariable =
-  | RendererVariableBase<"color", string>
-  | RendererVariableBase<"radius", string | number>
-  | RendererVariableBase<"spacing", string | number>
-  | RendererVariableBase<"typography", TypographyTokenValue>;
+  | RendererVariableBase<'color', string>
+  | RendererVariableBase<'radius', string | number>
+  | RendererVariableBase<'spacing', string | number>
+  | RendererVariableBase<'typography', TypographyTokenValue>;
 ```
 
 ## 14. Styles
@@ -757,33 +755,33 @@ type RendererStyles = {
 };
 
 type StyleSlotValue<T> =
-  | { kind: "value"; value: T }
-  | { kind: "variable"; variable_id: string };
+  | { kind: 'value'; value: T }
+  | { kind: 'variable'; variable_id: string };
 ```
 
 Text styles may define:
 
-* `node.text.color`
-* `node.typography.font_family`
-* `node.typography.font_size`
-* `node.typography.font_weight`
-* `node.typography.line_height`
-* `node.typography.letter_spacing`
+- `node.text.color`
+- `node.typography.font_family`
+- `node.typography.font_size`
+- `node.typography.font_weight`
+- `node.typography.line_height`
+- `node.typography.letter_spacing`
 
 Text styles are only bindable to `text` nodes in v1.
 
 Paint styles may define:
 
-* `node.paint.background_color`
-* `node.shape.border_radius`
-* `node.paint.opacity`
+- `node.paint.background_color`
+- `node.shape.border_radius`
+- `node.paint.opacity`
 
 Paint styles are only bindable to `frame` and `rectangle` nodes in v1.
 
 Style slots store either:
 
-* `{ kind: "value", value: ... }`
-* `{ kind: "variable", variable_id: "..." }`
+- `{ kind: "value", value: ... }`
+- `{ kind: "variable", variable_id: "..." }`
 
 ```ts
 type RendererPaintStyle = {
@@ -791,9 +789,9 @@ type RendererPaintStyle = {
   name: string;
   description?: string;
   slots: Partial<{
-    "node.paint.background_color": StyleSlotValue<string>;
-    "node.shape.border_radius": StyleSlotValue<string | number>;
-    "node.paint.opacity": StyleSlotValue<string | number>;
+    'node.paint.background_color': StyleSlotValue<string>;
+    'node.shape.border_radius': StyleSlotValue<string | number>;
+    'node.paint.opacity': StyleSlotValue<string | number>;
   }>;
 };
 
@@ -802,12 +800,12 @@ type RendererTextStyle = {
   name: string;
   description?: string;
   slots: Partial<{
-    "node.text.color": StyleSlotValue<string>;
-    "node.typography.font_family": StyleSlotValue<string>;
-    "node.typography.font_size": StyleSlotValue<string | number>;
-    "node.typography.font_weight": StyleSlotValue<string | number>;
-    "node.typography.line_height": StyleSlotValue<string | number>;
-    "node.typography.letter_spacing": StyleSlotValue<string | number>;
+    'node.text.color': StyleSlotValue<string>;
+    'node.typography.font_family': StyleSlotValue<string>;
+    'node.typography.font_size': StyleSlotValue<string | number>;
+    'node.typography.font_weight': StyleSlotValue<string | number>;
+    'node.typography.line_height': StyleSlotValue<string | number>;
+    'node.typography.letter_spacing': StyleSlotValue<string | number>;
   }>;
 };
 ```
@@ -833,7 +831,7 @@ type OpaqueValue =
 ```ts
 type AssetRecord = {
   id: string;
-  kind: "image" | "svg" | "unknown";
+  kind: 'image' | 'svg' | 'unknown';
   mime_type: string;
   width?: number;
   height?: number;
@@ -842,11 +840,11 @@ type AssetRecord = {
 };
 
 type EmbeddedAssetSource =
-  | { kind: "data_uri"; data_uri: string }
-  | { kind: "base64"; base64: string };
+  | { kind: 'data_uri'; data_uri: string }
+  | { kind: 'base64'; base64: string };
 
 type LocalAssetStoreSource = {
-  kind: "asset_store";
+  kind: 'asset_store';
   content_hash: string;
   original_filename?: string;
 };
@@ -854,16 +852,15 @@ type LocalAssetStoreSource = {
 
 ### Rules
 
-* asset ids are project-local
-* `mime_type` is required
-* `width` and `height` SHOULD be present when known
-* `metadata` is optional
-* content is stored either:
-
-  * embedded directly in the document, or
-  * by reference to the local asset store using a content hash
-* for live desktop persistence, `asset_store` is the preferred source kind
-* embedded sources are readable for compatibility, but new live desktop writes should prefer `asset_store`
+- asset ids are project-local
+- `mime_type` is required
+- `width` and `height` SHOULD be present when known
+- `metadata` is optional
+- content is stored either:
+  - embedded directly in the document, or
+  - by reference to the local asset store using a content hash
+- for live desktop persistence, `asset_store` is the preferred source kind
+- embedded sources are readable for compatibility, but new live desktop writes should prefer `asset_store`
 
 ### Asset references
 
@@ -925,22 +922,22 @@ Normalization SHOULD repair documents where possible.
 
 Normalization SHOULD repair or safely tolerate these when possible:
 
-* missing empty semantic containers
-* missing `scene_metadata.tags`
-* stale `scene.child_count`
-* missing or stale `computed_layout`
-* broken `root.child_ids` entries that refer to missing nodes
-* broken `child_ids` entries that refer to missing nodes
-* `backgroundImage` asset references to missing assets
-* invalid style-binding keys or non-string style ids
-* invalid variable-binding keys or non-string variable ids
+- missing empty semantic containers
+- missing `scene_metadata.tags`
+- stale `scene.child_count`
+- missing or stale `computed_layout`
+- broken `root.child_ids` entries that refer to missing nodes
+- broken `child_ids` entries that refer to missing nodes
+- `backgroundImage` asset references to missing assets
+- invalid style-binding keys or non-string style ids
+- invalid variable-binding keys or non-string variable ids
 
 Repair behavior:
 
-* restore required empty containers
-* recompute derived fields
-* preserve or tolerate missing/stale `computed_layout` during normalization
-* drop broken references that cannot be repaired safely
+- restore required empty containers
+- recompute derived fields
+- preserve or tolerate missing/stale `computed_layout` during normalization
+- drop broken references that cannot be repaired safely
 
 ### 17.2 Structural issues
 
@@ -948,28 +945,28 @@ For serious structural issues, normalization SHOULD preserve as much visible con
 
 Examples:
 
-* if a node points to a missing parent, reattach it as a loose top-level node
-* if a scene record exists without a valid frame node, drop the scene record
-* if a frame node looks like an orphaned scene backing node, preserve the frame node as a loose top-level node rather than deleting it outright
+- if a node points to a missing parent, reattach it as a loose top-level node
+- if a scene record exists without a valid frame node, drop the scene record
+- if a frame node looks like an orphaned scene backing node, preserve the frame node as a loose top-level node rather than deleting it outright
 
 ### 17.3 Non-fatal stance
 
 The product should prefer:
 
-* render what can be rendered
-* inspect what can be inspected
-* drop only data that is provably broken and unsafe to keep
+- render what can be rendered
+- inspect what can be inspected
+- drop only data that is provably broken and unsafe to keep
 
 ## 18. Non-Goals of This Document
 
 This schema document does not define:
 
-* normalization precedence rules in detail
-* semantic materialization rules
-* command semantics
-* undo/redo behavior
-* autosave timing
-* renderer implementation details
-* import compatibility rules
+- normalization precedence rules in detail
+- semantic materialization rules
+- command semantics
+- undo/redo behavior
+- autosave timing
+- renderer implementation details
+- import compatibility rules
 
 Those belong in separate docs.

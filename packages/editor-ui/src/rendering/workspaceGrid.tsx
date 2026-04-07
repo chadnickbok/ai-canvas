@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
-import type { ViewportState } from "./types.js";
-import type { ViewportSize } from "./viewport.js";
+import type { ViewportState } from './types.js';
+import type { ViewportSize } from './viewport.js';
 
-export type WorkspaceGridAxis = "horizontal" | "vertical";
-export type WorkspaceGridLineKind = "major" | "minor";
+export type WorkspaceGridAxis = 'horizontal' | 'vertical';
+export type WorkspaceGridLineKind = 'major' | 'minor';
 
 export type WorkspaceGridLine = {
   axis: WorkspaceGridAxis;
@@ -35,9 +35,9 @@ type VisibleDocumentRange = {
   startY: number;
 };
 
-const GRID_BACKGROUND_FILL = "#ffffff";
-const GRID_MAJOR_LINE_COLOR = "rgba(17, 17, 17, 0.085)";
-const GRID_MINOR_LINE_COLOR = "rgba(17, 17, 17, 0.045)";
+const GRID_BACKGROUND_FILL = '#ffffff';
+const GRID_MAJOR_LINE_COLOR = 'rgba(17, 17, 17, 0.085)';
+const GRID_MINOR_LINE_COLOR = 'rgba(17, 17, 17, 0.045)';
 const GRID_STROKE_WIDTH = 1;
 
 export const WORKSPACE_GRID_MAJOR_SPACING = 128;
@@ -53,22 +53,31 @@ export function snapGridLineToDevicePixel(
   options?: {
     devicePixelRatio?: number;
     strokeWidth?: number;
-  }
+  },
 ): number {
   const devicePixelRatio =
-    options?.devicePixelRatio && options.devicePixelRatio > 0 ? options.devicePixelRatio : 1;
+    options?.devicePixelRatio && options.devicePixelRatio > 0
+      ? options.devicePixelRatio
+      : 1;
   const strokeWidth = options?.strokeWidth ?? GRID_STROKE_WIDTH;
   const strokeWidthInDevicePixels = strokeWidth * devicePixelRatio;
-  const halfPixelOffset = strokeWidthInDevicePixels % 2 === 0 ? 0 : 0.5 / devicePixelRatio;
+  const halfPixelOffset =
+    strokeWidthInDevicePixels % 2 === 0 ? 0 : 0.5 / devicePixelRatio;
 
-  return Math.round(position * devicePixelRatio) / devicePixelRatio + halfPixelOffset;
+  return (
+    Math.round(position * devicePixelRatio) / devicePixelRatio + halfPixelOffset
+  );
 }
 
 export function resolveVisibleDocumentRange(
   viewport: ViewportState,
-  viewportSize: ViewportSize
+  viewportSize: ViewportSize,
 ): VisibleDocumentRange | null {
-  if (viewport.zoom <= 0 || viewportSize.width <= 0 || viewportSize.height <= 0) {
+  if (
+    viewport.zoom <= 0 ||
+    viewportSize.width <= 0 ||
+    viewportSize.height <= 0
+  ) {
     return null;
   }
 
@@ -76,16 +85,19 @@ export function resolveVisibleDocumentRange(
     endX: (viewportSize.width - viewport.panX) / viewport.zoom,
     endY: (viewportSize.height - viewport.panY) / viewport.zoom,
     startX: -viewport.panX / viewport.zoom,
-    startY: -viewport.panY / viewport.zoom
+    startY: -viewport.panY / viewport.zoom,
   };
 }
 
 export function buildWorkspaceGridGeometry(
-  input: BuildWorkspaceGridGeometryInput
+  input: BuildWorkspaceGridGeometryInput,
 ): WorkspaceGridGeometry {
   const width = Math.max(0, input.viewportSize.width);
   const height = Math.max(0, input.viewportSize.height);
-  const visibleDocumentRange = resolveVisibleDocumentRange(input.viewport, input.viewportSize);
+  const visibleDocumentRange = resolveVisibleDocumentRange(
+    input.viewport,
+    input.viewportSize,
+  );
 
   if (!visibleDocumentRange) {
     return {
@@ -93,62 +105,64 @@ export function buildWorkspaceGridGeometry(
       height,
       majorLines: [],
       minorLines: [],
-      width
+      width,
     };
   }
 
   const minorLines = shouldRenderMinorGridLines(input.viewport.zoom)
     ? [
         ...createGridLinesForAxis({
-          axis: "vertical",
+          axis: 'vertical',
           devicePixelRatio: input.devicePixelRatio,
           documentEnd: visibleDocumentRange.endX,
           documentStart: visibleDocumentRange.startX,
-          kind: "minor",
+          kind: 'minor',
           pan: input.viewport.panX,
           screenExtent: width,
-          skipEvery: WORKSPACE_GRID_MAJOR_SPACING / WORKSPACE_GRID_MINOR_SPACING,
+          skipEvery:
+            WORKSPACE_GRID_MAJOR_SPACING / WORKSPACE_GRID_MINOR_SPACING,
           spacing: WORKSPACE_GRID_MINOR_SPACING,
-          zoom: input.viewport.zoom
+          zoom: input.viewport.zoom,
         }),
         ...createGridLinesForAxis({
-          axis: "horizontal",
+          axis: 'horizontal',
           devicePixelRatio: input.devicePixelRatio,
           documentEnd: visibleDocumentRange.endY,
           documentStart: visibleDocumentRange.startY,
-          kind: "minor",
+          kind: 'minor',
           pan: input.viewport.panY,
           screenExtent: height,
-          skipEvery: WORKSPACE_GRID_MAJOR_SPACING / WORKSPACE_GRID_MINOR_SPACING,
+          skipEvery:
+            WORKSPACE_GRID_MAJOR_SPACING / WORKSPACE_GRID_MINOR_SPACING,
           spacing: WORKSPACE_GRID_MINOR_SPACING,
-          zoom: input.viewport.zoom
-        })
+          zoom: input.viewport.zoom,
+        }),
       ]
     : [];
 
   const majorLines = [
     ...createGridLinesForAxis({
-      axis: "vertical",
+      axis: 'vertical',
       devicePixelRatio: input.devicePixelRatio,
       documentEnd: visibleDocumentRange.endX,
       documentStart: visibleDocumentRange.startX,
-      kind: "major",
+      kind: 'major',
       pan: input.viewport.panX,
       screenExtent: width,
       spacing: WORKSPACE_GRID_MAJOR_SPACING,
-      zoom: input.viewport.zoom
+      zoom: input.viewport.zoom,
     }),
     ...createGridLinesForAxis({
-      axis: "horizontal",
+      axis: 'horizontal',
       devicePixelRatio: input.devicePixelRatio,
       documentEnd: visibleDocumentRange.endY,
       documentStart: visibleDocumentRange.startY,
-      kind: "major",
+      kind: 'major',
       pan: input.viewport.panY,
       screenExtent: height,
       spacing: WORKSPACE_GRID_MAJOR_SPACING,
-      zoom: input.viewport.zoom
-    })
+      zoom: input.viewport.zoom,
+    }),
   ];
 
   return {
@@ -156,22 +170,24 @@ export function buildWorkspaceGridGeometry(
     height,
     majorLines,
     minorLines,
-    width
+    width,
   };
 }
 
 export function WorkspaceGridBackdrop({
   viewport,
-  viewportSize
+  viewportSize,
 }: {
   viewport: ViewportState;
   viewportSize: ViewportSize;
 }) {
   const geometry = buildWorkspaceGridGeometry({
     devicePixelRatio:
-      typeof window === "undefined" || !window.devicePixelRatio ? 1 : window.devicePixelRatio,
+      typeof window === 'undefined' || !window.devicePixelRatio
+        ? 1
+        : window.devicePixelRatio,
     viewport,
-    viewportSize
+    viewportSize,
   });
   const svgWidth = Math.max(geometry.width, 1);
   const svgHeight = Math.max(geometry.height, 1);
@@ -182,10 +198,10 @@ export function WorkspaceGridBackdrop({
       preserveAspectRatio="none"
       shapeRendering="crispEdges"
       style={{
-        display: "block",
-        height: "100%",
-        pointerEvents: "none",
-        width: "100%"
+        display: 'block',
+        height: '100%',
+        pointerEvents: 'none',
+        width: '100%',
       }}
       viewBox={`0 0 ${svgWidth} ${svgHeight}`}
     >
@@ -197,8 +213,12 @@ export function WorkspaceGridBackdrop({
         x="0"
         y="0"
       />
-      {geometry.minorLines.map((line) => renderGridLine(line, geometry.width, geometry.height))}
-      {geometry.majorLines.map((line) => renderGridLine(line, geometry.width, geometry.height))}
+      {geometry.minorLines.map((line) =>
+        renderGridLine(line, geometry.width, geometry.height),
+      )}
+      {geometry.majorLines.map((line) =>
+        renderGridLine(line, geometry.width, geometry.height),
+      )}
     </svg>
   );
 }
@@ -229,7 +249,10 @@ function createGridLinesForAxis(input: {
     const documentCoordinate = index * input.spacing;
     const rawScreenCoordinate = documentCoordinate * input.zoom + input.pan;
 
-    if (rawScreenCoordinate < -GRID_STROKE_WIDTH || rawScreenCoordinate > input.screenExtent + GRID_STROKE_WIDTH) {
+    if (
+      rawScreenCoordinate < -GRID_STROKE_WIDTH ||
+      rawScreenCoordinate > input.screenExtent + GRID_STROKE_WIDTH
+    ) {
       continue;
     }
 
@@ -240,8 +263,8 @@ function createGridLinesForAxis(input: {
       kind: input.kind,
       screenCoordinate: snapGridLineToDevicePixel(rawScreenCoordinate, {
         devicePixelRatio: input.devicePixelRatio,
-        strokeWidth: GRID_STROKE_WIDTH
-      })
+        strokeWidth: GRID_STROKE_WIDTH,
+      }),
     });
   }
 
@@ -251,10 +274,11 @@ function createGridLinesForAxis(input: {
 function renderGridLine(
   line: WorkspaceGridLine,
   width: number,
-  height: number
+  height: number,
 ): ReactNode {
-  const stroke = line.kind === "major" ? GRID_MAJOR_LINE_COLOR : GRID_MINOR_LINE_COLOR;
-  const isVertical = line.axis === "vertical";
+  const stroke =
+    line.kind === 'major' ? GRID_MAJOR_LINE_COLOR : GRID_MINOR_LINE_COLOR;
+  const isVertical = line.axis === 'vertical';
 
   return (
     <line

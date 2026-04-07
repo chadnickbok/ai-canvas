@@ -1,23 +1,23 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { createServer } from "node:net";
-import os from "node:os";
-import path from "node:path";
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createServer } from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 
-import { afterEach, describe, expect, it } from "vitest";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { afterEach, describe, expect, it } from 'vitest';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 import {
   collectSubtreeIds,
   resolveComputedLayoutRootIds,
-  type RendererDocument
-} from "@ai-canvas/document-core";
-import { err, ok, type RuntimeEvent } from "@ai-canvas/ipc-contract";
-import { LocalMcpBridge } from "@ai-canvas/mcp-bridge";
+  type RendererDocument,
+} from '@ai-canvas/document-core';
+import { err, ok, type RuntimeEvent } from '@ai-canvas/ipc-contract';
+import { LocalMcpBridge } from '@ai-canvas/mcp-bridge';
 
-import { createProjectService } from "../createProjectService.js";
-import { createProjectRuntime, type ProjectRuntime } from "./projectRuntime";
-import { ProjectStore } from "./projectStore";
+import { createProjectService } from '../createProjectService.js';
+import { createProjectRuntime, type ProjectRuntime } from './projectRuntime';
+import { ProjectStore } from './projectStore';
 
 const cleanupPaths: string[] = [];
 const activeBridges: LocalMcpBridge[] = [];
@@ -29,20 +29,24 @@ const TINY_PNG_HASH =
 
 afterEach(async () => {
   await Promise.all(activeBridges.splice(0).map((bridge) => bridge.stop()));
-  await Promise.all(cleanupPaths.splice(0).map((entry) => rm(entry, { force: true, recursive: true })));
+  await Promise.all(
+    cleanupPaths
+      .splice(0)
+      .map((entry) => rm(entry, { force: true, recursive: true })),
+  );
 });
 
 async function getAvailablePort(): Promise<number> {
   return await new Promise((resolve, reject) => {
     const server = createServer();
 
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
       const address = server.address();
 
-      if (!address || typeof address === "string") {
+      if (!address || typeof address === 'string') {
         server.close();
-        reject(new Error("Failed to allocate a test port"));
+        reject(new Error('Failed to allocate a test port'));
         return;
       }
 
@@ -86,7 +90,7 @@ function attachTestComputedLayoutRefresher(runtime: ProjectRuntime) {
           height,
           width,
           x,
-          y
+          y,
         };
         measuredNodeCount += 1;
       }
@@ -98,21 +102,23 @@ function attachTestComputedLayoutRefresher(runtime: ProjectRuntime) {
         ? {
             measured_node_count: measuredNodeCount,
             measured_root_ids: rootIds,
-            status: "refreshed" as const
+            status: 'refreshed' as const,
           }
         : {
-            status: "not_required" as const
-          }
+            status: 'not_required' as const,
+          },
     };
   });
 }
 
-function resolveFiniteCanvasNumber(value: RendererDocument["nodes"][string]["render_style"][string]) {
-  if (typeof value === "number" && Number.isFinite(value)) {
+function resolveFiniteCanvasNumber(
+  value: RendererDocument['nodes'][string]['render_style'][string],
+) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
 
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
 
@@ -135,18 +141,18 @@ function createMockAssetUrlDownloader() {
     ok({
       bytes: TINY_PNG_BYTES,
       height: 1,
-      mimeType: "image/png" as const,
-      originalFilename: "logo.png",
-      width: 1
+      mimeType: 'image/png' as const,
+      originalFilename: 'logo.png',
+      width: 1,
     });
 }
 
-describe("ProjectRuntime", () => {
-  it("creates a project and makes it the active session", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-"));
+describe('ProjectRuntime', () => {
+  it('creates a project and makes it the active session', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-'));
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
     const events: RuntimeEvent[] = [];
 
@@ -154,58 +160,65 @@ describe("ProjectRuntime", () => {
       events.push(event);
     });
 
-    const createResult = runtime.createProject("Phase 0 Test");
+    const createResult = runtime.createProject('Phase 0 Test');
 
     expect(createResult.ok).toBe(true);
 
     const activeProject = runtime.getActiveProject();
 
-    expect(activeProject.ok && activeProject.data?.project.name).toBe("Phase 0 Test");
-    expect(activeProject.ok && activeProject.data?.document.document_id.startsWith("doc_")).toBe(true);
+    expect(activeProject.ok && activeProject.data?.project.name).toBe(
+      'Phase 0 Test',
+    );
+    expect(
+      activeProject.ok &&
+        activeProject.data?.document.document_id.startsWith('doc_'),
+    ).toBe(true);
     expect(activeProject.ok && activeProject.data?.revision).toBe(1);
     expect(events.map((event) => event.type)).toEqual([
-      "projects_changed",
-      "active_project_changed",
-      "history_state_changed",
-      "runtime_capabilities_changed"
+      'projects_changed',
+      'active_project_changed',
+      'history_state_changed',
+      'runtime_capabilities_changed',
     ]);
     expect(events[0]).toMatchObject({
-      type: "projects_changed",
-      projects: [{ name: "Phase 0 Test" }]
+      type: 'projects_changed',
+      projects: [{ name: 'Phase 0 Test' }],
     });
     expect(events[1]).toMatchObject({
-      type: "active_project_changed",
+      type: 'active_project_changed',
       activeProject: {
-        project: { name: "Phase 0 Test" },
-        revision: 1
-      }
+        project: { name: 'Phase 0 Test' },
+        revision: 1,
+      },
     });
     expect(events[2]).toEqual({
       historyState: {
         canRedo: false,
         canUndo: false,
         redoDepth: 0,
-        undoDepth: 0
+        undoDepth: 0,
       },
-      type: "history_state_changed"
+      type: 'history_state_changed',
     });
     expect(events[3]).toEqual({
-      type: "runtime_capabilities_changed",
+      type: 'runtime_capabilities_changed',
       runtimeCapabilities: {
         measurementSurfaceAvailable: false,
-        mode: "read_only",
-        runtimeState: "editor_open_clean"
-      }
+        mode: 'read_only',
+        runtimeState: 'editor_open_clean',
+      },
     });
 
     store.close();
   });
 
-  it("reopens a persisted project and leaves the active session untouched on failure", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-reopen-"));
+  it('reopens a persisted project and leaves the active session untouched on failure', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-reopen-'),
+    );
     cleanupPaths.push(tempDir);
 
-    const firstStore = new ProjectStore(path.join(tempDir, "app.db"));
+    const firstStore = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(firstStore);
     const events: RuntimeEvent[] = [];
 
@@ -213,14 +226,14 @@ describe("ProjectRuntime", () => {
       events.push(event);
     });
 
-    const created = runtime.createProject("Persisted Project");
+    const created = runtime.createProject('Persisted Project');
 
     if (!created.ok) {
       throw new Error(created.error.message);
     }
 
     events.length = 0;
-    const missingResult = runtime.openProject("project_missing");
+    const missingResult = runtime.openProject('project_missing');
     expect(missingResult.ok).toBe(false);
     expect(events).toEqual([]);
 
@@ -228,14 +241,16 @@ describe("ProjectRuntime", () => {
     expect(activeAfterFailure.ok).toBe(true);
 
     if (!activeAfterFailure.ok || !activeAfterFailure.data) {
-      throw new Error("Expected an active project session after the failed reopen");
+      throw new Error(
+        'Expected an active project session after the failed reopen',
+      );
     }
 
     expect(activeAfterFailure.data.project.id).toBe(created.data.id);
 
     firstStore.close();
 
-    const reopenedStore = new ProjectStore(path.join(tempDir, "app.db"));
+    const reopenedStore = new ProjectStore(path.join(tempDir, 'app.db'));
     const reopenedRuntime = createProjectRuntime(reopenedStore);
     const reopened = reopenedRuntime.openProject(created.data.id);
 
@@ -245,27 +260,29 @@ describe("ProjectRuntime", () => {
       throw new Error(reopened.error.message);
     }
 
-    expect(reopened.data.project.name).toBe("Persisted Project");
-    expect(reopened.data.document.name).toBe("Persisted Project");
+    expect(reopened.data.project.name).toBe('Persisted Project');
+    expect(reopened.data.document.name).toBe('Persisted Project');
     expect(reopened.data.revision).toBe(1);
 
     reopenedStore.close();
   });
 
-  it("inspects non-active persisted projects without switching the active session", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-inspect-"));
+  it('inspects non-active persisted projects without switching the active session', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-inspect-'),
+    );
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
 
-    const firstProject = runtime.createProject("First Project");
+    const firstProject = runtime.createProject('First Project');
 
     if (!firstProject.ok) {
       throw new Error(firstProject.error.message);
     }
 
-    const secondProject = runtime.createProject("Second Project");
+    const secondProject = runtime.createProject('Second Project');
 
     if (!secondProject.ok) {
       throw new Error(secondProject.error.message);
@@ -285,16 +302,20 @@ describe("ProjectRuntime", () => {
 
     const activeProject = runtime.getActiveProject();
 
-    expect(activeProject.ok && activeProject.data?.project.id).toBe(secondProject.data.id);
+    expect(activeProject.ok && activeProject.data?.project.id).toBe(
+      secondProject.data.id,
+    );
 
     store.close();
   });
 
-  it("applies command batches, persists revisions, and emits document_changed", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-commands-"));
+  it('applies command batches, persists revisions, and emits document_changed', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-commands-'),
+    );
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
     const events: RuntimeEvent[] = [];
 
@@ -302,7 +323,7 @@ describe("ProjectRuntime", () => {
       events.push(event);
     });
 
-    const created = runtime.createProject("Writable Project");
+    const created = runtime.createProject('Writable Project');
 
     if (!created.ok) {
       throw new Error(created.error.message);
@@ -316,17 +337,17 @@ describe("ProjectRuntime", () => {
       base_revision: 1,
       commands: [
         {
-          type: "create_scene",
+          type: 'create_scene',
           scene: {
             height: 844,
-            id: "scene_home",
+            id: 'scene_home',
             left: 40,
-            name: "Home",
+            name: 'Home',
             top: 60,
-            width: 390
-          }
-        }
-      ]
+            width: 390,
+          },
+        },
+      ],
     });
 
     expect(commandResult.ok).toBe(true);
@@ -338,15 +359,15 @@ describe("ProjectRuntime", () => {
     expect(commandResult.data).toEqual({
       document_id: expect.stringMatching(/^doc_/),
       effects: {
-        changed_node_ids: ["scene_home"],
-        changed_scene_ids: ["scene_home"]
+        changed_node_ids: ['scene_home'],
+        changed_scene_ids: ['scene_home'],
       },
       layout_refresh: {
         measured_node_count: 1,
-        measured_root_ids: ["scene_home"],
-        status: "refreshed"
+        measured_root_ids: ['scene_home'],
+        status: 'refreshed',
       },
-      revision: 2
+      revision: 2,
     });
 
     const activeProject = runtime.getActiveProject();
@@ -354,62 +375,66 @@ describe("ProjectRuntime", () => {
     expect(activeProject.ok).toBe(true);
 
     if (!activeProject.ok || !activeProject.data) {
-      throw new Error("Expected the active project session to remain available");
+      throw new Error(
+        'Expected the active project session to remain available',
+      );
     }
 
     expect(activeProject.data.revision).toBe(2);
     expect(activeProject.data.document.scenes.scene_home).toMatchObject({
-      id: "scene_home",
-      name: "Home"
+      id: 'scene_home',
+      name: 'Home',
     });
 
     const persistedProject = store.getProject(created.data.id);
 
     expect(persistedProject?.revision).toBe(2);
     expect(persistedProject?.document.scenes.scene_home).toMatchObject({
-      id: "scene_home",
-      name: "Home"
+      id: 'scene_home',
+      name: 'Home',
     });
-    expect(persistedProject?.document.nodes.scene_home.computed_layout).toEqual({
-      height: 844,
-      width: 390,
-      x: 40,
-      y: 60
-    });
+    expect(persistedProject?.document.nodes.scene_home.computed_layout).toEqual(
+      {
+        height: 844,
+        width: 390,
+        x: 40,
+        y: 60,
+      },
+    );
 
     expect(events.map((event) => event.type)).toEqual([
-      "projects_changed",
-      "active_project_changed",
-      "document_changed",
-      "history_state_changed"
+      'projects_changed',
+      'active_project_changed',
+      'document_changed',
+      'history_state_changed',
     ]);
     expect(events[2]).toMatchObject({
-      type: "document_changed",
+      type: 'document_changed',
       project: {
-        id: created.data.id
+        id: created.data.id,
       },
-      revision: 2
+      revision: 2,
     });
     expect(events[3]).toEqual({
       historyState: {
         canRedo: false,
         canUndo: true,
         redoDepth: 0,
-        undoDepth: 1
+        undoDepth: 1,
       },
-      type: "history_state_changed"
+      type: 'history_state_changed',
     });
 
     store.close();
   });
 
-  it("creates project-local assets from bytes, persists them on disk, and resolves them for rendering", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-assets-"));
+  it('creates project-local assets from bytes, persists them on disk, and resolves them for rendering', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-assets-'));
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
-    const created = runtime.createProject("Asset Project");
+    const created = runtime.createProject('Asset Project');
 
     if (!created.ok) {
       throw new Error(created.error.message);
@@ -419,13 +444,13 @@ describe("ProjectRuntime", () => {
     runtime.setMeasurementSurfaceAvailable(true);
 
     const createdAsset = await runtime.createAssetFromBytes({
-      assetId: "asset_logo",
+      assetId: 'asset_logo',
       bytesBase64: TINY_PNG_BASE64,
       height: 1,
-      kind: "image",
-      mimeType: "image/png",
-      originalFilename: "logo.png",
-      width: 1
+      kind: 'image',
+      mimeType: 'image/png',
+      originalFilename: 'logo.png',
+      width: 1,
     });
 
     expect(createdAsset.ok).toBe(true);
@@ -435,17 +460,17 @@ describe("ProjectRuntime", () => {
     }
 
     expect(createdAsset.data).toEqual({
-      asset_id: "asset_logo",
+      asset_id: 'asset_logo',
       content_hash: TINY_PNG_HASH,
-      kind: "image",
-      mime_type: "image/png",
+      kind: 'image',
+      mime_type: 'image/png',
       revision: 2,
       size_bytes: 68,
       source: {
         content_hash: TINY_PNG_HASH,
-        kind: "asset_store",
-        original_filename: "logo.png"
-      }
+        kind: 'asset_store',
+        original_filename: 'logo.png',
+      },
     });
 
     const activeProject = runtime.getActiveProject();
@@ -453,52 +478,52 @@ describe("ProjectRuntime", () => {
     expect(activeProject.ok).toBe(true);
 
     if (!activeProject.ok || !activeProject.data) {
-      throw new Error("Expected the active project session to remain available");
+      throw new Error('Expected the active project session to remain available');
     }
 
     expect(activeProject.data.document.assets.asset_logo).toEqual({
       height: 1,
-      id: "asset_logo",
-      kind: "image",
-      mime_type: "image/png",
+      id: 'asset_logo',
+      kind: 'image',
+      mime_type: 'image/png',
       source: {
         content_hash: TINY_PNG_HASH,
-        kind: "asset_store",
-        original_filename: "logo.png"
+        kind: 'asset_store',
+        original_filename: 'logo.png',
       },
-      width: 1
+      width: 1,
     });
     expect(activeProject.data.resolved_assets.asset_logo?.url).toContain(
-      "ai-canvas-asset://project/"
+      'ai-canvas-asset://project/',
     );
 
-    const assetPath = store.resolveAssetFilePath(created.data.id, "asset_logo");
+    const assetPath = store.resolveAssetFilePath(created.data.id, 'asset_logo');
 
     expect(assetPath).not.toBeNull();
-    expect(await readFile(assetPath ?? "", "base64")).toBe(TINY_PNG_BASE64);
+    expect(await readFile(assetPath ?? '', 'base64')).toBe(TINY_PNG_BASE64);
 
     const duplicateAsset = await runtime.createAssetFromBytes({
-      assetId: "asset_logo",
+      assetId: 'asset_logo',
       bytesBase64: TINY_PNG_BASE64,
-      mimeType: "image/png"
+      mimeType: 'image/png',
     });
 
     expect(duplicateAsset).toEqual(
-      err("validation_failed", "Asset asset_logo already exists")
+      err('validation_failed', 'Asset asset_logo already exists'),
     );
 
     store.close();
   });
 
-  it("creates project-local assets from a public image URL and resolves them for rendering", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-assets-url-"));
+  it('creates project-local assets from a public image URL and resolves them for rendering', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-assets-url-'));
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store, {
-      assetUrlDownloader: createMockAssetUrlDownloader()
+      assetUrlDownloader: createMockAssetUrlDownloader(),
     });
-    const created = runtime.createProject("Asset URL Project");
+    const created = runtime.createProject('Asset URL Project');
 
     if (!created.ok) {
       throw new Error(created.error.message);
@@ -508,8 +533,8 @@ describe("ProjectRuntime", () => {
     runtime.setMeasurementSurfaceAvailable(true);
 
     const createdAsset = await runtime.createAssetFromUrl({
-      assetId: "asset_logo",
-      url: "https://cdn.example.test/logo.png"
+      assetId: 'asset_logo',
+      url: 'https://cdn.example.test/logo.png',
     });
 
     expect(createdAsset.ok).toBe(true);
@@ -519,46 +544,46 @@ describe("ProjectRuntime", () => {
     }
 
     expect(createdAsset.data).toEqual({
-      asset_id: "asset_logo",
+      asset_id: 'asset_logo',
       content_hash: TINY_PNG_HASH,
-      kind: "image",
-      mime_type: "image/png",
+      kind: 'image',
+      mime_type: 'image/png',
       revision: 2,
       size_bytes: 68,
       source: {
         content_hash: TINY_PNG_HASH,
-        kind: "asset_store",
-        original_filename: "logo.png"
-      }
+        kind: 'asset_store',
+        original_filename: 'logo.png',
+      },
     });
 
     const activeProject = runtime.getActiveProject();
 
     expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
       height: 1,
-      id: "asset_logo",
-      kind: "image",
-      mime_type: "image/png",
+      id: 'asset_logo',
+      kind: 'image',
+      mime_type: 'image/png',
       source: {
         content_hash: TINY_PNG_HASH,
-        kind: "asset_store",
-        original_filename: "logo.png"
+        kind: 'asset_store',
+        original_filename: 'logo.png',
       },
-      width: 1
+      width: 1,
     });
 
     store.close();
   });
 
-  it("rejects asset creation while the runtime is read-only", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-assets-readonly-"));
+  it('rejects asset creation while the runtime is read-only', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-assets-readonly-'));
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store, {
-      assetUrlDownloader: createMockAssetUrlDownloader()
+      assetUrlDownloader: createMockAssetUrlDownloader(),
     });
-    const created = runtime.createProject("Read Only Assets");
+    const created = runtime.createProject('Read Only Assets');
 
     if (!created.ok) {
       throw new Error(created.error.message);
@@ -569,36 +594,38 @@ describe("ProjectRuntime", () => {
     await expect(
       runtime.createAssetFromBytes({
         bytesBase64: TINY_PNG_BASE64,
-        mimeType: "image/png"
+        mimeType: 'image/png',
       })
     ).resolves.toEqual(
       err(
-        "measurement_surface_unavailable",
-        "Write-capable command execution requires an available renderer measurement surface"
-      )
+        'measurement_surface_unavailable',
+        'Write-capable command execution requires an available renderer measurement surface',
+      ),
     );
 
     await expect(
       runtime.createAssetFromUrl({
-        url: "https://cdn.example.test/logo.png"
+        url: 'https://cdn.example.test/logo.png',
       })
     ).resolves.toEqual(
       err(
-        "measurement_surface_unavailable",
-        "Write-capable command execution requires an available renderer measurement surface"
-      )
+        'measurement_surface_unavailable',
+        'Write-capable command execution requires an available renderer measurement surface',
+      ),
     );
 
     store.close();
   });
 
-  it("records MCP mutations in shared history, supports undo/redo, and persists history across reopen", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-history-"));
+  it('records MCP mutations in shared history, supports undo/redo, and persists history across reopen', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-history-'),
+    );
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
-    const created = runtime.createProject("History Project");
+    const created = runtime.createProject('History Project');
 
     if (!created.ok) {
       throw new Error(created.error.message);
@@ -611,17 +638,17 @@ describe("ProjectRuntime", () => {
       base_revision: 1,
       commands: [
         {
-          type: "create_scene",
+          type: 'create_scene',
           scene: {
             height: 844,
-            id: "scene_home",
+            id: 'scene_home',
             left: 40,
-            name: "Home",
+            name: 'Home',
             top: 60,
-            width: 390
-          }
-        }
-      ]
+            width: 390,
+          },
+        },
+      ],
     });
 
     expect(applyResult.ok).toBe(true);
@@ -630,8 +657,8 @@ describe("ProjectRuntime", () => {
         canRedo: false,
         canUndo: true,
         redoDepth: 0,
-        undoDepth: 1
-      })
+        undoDepth: 1,
+      }),
     );
 
     const undoResult = await runtime.undo();
@@ -643,13 +670,15 @@ describe("ProjectRuntime", () => {
         canRedo: true,
         canUndo: false,
         redoDepth: 1,
-        undoDepth: 0
-      })
+        undoDepth: 0,
+      }),
     );
 
     const activeAfterUndo = runtime.getActiveProject();
 
-    expect(activeAfterUndo.ok && activeAfterUndo.data?.document.scenes).toEqual({});
+    expect(activeAfterUndo.ok && activeAfterUndo.data?.document.scenes).toEqual(
+      {},
+    );
 
     const redoResult = await runtime.redo();
 
@@ -660,13 +689,13 @@ describe("ProjectRuntime", () => {
         canRedo: false,
         canUndo: true,
         redoDepth: 0,
-        undoDepth: 1
-      })
+        undoDepth: 1,
+      }),
     );
 
     store.close();
 
-    const reopenedStore = new ProjectStore(path.join(tempDir, "app.db"));
+    const reopenedStore = new ProjectStore(path.join(tempDir, 'app.db'));
     const reopenedRuntime = createProjectRuntime(reopenedStore);
     const reopenedProject = reopenedRuntime.openProject(created.data.id);
 
@@ -676,8 +705,8 @@ describe("ProjectRuntime", () => {
         canRedo: false,
         canUndo: true,
         redoDepth: 0,
-        undoDepth: 1
-      })
+        undoDepth: 1,
+      }),
     );
 
     attachTestComputedLayoutRefresher(reopenedRuntime);
@@ -690,18 +719,22 @@ describe("ProjectRuntime", () => {
 
     const reopenedActiveProject = reopenedRuntime.getActiveProject();
 
-    expect(reopenedActiveProject.ok && reopenedActiveProject.data?.document.scenes).toEqual({});
+    expect(
+      reopenedActiveProject.ok && reopenedActiveProject.data?.document.scenes,
+    ).toEqual({});
 
     reopenedStore.close();
   });
 
-  it("fails undo while the runtime is read-only", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-undo-readonly-"));
+  it('fails undo while the runtime is read-only', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-undo-readonly-'),
+    );
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
-    const created = runtime.createProject("Read Only History");
+    const created = runtime.createProject('Read Only History');
 
     if (!created.ok) {
       throw new Error(created.error.message);
@@ -714,18 +747,18 @@ describe("ProjectRuntime", () => {
       base_revision: 1,
       commands: [
         {
-          type: "create_scene",
+          type: 'create_scene',
           scene: {
             height: 844,
-            id: "scene_home",
+            id: 'scene_home',
             left: 40,
-            name: "Home",
+            name: 'Home',
             top: 60,
-            width: 390
-          }
-        }
+            width: 390,
+          },
+        },
       ],
-      document_id: created.data.documentId
+      document_id: created.data.documentId,
     });
 
     expect(applyResult.ok).toBe(true);
@@ -734,35 +767,37 @@ describe("ProjectRuntime", () => {
 
     await expect(runtime.undo()).resolves.toEqual(
       err(
-        "measurement_surface_unavailable",
-        "Write-capable command execution requires an available renderer measurement surface"
-      )
+        'measurement_surface_unavailable',
+        'Write-capable command execution requires an available renderer measurement surface',
+      ),
     );
 
     store.close();
   });
 
-  it("applies commands through the real local MCP bridge and updates the active runtime session", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-mcp-"));
+  it('applies commands through the real local MCP bridge and updates the active runtime session', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-mcp-'),
+    );
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
     const bridge = new LocalMcpBridge({
-      host: "127.0.0.1",
+      host: '127.0.0.1',
       port: await getAvailablePort(),
-      projectService: createProjectService(runtime)
+      projectService: createProjectService(runtime),
     });
     activeBridges.push(bridge);
 
     await bridge.start();
 
     const client = new Client({
-      name: "ai-canvas-runtime-test-client",
-      version: "0.0.0"
+      name: 'ai-canvas-runtime-test-client',
+      version: '0.0.0',
     });
     const transport = new StreamableHTTPClientTransport(
-      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`)
+      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`),
     );
 
     try {
@@ -770,9 +805,9 @@ describe("ProjectRuntime", () => {
 
       const createProjectResult = await client.callTool({
         arguments: {
-          name: "Bridge Slice"
+          name: 'Bridge Slice',
         },
-        name: "create_project"
+        name: 'create_project',
       });
 
       expect(createProjectResult.isError).not.toBe(true);
@@ -788,16 +823,16 @@ describe("ProjectRuntime", () => {
 
       const openProjectResult = await client.callTool({
         arguments: {
-          project_id: createdProject.id
+          project_id: createdProject.id,
         },
-        name: "open_project"
+        name: 'open_project',
       });
 
       expect(openProjectResult.isError).not.toBe(true);
 
       const inspectProjectResult = await client.callTool({
         arguments: {},
-        name: "inspect_project"
+        name: 'inspect_project',
       });
 
       expect(inspectProjectResult.isError).not.toBe(true);
@@ -820,70 +855,70 @@ describe("ProjectRuntime", () => {
             {
               scene: {
                 height: 844,
-                id: "scene_home",
+                id: 'scene_home',
                 left: 80,
-                name: "Home",
+                name: 'Home',
                 render_style: {
-                  backgroundColor: "#ffffff",
-                  display: "flex",
-                  flexDirection: "column",
+                  backgroundColor: '#ffffff',
+                  display: 'flex',
+                  flexDirection: 'column',
                   gap: 18,
-                  overflow: "hidden",
+                  overflow: 'hidden',
                   paddingLeft: 24,
                   paddingRight: 24,
-                  paddingTop: 24
+                  paddingTop: 24,
                 },
                 top: 80,
-                width: 390
+                width: 390,
               },
-              type: "create_scene"
+              type: 'create_scene',
             },
             {
               node: {
                 height: 180,
-                id: "rect_hero",
-                kind: "rectangle",
-                name: "Hero",
+                id: 'rect_hero',
+                kind: 'rectangle',
+                name: 'Hero',
                 render_style: {
-                  backgroundColor: "#f5c04a",
-                  borderRadius: 24
+                  backgroundColor: '#f5c04a',
+                  borderRadius: 24,
                 },
-                width: 342
+                width: 342,
               },
               parent: {
-                parent_id: "scene_home"
+                parent_id: 'scene_home',
               },
-              type: "create_node"
+              type: 'create_node',
             },
             {
               node: {
-                id: "text_title",
-                kind: "text",
-                name: "Title",
+                id: 'text_title',
+                kind: 'text',
+                name: 'Title',
                 render_style: {
-                  color: "#111111",
-                  fontFamily: "IBM Plex Sans",
+                  color: '#111111',
+                  fontFamily: 'IBM Plex Sans',
                   fontSize: 32,
-                  fontWeight: 600
+                  fontWeight: 600,
                 },
                 text: {
-                  content: "Hello from MCP"
-                }
+                  content: 'Hello from MCP',
+                },
               },
               parent: {
-                parent_id: "scene_home"
+                parent_id: 'scene_home',
               },
-              type: "create_node"
-            }
-          ]
+              type: 'create_node',
+            },
+          ],
         },
-        name: "apply_commands"
+        name: 'apply_commands',
       });
 
       expect(applyCommandsResult.isError).not.toBe(true);
       expect(applyCommandsResult.structuredContent).toMatchObject({
         ok: true,
-        revision: 2
+        revision: 2,
       });
 
       const activeProject = runtime.getActiveProject();
@@ -891,19 +926,23 @@ describe("ProjectRuntime", () => {
       expect(activeProject.ok).toBe(true);
 
       if (!activeProject.ok || !activeProject.data) {
-        throw new Error("Expected an active project session after MCP mutation");
+        throw new Error(
+          'Expected an active project session after MCP mutation',
+        );
       }
 
-      expect(activeProject.data.document.document_id).toBe(inspectedProject.document.document_id);
+      expect(activeProject.data.document.document_id).toBe(
+        inspectedProject.document.document_id,
+      );
       expect(activeProject.data.document.scenes.scene_home).toMatchObject({
-        id: "scene_home",
-        name: "Home"
+        id: 'scene_home',
+        name: 'Home',
       });
       expect(activeProject.data.document.nodes.text_title).toMatchObject({
-        kind: "text",
+        kind: 'text',
         text: {
-          content: "Hello from MCP"
-        }
+          content: 'Hello from MCP',
+        },
       });
       expect(activeProject.data.revision).toBe(2);
     } finally {
@@ -913,27 +952,27 @@ describe("ProjectRuntime", () => {
     }
   });
 
-  it("creates project-local assets through the real local MCP bridge", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-mcp-assets-"));
+  it('creates project-local assets through the real local MCP bridge', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-mcp-assets-'));
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
     const bridge = new LocalMcpBridge({
-      host: "127.0.0.1",
+      host: '127.0.0.1',
       port: await getAvailablePort(),
-      projectService: createProjectService(runtime)
+      projectService: createProjectService(runtime),
     });
     activeBridges.push(bridge);
 
     await bridge.start();
 
     const client = new Client({
-      name: "ai-canvas-runtime-test-client",
-      version: "0.0.0"
+      name: 'ai-canvas-runtime-test-client',
+      version: '0.0.0',
     });
     const transport = new StreamableHTTPClientTransport(
-      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`)
+      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`),
     );
 
     try {
@@ -941,9 +980,9 @@ describe("ProjectRuntime", () => {
 
       const createProjectResult = await client.callTool({
         arguments: {
-          name: "Asset Bridge Slice"
+          name: 'Asset Bridge Slice',
         },
-        name: "create_project"
+        name: 'create_project',
       });
 
       expect(createProjectResult.isError).not.toBe(true);
@@ -959,9 +998,9 @@ describe("ProjectRuntime", () => {
 
       await client.callTool({
         arguments: {
-          project_id: createdProject.id
+          project_id: createdProject.id,
         },
-        name: "open_project"
+        name: 'open_project',
       });
 
       attachTestComputedLayoutRefresher(runtime);
@@ -969,46 +1008,46 @@ describe("ProjectRuntime", () => {
 
       const createAssetResult = await client.callTool({
         arguments: {
-          asset_id: "asset_logo",
+          asset_id: 'asset_logo',
           bytes_base64: TINY_PNG_BASE64,
           height: 1,
-          kind: "image",
-          mime_type: "image/png",
-          original_filename: "logo.png",
-          width: 1
+          kind: 'image',
+          mime_type: 'image/png',
+          original_filename: 'logo.png',
+          width: 1,
         },
-        name: "create_asset_from_bytes"
+        name: 'create_asset_from_bytes',
       });
 
       expect(createAssetResult.isError).not.toBe(true);
       expect(createAssetResult.structuredContent).toMatchObject({
-        asset_id: "asset_logo",
+        asset_id: 'asset_logo',
         content_hash: TINY_PNG_HASH,
-        kind: "image",
-        mime_type: "image/png",
+        kind: 'image',
+        mime_type: 'image/png',
         ok: true,
         revision: 2,
         size_bytes: 68,
         source: {
           content_hash: TINY_PNG_HASH,
-          kind: "asset_store",
-          original_filename: "logo.png"
-        }
+          kind: 'asset_store',
+          original_filename: 'logo.png',
+        },
       });
 
       const activeProject = runtime.getActiveProject();
 
       expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
         height: 1,
-        id: "asset_logo",
-        kind: "image",
-        mime_type: "image/png",
+        id: 'asset_logo',
+        kind: 'image',
+        mime_type: 'image/png',
         source: {
           content_hash: TINY_PNG_HASH,
-          kind: "asset_store",
-          original_filename: "logo.png"
+          kind: 'asset_store',
+          original_filename: 'logo.png',
         },
-        width: 1
+        width: 1,
       });
     } finally {
       await transport.close();
@@ -1017,29 +1056,29 @@ describe("ProjectRuntime", () => {
     }
   });
 
-  it("creates project-local assets from a URL through the real local MCP bridge", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-mcp-assets-url-"));
+  it('creates project-local assets from a URL through the real local MCP bridge', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-mcp-assets-url-'));
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store, {
-      assetUrlDownloader: createMockAssetUrlDownloader()
+      assetUrlDownloader: createMockAssetUrlDownloader(),
     });
     const bridge = new LocalMcpBridge({
-      host: "127.0.0.1",
+      host: '127.0.0.1',
       port: await getAvailablePort(),
-      projectService: createProjectService(runtime)
+      projectService: createProjectService(runtime),
     });
     activeBridges.push(bridge);
 
     await bridge.start();
 
     const client = new Client({
-      name: "ai-canvas-runtime-test-client",
-      version: "0.0.0"
+      name: 'ai-canvas-runtime-test-client',
+      version: '0.0.0',
     });
     const transport = new StreamableHTTPClientTransport(
-      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`)
+      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`),
     );
 
     try {
@@ -1047,9 +1086,9 @@ describe("ProjectRuntime", () => {
 
       const createProjectResult = await client.callTool({
         arguments: {
-          name: "Asset URL Bridge Slice"
+          name: 'Asset URL Bridge Slice',
         },
-        name: "create_project"
+        name: 'create_project',
       });
 
       expect(createProjectResult.isError).not.toBe(true);
@@ -1065,9 +1104,9 @@ describe("ProjectRuntime", () => {
 
       await client.callTool({
         arguments: {
-          project_id: createdProject.id
+          project_id: createdProject.id,
         },
-        name: "open_project"
+        name: 'open_project',
       });
 
       attachTestComputedLayoutRefresher(runtime);
@@ -1075,41 +1114,41 @@ describe("ProjectRuntime", () => {
 
       const createAssetResult = await client.callTool({
         arguments: {
-          asset_id: "asset_logo",
-          url: "https://cdn.example.test/logo.png"
+          asset_id: 'asset_logo',
+          url: 'https://cdn.example.test/logo.png',
         },
-        name: "create_asset_from_url"
+        name: 'create_asset_from_url',
       });
 
       expect(createAssetResult.isError).not.toBe(true);
       expect(createAssetResult.structuredContent).toMatchObject({
-        asset_id: "asset_logo",
+        asset_id: 'asset_logo',
         content_hash: TINY_PNG_HASH,
-        kind: "image",
-        mime_type: "image/png",
+        kind: 'image',
+        mime_type: 'image/png',
         ok: true,
         revision: 2,
         size_bytes: 68,
         source: {
           content_hash: TINY_PNG_HASH,
-          kind: "asset_store",
-          original_filename: "logo.png"
-        }
+          kind: 'asset_store',
+          original_filename: 'logo.png',
+        },
       });
 
       const activeProject = runtime.getActiveProject();
 
       expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
         height: 1,
-        id: "asset_logo",
-        kind: "image",
-        mime_type: "image/png",
+        id: 'asset_logo',
+        kind: 'image',
+        mime_type: 'image/png',
         source: {
           content_hash: TINY_PNG_HASH,
-          kind: "asset_store",
-          original_filename: "logo.png"
+          kind: 'asset_store',
+          original_filename: 'logo.png',
         },
-        width: 1
+        width: 1,
       });
     } finally {
       await transport.close();
@@ -1118,11 +1157,13 @@ describe("ProjectRuntime", () => {
     }
   });
 
-  it("emits capability and MCP status events when those values change", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-status-"));
+  it('emits capability and MCP status events when those values change', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-status-'),
+    );
     cleanupPaths.push(tempDir);
 
-    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
     const runtime = createProjectRuntime(store);
     const events: RuntimeEvent[] = [];
 
@@ -1135,44 +1176,44 @@ describe("ProjectRuntime", () => {
     runtime.publishMcpStatus({
       connectedSessions: 1,
       enabled: true,
-      endpoint: "http://127.0.0.1:9311/mcp",
+      endpoint: 'http://127.0.0.1:9311/mcp',
       errorCode: null,
       errorMessage: null,
-      host: "127.0.0.1",
+      host: '127.0.0.1',
       port: 9311,
-      state: "running"
+      state: 'running',
     });
 
     expect(events).toEqual([
       {
-        type: "runtime_capabilities_changed",
+        type: 'runtime_capabilities_changed',
         runtimeCapabilities: {
           measurementSurfaceAvailable: false,
-          mode: "read_only",
-          runtimeState: "no_project_open"
-        }
+          mode: 'read_only',
+          runtimeState: 'no_project_open',
+        },
       },
       {
-        type: "runtime_capabilities_changed",
+        type: 'runtime_capabilities_changed',
         runtimeCapabilities: {
           measurementSurfaceAvailable: true,
-          mode: "read_only",
-          runtimeState: "no_project_open"
-        }
+          mode: 'read_only',
+          runtimeState: 'no_project_open',
+        },
       },
       {
-        type: "mcp_status_changed",
+        type: 'mcp_status_changed',
         mcpStatus: {
           connectedSessions: 1,
           enabled: true,
-          endpoint: "http://127.0.0.1:9311/mcp",
+          endpoint: 'http://127.0.0.1:9311/mcp',
           errorCode: null,
           errorMessage: null,
-          host: "127.0.0.1",
+          host: '127.0.0.1',
           port: 9311,
-          state: "running"
-        }
-      }
+          state: 'running',
+        },
+      },
     ]);
 
     store.close();

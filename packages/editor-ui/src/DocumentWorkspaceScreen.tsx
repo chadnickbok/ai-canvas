@@ -5,8 +5,8 @@ import type {
   CommandResult,
   HistoryState,
   McpStatus,
-  RuntimeCapabilities
-} from "@ai-canvas/ipc-contract";
+  RuntimeCapabilities,
+} from '@ai-canvas/ipc-contract';
 import {
   Frame,
   Hand,
@@ -14,25 +14,34 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Square,
-  Type
-} from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+  Type,
+} from 'lucide-react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
-import type { CanvasTool } from "./canvasTools.js";
-import { isCreateCanvasTool } from "./canvasTools.js";
-import { resolveNodeCanvasRect } from "./interaction/geometry.js";
-import { InteractionOverlay } from "./interaction/InteractionOverlay.js";
-import { useInteractionController } from "./interaction/useInteractionController.js";
-import { LayersInspector } from "./LayersInspector.js";
-import { SelectionInspector } from "./SelectionInspector.js";
-import { EditorWorkspaceSurface } from "./rendering/EditorWorkspaceSurface.js";
-import type { RendererMeasurementHandle, ResolvedAssetsById } from "./rendering/types.js";
-import { useViewportController } from "./rendering/useViewportController.js";
+import type { CanvasTool } from './canvasTools.js';
+import { isCreateCanvasTool } from './canvasTools.js';
+import { resolveNodeCanvasRect } from './interaction/geometry.js';
+import { InteractionOverlay } from './interaction/InteractionOverlay.js';
+import { useInteractionController } from './interaction/useInteractionController.js';
+import { LayersInspector } from './LayersInspector.js';
+import { SelectionInspector } from './SelectionInspector.js';
+import { EditorWorkspaceSurface } from './rendering/EditorWorkspaceSurface.js';
+import type {
+  RendererMeasurementHandle,
+  ResolvedAssetsById,
+} from './rendering/types.js';
+import { useViewportController } from './rendering/useViewportController.js';
 import {
   formatViewportZoomPercent,
-  parseViewportZoomPercent
-} from "./rendering/viewport.js";
-import { WorkspaceGridBackdrop } from "./rendering/workspaceGrid.js";
+  parseViewportZoomPercent,
+} from './rendering/viewport.js';
+import { WorkspaceGridBackdrop } from './rendering/workspaceGrid.js';
 
 export type DocumentWorkspaceScreenProps = {
   activeProject: ActiveProject;
@@ -40,14 +49,16 @@ export type DocumentWorkspaceScreenProps = {
   historyState?: HistoryState | null;
   isBusy?: boolean;
   mcpStatus: McpStatus | null;
-  onApplyCommands?: (input: ApplyCommandsInput) => Promise<AppResult<CommandResult>>;
+  onApplyCommands?: (
+    input: ApplyCommandsInput,
+  ) => Promise<AppResult<CommandResult>>;
   onBackToLibrary: () => void;
   onRedo?: () => Promise<void> | void;
   onUndo?: () => Promise<void> | void;
   runtimeCapabilities: RuntimeCapabilities | null;
 };
 
-type SelectionSource = "canvas" | "hierarchy";
+type SelectionSource = 'canvas' | 'hierarchy';
 type CanvasToolButtonDefinition = {
   icon: typeof MousePointer2;
   label: string;
@@ -57,33 +68,33 @@ type CanvasToolButtonDefinition = {
 const CANVAS_TOOL_BUTTONS: CanvasToolButtonDefinition[] = [
   {
     icon: MousePointer2,
-    label: "Selection",
-    tool: "selection"
+    label: 'Selection',
+    tool: 'selection',
   },
   {
     icon: Hand,
-    label: "Grab",
-    tool: "grab"
+    label: 'Grab',
+    tool: 'grab',
   },
   {
     icon: Frame,
-    label: "Create frame",
-    tool: "frame"
+    label: 'Create frame',
+    tool: 'frame',
   },
   {
     icon: Type,
-    label: "Create text",
-    tool: "text"
+    label: 'Create text',
+    tool: 'text',
   },
   {
     icon: Square,
-    label: "Create rectangle",
-    tool: "rectangle"
-  }
+    label: 'Create rectangle',
+    tool: 'rectangle',
+  },
 ];
 
 function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  return classes.filter(Boolean).join(' ');
 }
 
 function isEditableEventTarget(target: EventTarget | null): boolean {
@@ -98,10 +109,10 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
 
 function formatMcpStatusLine(status: McpStatus | null): string {
   if (!status) {
-    return "Loading MCP status";
+    return 'Loading MCP status';
   }
 
-  if (status.state === "error") {
+  if (status.state === 'error') {
     return `MCP failed on ${status.host}:${status.port}`;
   }
 
@@ -114,16 +125,15 @@ function formatMcpStatusLine(status: McpStatus | null): string {
 
 function formatRuntimeMode(capabilities: RuntimeCapabilities | null): string {
   if (!capabilities) {
-    return "Loading runtime mode";
+    return 'Loading runtime mode';
   }
 
-  return capabilities.mode === "read_write" ? "Read/write" : "Read only";
+  return capabilities.mode === 'read_write' ? 'Read/write' : 'Read only';
 }
-
 function CanvasToolBar({
   activeTool,
   canCreateNodes,
-  onToolChange
+  onToolChange,
 }: {
   activeTool: CanvasTool;
   canCreateNodes: boolean;
@@ -145,14 +155,15 @@ function CanvasToolBar({
             aria-label={label}
             aria-pressed={isActive}
             className={cn(
-              "flex h-9 w-9 items-center justify-center border border-black/14 text-[#111111] transition",
+              'flex h-9 w-9 items-center justify-center border border-black/14 text-[#111111] transition',
               isActive
-                ? "bg-[#111111] text-[var(--chrome-ink-inverse)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]"
-                : "bg-white/96 hover:border-black/60",
-              isDisabled && "cursor-not-allowed opacity-40 hover:border-black/14"
+                ? 'bg-[#111111] text-[var(--chrome-ink-inverse)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]'
+                : 'bg-white/96 hover:border-black/60',
+              isDisabled &&
+                'cursor-not-allowed opacity-40 hover:border-black/14',
             )}
             data-canvas-tool={tool}
-            data-canvas-tool-active={isActive ? "true" : "false"}
+            data-canvas-tool-active={isActive ? 'true' : 'false'}
             disabled={isDisabled}
             key={tool}
             onClick={() => {
@@ -173,7 +184,7 @@ function WorkspaceOverlay({
   bottomBar,
   hasInteractedWithCanvas,
   isBusy,
-  sceneCount
+  sceneCount,
 }: {
   bottomBar?: ReactNode;
   hasInteractedWithCanvas: boolean;
@@ -193,10 +204,13 @@ function WorkspaceOverlay({
       <div className="flex flex-1 items-center justify-center">
         {sceneCount === 0 ? (
           <div className="max-w-[360px] border border-black/14 bg-white/92 px-5 py-4 shadow-[0_18px_48px_rgba(0,0,0,0.08)] backdrop-blur">
-            <p className="m-0 text-[15px] font-medium text-[#111111]">No scene yet.</p>
+            <p className="m-0 text-[15px] font-medium text-[#111111]">
+              No scene yet.
+            </p>
             <p className="m-0 mt-2 text-[13px] leading-6 text-black/62">
-              Use MCP to add a scene, a few rectangles, and text. The viewport is ready to pan,
-              zoom, and fit the document as soon as committed content arrives.
+              Use MCP to add a scene, a few rectangles, and text. The viewport
+              is ready to pan, zoom, and fit the document as soon as committed
+              content arrives.
             </p>
           </div>
         ) : null}
@@ -207,13 +221,18 @@ function WorkspaceOverlay({
           <div
             aria-hidden={hasInteractedWithCanvas}
             className={cn(
-              "ui-mono bg-[var(--chrome-surface-strong)]/78 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[var(--chrome-ink-inverse)] shadow-[0_14px_40px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-200 ease-out",
-              hasInteractedWithCanvas ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"
+              'ui-mono bg-[var(--chrome-surface-strong)]/78 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[var(--chrome-ink-inverse)] shadow-[0_14px_40px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-200 ease-out',
+              hasInteractedWithCanvas
+                ? 'translate-y-1 opacity-0'
+                : 'translate-y-0 opacity-100',
             )}
             data-viewport-hint="true"
-            data-viewport-hint-visible={hasInteractedWithCanvas ? "false" : "true"}
+            data-viewport-hint-visible={
+              hasInteractedWithCanvas ? 'false' : 'true'
+            }
           >
-            Scroll to pan. Hold Space and drag to move. Ctrl/Cmd + wheel to zoom.
+            Scroll to pan. Hold Space and drag to move. Ctrl/Cmd + wheel to
+            zoom.
           </div>
         </div>
 
@@ -235,13 +254,14 @@ export function DocumentWorkspaceScreen({
   onBackToLibrary,
   onRedo,
   onUndo,
-  runtimeCapabilities
+  runtimeCapabilities,
 }: DocumentWorkspaceScreenProps) {
   const resolvedAssetsById = activeProject.resolved_assets as ResolvedAssetsById;
   const sceneCount = Object.keys(activeProject.document.scenes).length;
   const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
   const rendererRef = useRef<RendererMeasurementHandle | null>(null);
-  const [rendererHandle, setRendererHandle] = useState<RendererMeasurementHandle | null>(null);
+  const [rendererHandle, setRendererHandle] =
+    useState<RendererMeasurementHandle | null>(null);
   const [selectionState, setSelectionState] = useState<{
     nodeId: string | null;
     sequence: number;
@@ -251,43 +271,51 @@ export function DocumentWorkspaceScreen({
     nodeId: null,
     sequence: 0,
     source: null,
-    workspaceIdentity
+    workspaceIdentity,
   }));
-  const [layersInspectorVisibilityState, setLayersInspectorVisibilityState] = useState<{
-    isVisible: boolean;
-    workspaceIdentity: string;
-  }>(() => ({
-    isVisible: true,
-    workspaceIdentity
-  }));
+  const [layersInspectorVisibilityState, setLayersInspectorVisibilityState] =
+    useState<{
+      isVisible: boolean;
+      workspaceIdentity: string;
+    }>(() => ({
+      isVisible: true,
+      workspaceIdentity,
+    }));
   const canCreateNodes =
-    runtimeCapabilities?.mode === "read_write" &&
+    runtimeCapabilities?.mode === 'read_write' &&
     runtimeCapabilities.measurementSurfaceAvailable === true;
   const [canvasToolState, setCanvasToolState] = useState<{
     tool: CanvasTool;
     workspaceIdentity: string;
   }>(() => ({
-    tool: "selection",
-    workspaceIdentity
+    tool: 'selection',
+    workspaceIdentity,
   }));
   const requestedCanvasTool =
-    canvasToolState.workspaceIdentity === workspaceIdentity ? canvasToolState.tool : "selection";
+    canvasToolState.workspaceIdentity === workspaceIdentity
+      ? canvasToolState.tool
+      : 'selection';
   const activeCanvasTool =
-    canCreateNodes || !isCreateCanvasTool(requestedCanvasTool) ? requestedCanvasTool : "selection";
-  const isGrabToolActive = activeCanvasTool === "grab";
+    canCreateNodes || !isCreateCanvasTool(requestedCanvasTool)
+      ? requestedCanvasTool
+      : 'selection';
+  const isGrabToolActive = activeCanvasTool === 'grab';
   const handleCanvasToolChange = useCallback(
     (tool: CanvasTool) => {
       setCanvasToolState({
         tool,
-        workspaceIdentity
+        workspaceIdentity,
       });
     },
-    [workspaceIdentity]
+    [workspaceIdentity],
   );
-  const handleRendererRef = useCallback((handle: RendererMeasurementHandle | null) => {
-    rendererRef.current = handle;
-    setRendererHandle(handle);
-  }, []);
+  const handleRendererRef = useCallback(
+    (handle: RendererMeasurementHandle | null) => {
+      rendererRef.current = handle;
+      setRendererHandle(handle);
+    },
+    [],
+  );
   const {
     fitToContent,
     hasInteractedWithCanvas,
@@ -303,11 +331,11 @@ export function DocumentWorkspaceScreen({
     setZoomAtViewportCenter,
     viewport,
     viewportRef,
-    viewportSize
+    viewportSize,
   } = useViewportController({
     document: activeProject.document,
     isPanModePinned: isGrabToolActive,
-    workspaceIdentity
+    workspaceIdentity,
   });
   const selectedNodeId =
     selectionState.workspaceIdentity === workspaceIdentity &&
@@ -316,11 +344,13 @@ export function DocumentWorkspaceScreen({
       ? selectionState.nodeId
       : null;
   const selectedNodeSelectionSource =
-    selectionState.workspaceIdentity === workspaceIdentity && selectedNodeId !== null
+    selectionState.workspaceIdentity === workspaceIdentity &&
+    selectedNodeId !== null
       ? selectionState.source
       : null;
   const selectedNodeSelectionSequence =
-    selectionState.workspaceIdentity === workspaceIdentity && selectedNodeId !== null
+    selectionState.workspaceIdentity === workspaceIdentity &&
+    selectedNodeId !== null
       ? selectionState.sequence
       : 0;
   const isLayersInspectorVisible =
@@ -340,11 +370,11 @@ export function DocumentWorkspaceScreen({
     isGestureActive,
     isMutatingSelection,
     preview,
-    selectionRectOverride
+    selectionRectOverride,
   } = useInteractionController({
     activeTool: activeCanvasTool,
     allowMutation:
-      runtimeCapabilities?.mode === "read_write" &&
+      runtimeCapabilities?.mode === 'read_write' &&
       runtimeCapabilities.measurementSurfaceAvailable === true,
     document: activeProject.document,
     isPanModifierActive: isSpacePressed || isGrabToolActive,
@@ -353,8 +383,8 @@ export function DocumentWorkspaceScreen({
       setSelectionState((currentSelectionState) => ({
         nodeId,
         sequence: currentSelectionState.sequence + 1,
-        source: "canvas",
-        workspaceIdentity
+        source: 'canvas',
+        workspaceIdentity,
       }));
     },
     onApplyCommands,
@@ -362,17 +392,18 @@ export function DocumentWorkspaceScreen({
     revision: activeProject.revision,
     selectedNodeId,
     viewport,
-    workspaceIdentity
+    workspaceIdentity,
   });
   const [zoomInputState, setZoomInputState] = useState(() => ({
     draft: formatViewportZoomPercent(viewport.zoom),
-    lastCommittedZoom: viewport.zoom
+    lastCommittedZoom: viewport.zoom,
   }));
   const canAdjustViewport = viewportSize.width > 0 && viewportSize.height > 0;
   const canMutateSelection =
-    runtimeCapabilities?.mode === "read_write" &&
+    runtimeCapabilities?.mode === 'read_write' &&
     runtimeCapabilities.measurementSurfaceAvailable === true;
-  const canTraverseHistory = runtimeCapabilities?.mode === "read_write" && !isBusy;
+  const canTraverseHistory =
+    runtimeCapabilities?.mode === 'read_write' && !isBusy;
   const canRedo = canTraverseHistory && historyState?.canRedo === true;
   const canUndo = canTraverseHistory && historyState?.canUndo === true;
   const effectiveErrorMessage = errorMessage ?? commandError;
@@ -394,7 +425,7 @@ export function DocumentWorkspaceScreen({
 
       const normalizedKey = event.key.toLowerCase();
 
-      if (normalizedKey === "z" && !event.shiftKey) {
+      if (normalizedKey === 'z' && !event.shiftKey) {
         if (!canUndo) {
           return;
         }
@@ -404,7 +435,7 @@ export function DocumentWorkspaceScreen({
         return;
       }
 
-      if ((normalizedKey === "z" && event.shiftKey) || normalizedKey === "y") {
+      if ((normalizedKey === 'z' && event.shiftKey) || normalizedKey === 'y') {
         if (!canRedo) {
           return;
         }
@@ -414,10 +445,10 @@ export function DocumentWorkspaceScreen({
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [canRedo, canUndo, onRedo, onUndo]);
 
@@ -426,8 +457,8 @@ export function DocumentWorkspaceScreen({
       setSelectionState((currentSelectionState) => ({
         nodeId,
         sequence: currentSelectionState.sequence + 1,
-        source: "hierarchy",
-        workspaceIdentity
+        source: 'hierarchy',
+        workspaceIdentity,
       }));
 
       const selectionRect = resolveNodeCanvasRect(
@@ -435,22 +466,28 @@ export function DocumentWorkspaceScreen({
         nodeId,
         rendererRef.current,
         viewport.zoom,
-        activeProject.revision
+        activeProject.revision,
       );
 
       if (selectionRect) {
         revealCanvasRect(selectionRect);
       }
     },
-    [activeProject.document, activeProject.revision, revealCanvasRect, viewport.zoom, workspaceIdentity]
+    [
+      activeProject.document,
+      activeProject.revision,
+      revealCanvasRect,
+      viewport.zoom,
+      workspaceIdentity,
+    ],
   );
 
   const handleUpdateNodeFillColor = useCallback(
     async (nodeId: string, color: string) => {
       if (!onApplyCommands) {
         return {
-          errorMessage: "Command bridge unavailable.",
-          ok: false as const
+          errorMessage: 'Command bridge unavailable.',
+          ok: false as const,
         };
       }
 
@@ -461,27 +498,31 @@ export function DocumentWorkspaceScreen({
             node_id: nodeId,
             patch: {
               render_style: {
-                backgroundColor: color
-              }
+                backgroundColor: color,
+              },
             },
-            type: "update_node"
-          }
+            type: 'update_node',
+          },
         ],
-        document_id: activeProject.document.document_id
+        document_id: activeProject.document.document_id,
       });
 
       if (!result.ok) {
         return {
           errorMessage: result.error.message,
-          ok: false as const
+          ok: false as const,
         };
       }
 
       return {
-        ok: true as const
+        ok: true as const,
       };
     },
-    [activeProject.document.document_id, activeProject.revision, onApplyCommands]
+    [
+      activeProject.document.document_id,
+      activeProject.revision,
+      onApplyCommands,
+    ],
   );
 
   const commitZoomInput = () => {
@@ -490,7 +531,7 @@ export function DocumentWorkspaceScreen({
     if (parsedZoom === null) {
       setZoomInputState({
         draft: formatViewportZoomPercent(viewport.zoom),
-        lastCommittedZoom: viewport.zoom
+        lastCommittedZoom: viewport.zoom,
       });
       return;
     }
@@ -498,7 +539,7 @@ export function DocumentWorkspaceScreen({
     setZoomAtViewportCenter(parsedZoom);
     setZoomInputState({
       draft: formatViewportZoomPercent(parsedZoom),
-      lastCommittedZoom: parsedZoom
+      lastCommittedZoom: parsedZoom,
     });
   };
 
@@ -512,8 +553,8 @@ export function DocumentWorkspaceScreen({
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               className={cn(
-                "ui-mono shrink-0 border border-black/16 bg-white px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
-                isBusy && "cursor-not-allowed opacity-45 hover:border-black/16"
+                'ui-mono shrink-0 border border-black/16 bg-white px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black',
+                isBusy && 'cursor-not-allowed opacity-45 hover:border-black/16',
               )}
               disabled={isBusy}
               onClick={onBackToLibrary}
@@ -527,7 +568,9 @@ export function DocumentWorkspaceScreen({
                 {activeProject.project.name}
               </h1>
               <div className="ui-mono mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] uppercase tracking-[0.16em] text-black/48">
-                <span>{sceneCount} scene{sceneCount === 1 ? "" : "s"}</span>
+                <span>
+                  {sceneCount} scene{sceneCount === 1 ? '' : 's'}
+                </span>
                 <span>Project {activeProject.project.id}</span>
                 <span>Document {activeProject.document.document_id}</span>
                 <span>Revision {activeProject.revision}</span>
@@ -538,17 +581,20 @@ export function DocumentWorkspaceScreen({
 
           <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="min-w-0 max-w-full text-left md:text-right">
-              <div className="ui-mono text-[12px] text-[#111111]">{formatMcpStatusLine(mcpStatus)}</div>
+              <div className="ui-mono text-[12px] text-[#111111]">
+                {formatMcpStatusLine(mcpStatus)}
+              </div>
               <div className="ui-mono mt-1 break-all text-[11px] uppercase tracking-[0.14em] text-black/40">
-                {mcpStatus?.endpoint ?? "Loading MCP endpoint"}
+                {mcpStatus?.endpoint ?? 'Loading MCP endpoint'}
               </div>
             </div>
 
             <div className="flex items-center gap-2 border border-black/12 bg-white/86 px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.04)]">
               <button
                 className={cn(
-                  "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
-                  !canUndo && "cursor-not-allowed opacity-45 hover:border-black/12"
+                  'ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black',
+                  !canUndo &&
+                    'cursor-not-allowed opacity-45 hover:border-black/12',
                 )}
                 data-history-action="undo"
                 disabled={!canUndo}
@@ -562,8 +608,9 @@ export function DocumentWorkspaceScreen({
 
               <button
                 className={cn(
-                  "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
-                  !canRedo && "cursor-not-allowed opacity-45 hover:border-black/12"
+                  'ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black',
+                  !canRedo &&
+                    'cursor-not-allowed opacity-45 hover:border-black/12',
                 )}
                 data-history-action="redo"
                 disabled={!canRedo}
@@ -577,8 +624,9 @@ export function DocumentWorkspaceScreen({
 
               <button
                 className={cn(
-                  "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
-                  !canAdjustViewport && "cursor-not-allowed opacity-45 hover:border-black/12"
+                  'ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black',
+                  !canAdjustViewport &&
+                    'cursor-not-allowed opacity-45 hover:border-black/12',
                 )}
                 disabled={!canAdjustViewport}
                 onClick={fitToContent}
@@ -589,8 +637,9 @@ export function DocumentWorkspaceScreen({
 
               <button
                 className={cn(
-                  "ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black",
-                  !canAdjustViewport && "cursor-not-allowed opacity-45 hover:border-black/12"
+                  'ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black',
+                  !canAdjustViewport &&
+                    'cursor-not-allowed opacity-45 hover:border-black/12',
                 )}
                 disabled={!canAdjustViewport}
                 onClick={resetToActualSize}
@@ -609,20 +658,20 @@ export function DocumentWorkspaceScreen({
                   onChange={(event) => {
                     setZoomInputState({
                       draft: event.target.value,
-                      lastCommittedZoom: viewport.zoom
+                      lastCommittedZoom: viewport.zoom,
                     });
                   }}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") {
+                    if (event.key === 'Enter') {
                       event.preventDefault();
                       commitZoomInput();
                     }
 
-                    if (event.key === "Escape") {
+                    if (event.key === 'Escape') {
                       event.preventDefault();
                       setZoomInputState({
                         draft: formatViewportZoomPercent(viewport.zoom),
-                        lastCommittedZoom: viewport.zoom
+                        lastCommittedZoom: viewport.zoom,
                       });
                       event.currentTarget.blur();
                     }
@@ -654,21 +703,26 @@ export function DocumentWorkspaceScreen({
         >
           <div
             className={cn(
-              "absolute inset-0 min-h-0 overflow-hidden",
+              'absolute inset-0 min-h-0 overflow-hidden',
               isMutatingSelection || isGestureActive
-                ? "cursor-default"
+                ? 'cursor-default'
                 : isDragging
-                  ? "cursor-grabbing"
+                  ? 'cursor-grabbing'
                   : isSpacePressed || isGrabToolActive
-                    ? "cursor-grab"
+                    ? 'cursor-grab'
                     : isCreateCanvasTool(activeCanvasTool)
-                      ? "cursor-crosshair"
-                      : "cursor-default"
+                      ? 'cursor-crosshair'
+                      : 'cursor-default',
             )}
             data-viewport-frame="true"
             onAuxClick={handleAuxClick}
             onClick={(event) => {
-              if (!isDragging && !isSpacePressed && !isMutatingSelection && !isGrabToolActive) {
+              if (
+                !isDragging &&
+                !isSpacePressed &&
+                !isMutatingSelection &&
+                !isGrabToolActive
+              ) {
                 handleInteractionClick(event);
               }
             }}
@@ -705,12 +759,17 @@ export function DocumentWorkspaceScreen({
             }}
             ref={viewportRef}
             style={{
-              touchAction: "none",
-              userSelect: isDragging ? "none" : undefined
+              touchAction: 'none',
+              userSelect: isDragging ? 'none' : undefined,
             }}
           >
             <EditorWorkspaceSurface
-              backdropLayer={<WorkspaceGridBackdrop viewport={viewport} viewportSize={viewportSize} />}
+              backdropLayer={
+                <WorkspaceGridBackdrop
+                  viewport={viewport}
+                  viewportSize={viewportSize}
+                />
+              }
               className="h-full w-full"
               document={activeProject.document}
               documentRevision={activeProject.revision}
@@ -724,7 +783,7 @@ export function DocumentWorkspaceScreen({
                   rendererHandle={rendererHandle}
                   selectionRectOverride={selectionRectOverride}
                   selectedNodeId={selectedNodeId}
-                  showHandles={activeCanvasTool === "selection"}
+                  showHandles={activeCanvasTool === 'selection'}
                   viewport={viewport}
                 />
               }
@@ -767,7 +826,7 @@ export function DocumentWorkspaceScreen({
                       onClick={() => {
                         setLayersInspectorVisibilityState({
                           isVisible: false,
-                          workspaceIdentity
+                          workspaceIdentity,
                         });
                       }}
                       title="Hide layers panel"
@@ -791,7 +850,7 @@ export function DocumentWorkspaceScreen({
                 onClick={() => {
                   setLayersInspectorVisibilityState({
                     isVisible: true,
-                    workspaceIdentity
+                    workspaceIdentity,
                   });
                 }}
                 title="Show layers panel"

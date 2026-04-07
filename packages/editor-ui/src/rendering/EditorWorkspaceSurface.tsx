@@ -1,9 +1,15 @@
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, type ReactNode } from 'react';
 
-import { DocumentRenderer, type DocumentRendererProps } from "./DocumentRenderer.js";
-import type { RendererMeasurementHandle, ViewportState } from "./types.js";
+import {
+  DocumentRenderer,
+  type DocumentRendererProps,
+} from './DocumentRenderer.js';
+import type { RendererMeasurementHandle, ViewportState } from './types.js';
 
-export type EditorWorkspaceSurfaceProps = Omit<DocumentRendererProps, "viewportZoom"> & {
+export type EditorWorkspaceSurfaceProps = Omit<
+  DocumentRendererProps,
+  'viewportZoom'
+> & {
   backdropLayer?: ReactNode;
   interactionLayer?: ReactNode;
   uiLayer?: ReactNode;
@@ -11,7 +17,7 @@ export type EditorWorkspaceSurfaceProps = Omit<DocumentRendererProps, "viewportZ
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  return classes.filter(Boolean).join(' ');
 }
 
 function createViewportTransform(viewport: ViewportState): string {
@@ -30,23 +36,23 @@ export const EditorWorkspaceSurface = forwardRef<
     interactionLayer,
     resolvedAssetsById,
     uiLayer,
-    viewport
+    viewport,
   },
-  ref
+  ref,
 ) {
   const layerStyle = {
     inset: 0,
-    position: "absolute" as const
+    position: 'absolute' as const,
   };
   const nonInteractiveLayerStyle = {
     ...layerStyle,
-    pointerEvents: "none" as const
+    pointerEvents: 'none' as const,
   };
   const viewportTransformStyle = {
-    height: "100%",
+    height: '100%',
     transform: createViewportTransform(viewport),
-    transformOrigin: "0 0",
-    width: "100%"
+    transformOrigin: '0 0',
+    width: '100%',
   };
 
   return (
@@ -54,12 +60,12 @@ export const EditorWorkspaceSurface = forwardRef<
       className={cn(className)}
       data-editor-workspace-surface="true"
       style={{
-        height: "100%",
+        height: '100%',
         minHeight: 0,
         minWidth: 0,
-        overflow: "hidden",
-        position: "relative",
-        width: "100%"
+        overflow: 'hidden',
+        position: 'relative',
+        width: '100%',
       }}
     >
       <div data-layer="backdrop" style={nonInteractiveLayerStyle}>
@@ -83,7 +89,7 @@ export const EditorWorkspaceSurface = forwardRef<
           data-viewport-transform="interaction"
           style={{
             ...viewportTransformStyle,
-            pointerEvents: "none"
+            pointerEvents: 'none',
           }}
         >
           {interactionLayer}

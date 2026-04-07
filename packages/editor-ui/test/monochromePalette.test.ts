@@ -1,14 +1,17 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, extname, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, extname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
 const TEST_DIRECTORY = dirname(fileURLToPath(import.meta.url));
-const WORKSPACE_ROOT = resolve(TEST_DIRECTORY, "../../..");
-const EDITOR_SOURCE_DIRECTORY = resolve(TEST_DIRECTORY, "../src");
-const RENDERER_STYLE_FILE = resolve(WORKSPACE_ROOT, "apps/desktop/src/renderer/styles.css");
-const SOURCE_FILE_EXTENSIONS = new Set([".ts", ".tsx", ".css"]);
+const WORKSPACE_ROOT = resolve(TEST_DIRECTORY, '../../..');
+const EDITOR_SOURCE_DIRECTORY = resolve(TEST_DIRECTORY, '../src');
+const RENDERER_STYLE_FILE = resolve(
+  WORKSPACE_ROOT,
+  'apps/desktop/src/renderer/styles.css',
+);
+const SOURCE_FILE_EXTENSIONS = new Set(['.ts', '.tsx', '.css']);
 
 function collectSourceFiles(directoryPath: string): string[] {
   const entries = readdirSync(directoryPath, { withFileTypes: true });
@@ -56,29 +59,36 @@ function isGrayscaleRgbColor(token: string): boolean {
     return false;
   }
 
-  const [red, green, blue] = numericParts.slice(0, 3).map((part) => Number.parseFloat(part));
+  const [red, green, blue] = numericParts
+    .slice(0, 3)
+    .map((part) => Number.parseFloat(part));
 
   return red === green && green === blue;
 }
 
 function findNonGrayscaleColorLiterals(filePath: string): string[] {
-  const contents = readFileSync(filePath, "utf8");
+  const contents = readFileSync(filePath, 'utf8');
   const matches = contents.match(/#[0-9A-Fa-f]{3,8}|rgba?\([^)]*\)/g) ?? [];
 
   return matches.filter((token) =>
-    token.startsWith("#") ? !isGrayscaleHexColor(token) : !isGrayscaleRgbColor(token)
+    token.startsWith('#')
+      ? !isGrayscaleHexColor(token)
+      : !isGrayscaleRgbColor(token),
   );
 }
 
-describe("monochrome chrome palette", () => {
-  it("keeps app chrome color literals grayscale", () => {
+describe('monochrome chrome palette', () => {
+  it('keeps app chrome color literals grayscale', () => {
     expect(statSync(RENDERER_STYLE_FILE).isFile()).toBe(true);
 
-    const filesToCheck = [...collectSourceFiles(EDITOR_SOURCE_DIRECTORY), RENDERER_STYLE_FILE];
+    const filesToCheck = [
+      ...collectSourceFiles(EDITOR_SOURCE_DIRECTORY),
+      RENDERER_STYLE_FILE,
+    ];
     const violations = filesToCheck.flatMap((filePath) =>
       findNonGrayscaleColorLiterals(filePath).map(
-        (token) => `${relative(WORKSPACE_ROOT, filePath)}: ${token}`
-      )
+        (token) => `${relative(WORKSPACE_ROOT, filePath)}: ${token}`,
+      ),
     );
 
     expect(violations).toEqual([]);

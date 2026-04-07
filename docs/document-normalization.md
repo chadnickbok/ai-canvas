@@ -337,7 +337,7 @@ Derived fields must be recomputed during normalization.
 `scene.child_count` must always equal:
 
 ```ts
-nodes[scene.frame_node_id].child_ids.length
+nodes[scene.frame_node_id].child_ids.length;
 ```
 
 Normalization must recompute it unconditionally.
@@ -346,9 +346,9 @@ Normalization must recompute it unconditionally.
 
 Any derived ordering metadata must be recomputed from:
 
-* `root.child_ids`
-* `parent.child_ids`
-* SVG child order rules
+- `root.child_ids`
+- `parent.child_ids`
+- SVG child order rules
 
 No secondary ordering cache is authoritative.
 
@@ -356,14 +356,14 @@ No secondary ordering cache is authoritative.
 
 It ensures:
 
-* authoring containers exist on canvas and nodes
-* only semantic slot keys declared for that node kind survive in local-value and variable-binding maps
-* only style families declared for that node kind survive in `style_bindings`
-* variables and styles are normalized into canonical typed record shapes
-* broken canvas and node variable bindings are dropped
-* broken node style bindings are dropped
-* style slot variable references to missing variables are dropped
-* obvious alias loops in variable mode values are trimmed deterministically
+- authoring containers exist on canvas and nodes
+- only semantic slot keys declared for that node kind survive in local-value and variable-binding maps
+- only style families declared for that node kind survive in `style_bindings`
+- variables and styles are normalized into canonical typed record shapes
+- broken canvas and node variable bindings are dropped
+- broken node style bindings are dropped
+- style slot variable references to missing variables are dropped
+- obvious alias loops in variable mode values are trimmed deterministically
 
 ## 12. Semantic Resolution
 
@@ -371,11 +371,11 @@ Normalization resolves semantic slots one requested slot at a time.
 
 Rules:
 
-* canvas precedence is local value, then direct variable binding, then unset
-* node precedence is local value, then direct variable binding, then bound style family, then unset
-* a variable contributes only when it exists, resolves in the chosen or default mode, and declares the exact requested slot in `scopes`
-* typography variables contribute only the requested typography field
-* unresolved stronger sources fail closed and do not fall through to weaker sources
+- canvas precedence is local value, then direct variable binding, then unset
+- node precedence is local value, then direct variable binding, then bound style family, then unset
+- a variable contributes only when it exists, resolves in the chosen or default mode, and declares the exact requested slot in `scopes`
+- typography variables contribute only the requested typography field
+- unresolved stronger sources fail closed and do not fall through to weaker sources
 
 ## 13. Semantic Materialization into Render Inputs
 
@@ -383,17 +383,17 @@ Normalization owns the mapped semantic render keys.
 
 This means:
 
-* `canvas.background_color` is recomputed from semantic authoring
-* mapped node render keys are recomputed from semantic authoring and written into `render_style`
-* when a mapped semantic slot resolves to `undefined`, its mapped render key is removed
-* only non-mapped `render_style` properties remain raw-only and survive untouched unless another normalization rule removes them
+- `canvas.background_color` is recomputed from semantic authoring
+- mapped node render keys are recomputed from semantic authoring and written into `render_style`
+- when a mapped semantic slot resolves to `undefined`, its mapped render key is removed
+- only non-mapped `render_style` properties remain raw-only and survive untouched unless another normalization rule removes them
 
 ## 14. Computed Layout Is Outside Normalization
 
 Every node has:
 
-* `render_style`, which stores render inputs
-* optional `computed_layout`, which stores resolved geometry when that cache is present
+- `render_style`, which stores render inputs
+- optional `computed_layout`, which stores resolved geometry when that cache is present
 
 Normalization is responsible for making structure, typed containers, and asset-backed render references canonical.
 
@@ -407,10 +407,10 @@ The separate computed-layout refresh contract is defined in `docs/computed-layou
 
 That contract is responsible for:
 
-* letting the browser-backed renderer resolve layout
-* measuring affected nodes
-* writing fresh `computed_layout`
-* preserving authored inputs in `render_style`
+- letting the browser-backed renderer resolve layout
+- measuring affected nodes
+- writing fresh `computed_layout`
+- preserving authored inputs in `render_style`
 
 ## 15. Visibility Normalization
 
@@ -420,7 +420,7 @@ Normalization does not rewrite that into semantic state.
 
 The renderer may express invisibility as `display: none` or equivalent at render time, but persisted document truth remains:
 
-* `node.is_visible`
+- `node.is_visible`
 
 Normalization should not permanently inject visibility overrides into unrelated style fields unless the renderer contract explicitly requires that.
 
@@ -428,16 +428,16 @@ Normalization should not permanently inject visibility overrides into unrelated 
 
 Text nodes must always have:
 
-* `kind: "text"`
-* `text.content`
+- `kind: "text"`
+- `text.content`
 
 `text.content` may be empty.
 
 Normalization must ensure:
 
-* non-text nodes do not carry text payloads
-* text nodes always have a text payload
-* missing text content defaults to `""`
+- non-text nodes do not carry text payloads
+- text nodes always have a text payload
+- missing text content defaults to `""`
 
 ## 17. SVG Normalization
 
@@ -445,29 +445,29 @@ SVG roots and SVG primitives must remain structurally coherent.
 
 Normalization must ensure:
 
-* only `svg` nodes may contain `svg-visual-element` children
-* SVG primitive payloads exist on `svg-visual-element` nodes
-* SVG root payloads exist on `svg` nodes
+- only `svg` nodes may contain `svg-visual-element` children
+- SVG primitive payloads exist on `svg-visual-element` nodes
+- SVG root payloads exist on `svg` nodes
 
 Repair policy:
 
-* if a primitive is detached from a valid SVG parent, drop the primitive during normalization
-* normalization must not preserve detached `svg-visual-element` nodes as loose top-level content
-* normalization does not invent synthetic `svg` wrappers or fallback node conversions in v1
+- if a primitive is detached from a valid SVG parent, drop the primitive during normalization
+- normalization must not preserve detached `svg-visual-element` nodes as loose top-level content
+- normalization does not invent synthetic `svg` wrappers or fallback node conversions in v1
 
 ## 18. Final Validation
 
 After normalization, the document must satisfy:
 
-* canonical required containers exist
-* structural graph is acyclic
-* all surviving parent-child relationships are coherent
-* scene/frame coupling is valid
-* no surviving `svg-visual-element` is detached from an `svg` parent
-* derived fields are recomputed
-* broken references are removed
-* semantic containers are canonically typed
-* asset-backed render references are coherent enough for structural render and inspection
+- canonical required containers exist
+- structural graph is acyclic
+- all surviving parent-child relationships are coherent
+- scene/frame coupling is valid
+- no surviving `svg-visual-element` is detached from an `svg` parent
+- derived fields are recomputed
+- broken references are removed
+- semantic containers are canonically typed
+- asset-backed render references are coherent enough for structural render and inspection
 
 If these conditions are not met and cannot be repaired safely, normalization must fail.
 
@@ -475,16 +475,16 @@ If these conditions are not met and cannot be repaired safely, normalization mus
 
 When a normalized document is serialized for persistence as part of a commit or autosave path:
 
-* the commit path must already have run computed-layout refresh as defined in `docs/computed-layout-refresh.md`
+- the commit path must already have run computed-layout refresh as defined in `docs/computed-layout-refresh.md`
 
 The serializer should then ensure:
 
-* required empty containers are emitted explicitly
-* dropped references do not reappear
-* derived fields reflect the normalized state
-* semantic containers reflect the normalized typed state
-* when present, `computed_layout` reflects the latest resolved layout for persisted nodes
-* `render_style` preserves surviving authored inputs, including relative or flexible sizing inputs
+- required empty containers are emitted explicitly
+- dropped references do not reappear
+- derived fields reflect the normalized state
+- semantic containers reflect the normalized typed state
+- when present, `computed_layout` reflects the latest resolved layout for persisted nodes
+- `render_style` preserves surviving authored inputs, including relative or flexible sizing inputs
 
 The serializer should emit one canonical shape, not multiple equivalent shapes.
 
@@ -492,9 +492,9 @@ The serializer should emit one canonical shape, not multiple equivalent shapes.
 
 This document does not define:
 
-* command grammar
-* UI interaction behavior
-* undo/redo storage format
-* autosave timing
-* renderer implementation details beyond normalized input expectations
-* import compatibility from old or foreign document formats
+- command grammar
+- UI interaction behavior
+- undo/redo storage format
+- autosave timing
+- renderer implementation details beyond normalized input expectations
+- import compatibility from old or foreign document formats

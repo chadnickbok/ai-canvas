@@ -1,10 +1,15 @@
-import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
-import type { AddressInfo } from "node:net";
+import {
+  createServer,
+  type IncomingMessage,
+  type Server as HttpServer,
+  type ServerResponse,
+} from 'node:http';
+import { randomUUID } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import {
   appErrorSchema,
   applyCommandsInputSchema,
@@ -14,11 +19,17 @@ import {
   type AppResult,
   type CommandResult,
   type McpStatus,
-  type ProjectSummary
-} from "@ai-canvas/ipc-contract";
-import { z } from "zod";
+  type ProjectSummary,
+} from '@ai-canvas/ipc-contract';
+import { z } from 'zod';
 
-type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 type JsonObject = { [key: string]: JsonValue };
 
 export type InspectProjectOutput = {
@@ -115,7 +126,7 @@ export type OpenProjectOutput = {
 
 export type ApplyCommandsToolInput = {
   base_revision?: number;
-  commands: z.infer<typeof applyCommandsInputSchema>["commands"];
+  commands: z.infer<typeof applyCommandsInputSchema>['commands'];
   project_id?: string;
 };
 
@@ -156,33 +167,48 @@ export type CreateAssetFromUrlOutput = CreateAssetToolOutput;
 
 export type ProjectService = {
   applyCommands: (
-    input: ApplyCommandsToolInput
+    input: ApplyCommandsToolInput,
   ) => Promise<AppResult<CommandResult>> | AppResult<CommandResult>;
   createAssetFromBytes: (
-    input: CreateAssetFromBytesToolInput
-  ) => Promise<AppResult<CreateAssetFromBytesOutput>> | AppResult<CreateAssetFromBytesOutput>;
+    input: CreateAssetFromBytesToolInput,
+  ) =>
+    | Promise<AppResult<CreateAssetFromBytesOutput>>
+    | AppResult<CreateAssetFromBytesOutput>;
   createAssetFromUrl: (
-    input: CreateAssetFromUrlToolInput
-  ) => Promise<AppResult<CreateAssetFromUrlOutput>> | AppResult<CreateAssetFromUrlOutput>;
-  createProject: (name: string) => Promise<AppResult<ProjectSummary>> | AppResult<ProjectSummary>;
+    input: CreateAssetFromUrlToolInput,
+  ) =>
+    | Promise<AppResult<CreateAssetFromUrlOutput>>
+    | AppResult<CreateAssetFromUrlOutput>;
+  createProject: (
+    name: string,
+  ) => Promise<AppResult<ProjectSummary>> | AppResult<ProjectSummary>;
   inspectDesignSystem: (
-    projectId?: string
-  ) => Promise<AppResult<InspectDesignSystemOutput>> | AppResult<InspectDesignSystemOutput>;
+    projectId?: string,
+  ) =>
+    | Promise<AppResult<InspectDesignSystemOutput>>
+    | AppResult<InspectDesignSystemOutput>;
   inspectNode: (
     projectId: string | undefined,
-    nodeId: string
+    nodeId: string,
   ) => Promise<AppResult<InspectNodeOutput>> | AppResult<InspectNodeOutput>;
   inspectProject: (
-    projectId?: string
-  ) => Promise<AppResult<InspectProjectOutput>> | AppResult<InspectProjectOutput>;
+    projectId?: string,
+  ) =>
+    | Promise<AppResult<InspectProjectOutput>>
+    | AppResult<InspectProjectOutput>;
   inspectScenes: (
-    projectId?: string
+    projectId?: string,
   ) => Promise<AppResult<InspectScenesOutput>> | AppResult<InspectScenesOutput>;
-  inspectTree: (
-    input: { projectId?: string; rootNodeId?: string }
-  ) => Promise<AppResult<InspectTreeOutput>> | AppResult<InspectTreeOutput>;
-  listProjects: () => Promise<AppResult<ProjectSummary[]>> | AppResult<ProjectSummary[]>;
-  openProject: (projectId: string) => Promise<AppResult<OpenProjectOutput>> | AppResult<OpenProjectOutput>;
+  inspectTree: (input: {
+    projectId?: string;
+    rootNodeId?: string;
+  }) => Promise<AppResult<InspectTreeOutput>> | AppResult<InspectTreeOutput>;
+  listProjects: () =>
+    | Promise<AppResult<ProjectSummary[]>>
+    | AppResult<ProjectSummary[]>;
+  openProject: (
+    projectId: string,
+  ) => Promise<AppResult<OpenProjectOutput>> | AppResult<OpenProjectOutput>;
 };
 
 export type LocalMcpBridgeOptions = {
@@ -197,29 +223,39 @@ type SessionEntry = {
 };
 
 type McpStartError = {
-  code: "port_in_use" | "startup_failed";
+  code: 'port_in_use' | 'startup_failed';
   message: string;
 };
 
 const toolErrorSchema = z
   .object({
     error: appErrorSchema,
-    ok: z.literal(false)
+    ok: z.literal(false),
   })
   .strict();
 
 const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(jsonValueSchema), z.record(z.string(), jsonValueSchema)])
+  z.union([
+    z.null(),
+    z.boolean(),
+    z.number(),
+    z.string(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ]),
 );
 
-const jsonObjectSchema: z.ZodType<JsonObject> = z.record(z.string(), jsonValueSchema);
+const jsonObjectSchema: z.ZodType<JsonObject> = z.record(
+  z.string(),
+  jsonValueSchema,
+);
 
 const computedLayoutSchema = z
   .object({
     height: z.number(),
     width: z.number(),
     x: z.number(),
-    y: z.number()
+    y: z.number(),
   })
   .strict();
 
@@ -235,9 +271,9 @@ const sceneRecordSchema = z
         notes: z.string().optional(),
         role: z.string().optional(),
         summary: z.string().optional(),
-        tags: z.array(z.string())
+        tags: z.array(z.string()),
       })
-      .strict()
+      .strict(),
   })
   .strict();
 
@@ -254,7 +290,7 @@ const documentInspectionSchema = z
     scene_count: z.number().int().nonnegative(),
     text_style_count: z.number().int().nonnegative(),
     variable_collection_count: z.number().int().nonnegative(),
-    variable_count: z.number().int().nonnegative()
+    variable_count: z.number().int().nonnegative(),
   })
   .strict();
 
@@ -270,16 +306,16 @@ const treeNodeInspectionSchema: z.ZodType<InspectTreeNodeOutput> = z.lazy(() =>
       kind: z.string(),
       name: z.string(),
       parent_id: z.string().nullable(),
-      scene_id: z.string().nullable()
+      scene_id: z.string().nullable(),
     })
-    .strict()
+    .strict(),
 );
 
 const sceneInspectionSchema = z
   .object({
     child_ids: z.array(z.string()),
     frame: jsonObjectSchema,
-    scene: sceneRecordSchema
+    scene: sceneRecordSchema,
   })
   .strict();
 
@@ -287,7 +323,7 @@ const designSystemInspectionSchema = z
   .object({
     canvas: jsonObjectSchema,
     styles: jsonObjectSchema,
-    variables: jsonObjectSchema
+    variables: jsonObjectSchema,
   })
   .strict();
 
@@ -316,36 +352,36 @@ const assetStoreSourceSchema = z
 
 const openProjectInputSchema = z
   .object({
-    project_id: toolProjectIdSchema
+    project_id: toolProjectIdSchema,
   })
   .strict();
 
 const inspectProjectInputSchema = z
   .object({
-    project_id: toolProjectIdSchema.optional()
+    project_id: toolProjectIdSchema.optional(),
   })
   .strict();
 
 const inspectTreeInputSchema = z
   .object({
     project_id: toolProjectIdSchema.optional(),
-    root_node_id: z.string().min(1).optional()
+    root_node_id: z.string().min(1).optional(),
   })
   .strict();
 
 const inspectNodeInputSchema = z
   .object({
     node_id: z.string().min(1),
-    project_id: toolProjectIdSchema.optional()
+    project_id: toolProjectIdSchema.optional(),
   })
   .strict();
 
 const applyCommandsToolInputSchema = applyCommandsInputSchema
   .omit({
-    document_id: true
+    document_id: true,
   })
   .extend({
-    project_id: toolProjectIdSchema.optional()
+    project_id: toolProjectIdSchema.optional(),
   })
   .strict();
 
@@ -374,14 +410,14 @@ const createAssetFromUrlInputSchema = z
 const listProjectsOutputSchema = z
   .object({
     ok: z.literal(true),
-    projects: z.array(projectSummarySchema)
+    projects: z.array(projectSummarySchema),
   })
   .strict();
 
 const createProjectOutputSchema = z
   .object({
     ok: z.literal(true),
-    project: projectSummarySchema
+    project: projectSummarySchema,
   })
   .strict();
 
@@ -389,7 +425,7 @@ const openProjectOutputSchema = z
   .object({
     ok: z.literal(true),
     project: projectSummarySchema,
-    revision: z.number().int().positive()
+    revision: z.number().int().positive(),
   })
   .strict();
 
@@ -399,7 +435,7 @@ const inspectProjectOutputSchema = z
     is_active: z.boolean(),
     ok: z.literal(true),
     project: projectSummarySchema,
-    revision: z.number().int().positive()
+    revision: z.number().int().positive(),
   })
   .strict();
 
@@ -410,7 +446,7 @@ const inspectTreeOutputSchema = z
     project_id: z.string(),
     revision: z.number().int().positive(),
     root_node_id: z.string().nullable(),
-    tree: z.array(treeNodeInspectionSchema)
+    tree: z.array(treeNodeInspectionSchema),
   })
   .strict();
 
@@ -420,7 +456,7 @@ const inspectNodeOutputSchema = z
     node: jsonObjectSchema,
     ok: z.literal(true),
     project_id: z.string(),
-    revision: z.number().int().positive()
+    revision: z.number().int().positive(),
   })
   .strict();
 
@@ -430,7 +466,7 @@ const inspectScenesOutputSchema = z
     ok: z.literal(true),
     project_id: z.string(),
     revision: z.number().int().positive(),
-    scenes: z.array(sceneInspectionSchema)
+    scenes: z.array(sceneInspectionSchema),
   })
   .strict();
 
@@ -440,13 +476,13 @@ const inspectDesignSystemOutputSchema = z
     document_id: z.string(),
     ok: z.literal(true),
     project_id: z.string(),
-    revision: z.number().int().positive()
+    revision: z.number().int().positive(),
   })
   .strict();
 
 const applyCommandsOutputSchema = z
   .object({
-    ok: z.literal(true)
+    ok: z.literal(true),
   })
   .extend(commandResultSchema.shape)
   .strict();
@@ -465,19 +501,26 @@ const createAssetOutputSchema = z
   .strict();
 
 function toJsonCompatibleValue(value: unknown): JsonValue {
-  if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") {
+  if (
+    value === null ||
+    typeof value === 'boolean' ||
+    typeof value === 'number' ||
+    typeof value === 'string'
+  ) {
     return value;
   }
 
   if (Array.isArray(value)) {
-    return value.map((entry) => (entry === undefined ? null : toJsonCompatibleValue(entry)));
+    return value.map((entry) =>
+      entry === undefined ? null : toJsonCompatibleValue(entry),
+    );
   }
 
-  if (typeof value === "object" && value !== null) {
+  if (typeof value === 'object' && value !== null) {
     return Object.fromEntries(
       Object.entries(value).flatMap(([key, entry]) =>
-        entry === undefined ? [] : [[key, toJsonCompatibleValue(entry)]]
-      )
+        entry === undefined ? [] : [[key, toJsonCompatibleValue(entry)]],
+      ),
     );
   }
 
@@ -520,11 +563,12 @@ export class LocalMcpBridge {
         await this.handleRequest(req, res);
       } catch (error) {
         if (!res.headersSent) {
-          res.writeHead(500, { "content-type": "application/json" });
+          res.writeHead(500, { 'content-type': 'application/json' });
           res.end(
             JSON.stringify({
-              error: error instanceof Error ? error.message : "Unknown MCP error"
-            })
+              error:
+                error instanceof Error ? error.message : 'Unknown MCP error',
+            }),
           );
         }
       }
@@ -532,12 +576,12 @@ export class LocalMcpBridge {
 
     try {
       await new Promise<void>((resolve, reject) => {
-        this.httpServer?.once("error", reject);
+        this.httpServer?.once('error', reject);
         this.httpServer?.listen(this.requestedPort, this.host, () => {
           const address = this.httpServer?.address();
 
-          if (!address || typeof address === "string") {
-            reject(new Error("MCP bridge did not bind to a TCP port"));
+          if (!address || typeof address === 'string') {
+            reject(new Error('MCP bridge did not bind to a TCP port'));
             return;
           }
 
@@ -589,55 +633,61 @@ export class LocalMcpBridge {
       endpoint: `http://${this.host}:${port}/mcp`,
       host: this.host,
       port,
-      state: this.startError ? "error" : "running"
+      state: this.startError ? 'error' : 'running',
     };
   }
 
   private toStartError(error: unknown): McpStartError {
     if (isPortInUseError(error)) {
       return {
-        code: "port_in_use",
-        message: `The local MCP bridge requires ${this.host}:${this.requestedPort}, but that port is already in use.`
+        code: 'port_in_use',
+        message: `The local MCP bridge requires ${this.host}:${this.requestedPort}, but that port is already in use.`,
       };
     }
 
     return {
-      code: "startup_failed",
-      message: error instanceof Error ? error.message : "The local MCP bridge failed to start."
+      code: 'startup_failed',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'The local MCP bridge failed to start.',
     };
   }
 
-  private async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  private async handleRequest(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<void> {
     if (!req.url) {
       res.writeHead(404);
       res.end();
       return;
     }
 
-    if (req.url === "/health") {
-      res.writeHead(200, { "content-type": "application/json" });
+    if (req.url === '/health') {
+      res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(this.getStatus()));
       return;
     }
 
-    if (!req.url.startsWith("/mcp")) {
+    if (!req.url.startsWith('/mcp')) {
       res.writeHead(404);
       res.end();
       return;
     }
 
-    if (req.method === "POST") {
+    if (req.method === 'POST') {
       const body = await this.readJsonBody(req);
       await this.handlePost(req, res, body);
       return;
     }
 
-    if (req.method === "GET") {
+    if (req.method === 'GET') {
       await this.handleGet(req, res);
       return;
     }
 
-    if (req.method === "DELETE") {
+    if (req.method === 'DELETE') {
       await this.handleDelete(req, res);
       return;
     }
@@ -649,27 +699,30 @@ export class LocalMcpBridge {
   private async handlePost(
     req: IncomingMessage,
     res: ServerResponse,
-    body: unknown
+    body: unknown,
   ): Promise<void> {
-    const sessionIdHeader = req.headers["mcp-session-id"];
-    const sessionId = typeof sessionIdHeader === "string" ? sessionIdHeader : undefined;
+    const sessionIdHeader = req.headers['mcp-session-id'];
+    const sessionId =
+      typeof sessionIdHeader === 'string' ? sessionIdHeader : undefined;
 
     if (sessionId && this.sessions.has(sessionId)) {
-      await this.sessions.get(sessionId)?.transport.handleRequest(req, res, body);
+      await this.sessions
+        .get(sessionId)
+        ?.transport.handleRequest(req, res, body);
       return;
     }
 
     if (!isInitializeRequest(body)) {
-      res.writeHead(400, { "content-type": "application/json" });
+      res.writeHead(400, { 'content-type': 'application/json' });
       res.end(
         JSON.stringify({
-          jsonrpc: "2.0",
+          jsonrpc: '2.0',
           error: {
             code: -32000,
-            message: "Bad Request: missing valid MCP session"
+            message: 'Bad Request: missing valid MCP session',
           },
-          id: null
-        })
+          id: null,
+        }),
       );
       return;
     }
@@ -681,11 +734,11 @@ export class LocalMcpBridge {
         if (!session) {
           this.sessions.set(initializedSessionId, {
             server,
-            transport
+            transport,
           });
           this.emitStatusChanged();
         }
-      }
+      },
     });
     const server = this.createServer();
 
@@ -702,26 +755,34 @@ export class LocalMcpBridge {
     await transport.handleRequest(req, res, body);
   }
 
-  private async handleGet(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const sessionIdHeader = req.headers["mcp-session-id"];
-    const sessionId = typeof sessionIdHeader === "string" ? sessionIdHeader : undefined;
+  private async handleGet(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<void> {
+    const sessionIdHeader = req.headers['mcp-session-id'];
+    const sessionId =
+      typeof sessionIdHeader === 'string' ? sessionIdHeader : undefined;
 
     if (!sessionId || !this.sessions.has(sessionId)) {
-      res.writeHead(400, { "content-type": "text/plain" });
-      res.end("Invalid or missing MCP session ID");
+      res.writeHead(400, { 'content-type': 'text/plain' });
+      res.end('Invalid or missing MCP session ID');
       return;
     }
 
     await this.sessions.get(sessionId)?.transport.handleRequest(req, res);
   }
 
-  private async handleDelete(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const sessionIdHeader = req.headers["mcp-session-id"];
-    const sessionId = typeof sessionIdHeader === "string" ? sessionIdHeader : undefined;
+  private async handleDelete(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<void> {
+    const sessionIdHeader = req.headers['mcp-session-id'];
+    const sessionId =
+      typeof sessionIdHeader === 'string' ? sessionIdHeader : undefined;
 
     if (!sessionId || !this.sessions.has(sessionId)) {
-      res.writeHead(400, { "content-type": "text/plain" });
-      res.end("Invalid or missing MCP session ID");
+      res.writeHead(400, { 'content-type': 'text/plain' });
+      res.end('Invalid or missing MCP session ID');
       return;
     }
 
@@ -730,16 +791,17 @@ export class LocalMcpBridge {
 
   private createServer(): McpServer {
     const server = new McpServer({
-      name: "ai-canvas-desktop",
-      version: "0.0.0"
+      name: 'ai-canvas-desktop',
+      version: '0.0.0',
     });
 
     server.registerTool(
-      "list_projects",
+      'list_projects',
       {
-        description: "List local AI Canvas projects from the shared desktop runtime.",
+        description:
+          'List local AI Canvas projects from the shared desktop runtime.',
         inputSchema: {},
-        outputSchema: listProjectsOutputSchema
+        outputSchema: listProjectsOutputSchema,
       },
       async () =>
         this.toToolResponse(
@@ -747,17 +809,18 @@ export class LocalMcpBridge {
           listProjectsOutputSchema,
           (projects) => ({
             ok: true as const,
-            projects
-          })
-        )
+            projects,
+          }),
+        ),
     );
 
     server.registerTool(
-      "create_project",
+      'create_project',
       {
-        description: "Create a new local AI Canvas project and make it the active desktop session.",
+        description:
+          'Create a new local AI Canvas project and make it the active desktop session.',
         inputSchema: createProjectInputSchema,
-        outputSchema: createProjectOutputSchema
+        outputSchema: createProjectOutputSchema,
       },
       async (args) => {
         const input = createProjectInputSchema.parse(args);
@@ -767,18 +830,19 @@ export class LocalMcpBridge {
           createProjectOutputSchema,
           (project) => ({
             ok: true as const,
-            project
-          })
+            project,
+          }),
         );
-      }
+      },
     );
 
     server.registerTool(
-      "open_project",
+      'open_project',
       {
-        description: "Open a local AI Canvas project and make it the active desktop session.",
+        description:
+          'Open a local AI Canvas project and make it the active desktop session.',
         inputSchema: openProjectInputSchema,
-        outputSchema: openProjectOutputSchema
+        outputSchema: openProjectOutputSchema,
       },
       async (args) => {
         const input = openProjectInputSchema.parse(args);
@@ -789,18 +853,19 @@ export class LocalMcpBridge {
           (data) => ({
             ok: true as const,
             project: data.project,
-            revision: data.revision
-          })
+            revision: data.revision,
+          }),
         );
-      }
+      },
     );
 
     server.registerTool(
-      "inspect_project",
+      'inspect_project',
       {
-        description: "Inspect a project summary and the normalized document overview for the active or targeted project.",
+        description:
+          'Inspect a project summary and the normalized document overview for the active or targeted project.',
         inputSchema: inspectProjectInputSchema,
-        outputSchema: inspectProjectOutputSchema
+        outputSchema: inspectProjectOutputSchema,
       },
       async (args) => {
         const input = inspectProjectInputSchema.parse(args);
@@ -813,18 +878,19 @@ export class LocalMcpBridge {
             is_active: data.is_active,
             ok: true as const,
             project: data.project,
-            revision: data.revision
-          })
+            revision: data.revision,
+          }),
         );
-      }
+      },
     );
 
     server.registerTool(
-      "inspect_tree",
+      'inspect_tree',
       {
-        description: "Inspect the normalized node tree for the active or targeted project.",
+        description:
+          'Inspect the normalized node tree for the active or targeted project.',
         inputSchema: inspectTreeInputSchema,
-        outputSchema: inspectTreeOutputSchema
+        outputSchema: inspectTreeOutputSchema,
       },
       async (args) => {
         const input = inspectTreeInputSchema.parse(args);
@@ -832,7 +898,7 @@ export class LocalMcpBridge {
         return this.toToolResponse(
           await this.projectService.inspectTree({
             projectId: input.project_id,
-            rootNodeId: input.root_node_id
+            rootNodeId: input.root_node_id,
           }),
           inspectTreeOutputSchema,
           (data) => ({
@@ -841,42 +907,47 @@ export class LocalMcpBridge {
             project_id: data.project_id,
             revision: data.revision,
             root_node_id: data.root_node_id,
-            tree: data.tree
-          })
+            tree: data.tree,
+          }),
         );
-      }
+      },
     );
 
     server.registerTool(
-      "inspect_node",
+      'inspect_node',
       {
-        description: "Inspect a normalized node from the active or targeted project.",
+        description:
+          'Inspect a normalized node from the active or targeted project.',
         inputSchema: inspectNodeInputSchema,
-        outputSchema: inspectNodeOutputSchema
+        outputSchema: inspectNodeOutputSchema,
       },
       async (args) => {
         const input = inspectNodeInputSchema.parse(args);
 
         return this.toToolResponse(
-          await this.projectService.inspectNode(input.project_id, input.node_id),
+          await this.projectService.inspectNode(
+            input.project_id,
+            input.node_id,
+          ),
           inspectNodeOutputSchema,
           (data) => ({
             document_id: data.document_id,
             node: data.node,
             ok: true as const,
             project_id: data.project_id,
-            revision: data.revision
-          })
+            revision: data.revision,
+          }),
         );
-      }
+      },
     );
 
     server.registerTool(
-      "inspect_scenes",
+      'inspect_scenes',
       {
-        description: "Inspect scenes and backing frames from the active or targeted project.",
+        description:
+          'Inspect scenes and backing frames from the active or targeted project.',
         inputSchema: inspectProjectInputSchema,
-        outputSchema: inspectScenesOutputSchema
+        outputSchema: inspectScenesOutputSchema,
       },
       async (args) => {
         const input = inspectProjectInputSchema.parse(args);
@@ -889,18 +960,19 @@ export class LocalMcpBridge {
             ok: true as const,
             project_id: data.project_id,
             revision: data.revision,
-            scenes: data.scenes
-          })
+            scenes: data.scenes,
+          }),
         );
-      }
+      },
     );
 
     server.registerTool(
-      "inspect_design_system",
+      'inspect_design_system',
       {
-        description: "Inspect canvas authoring, variables, and styles from the active or targeted project.",
+        description:
+          'Inspect canvas authoring, variables, and styles from the active or targeted project.',
         inputSchema: inspectProjectInputSchema,
-        outputSchema: inspectDesignSystemOutputSchema
+        outputSchema: inspectDesignSystemOutputSchema,
       },
       async (args) => {
         const input = inspectProjectInputSchema.parse(args);
@@ -913,19 +985,19 @@ export class LocalMcpBridge {
             document_id: data.document_id,
             ok: true as const,
             project_id: data.project_id,
-            revision: data.revision
-          })
+            revision: data.revision,
+          }),
         );
-      }
+      },
     );
 
     server.registerTool(
-      "apply_commands",
+      'apply_commands',
       {
         description:
-          "Apply a validated command batch to the active project session. Mutations require a live measurement surface and refresh computed_layout before persistence.",
+          'Apply a validated command batch to the active project session. Mutations require a live measurement surface and refresh computed_layout before persistence.',
         inputSchema: applyCommandsToolInputSchema,
-        outputSchema: applyCommandsOutputSchema
+        outputSchema: applyCommandsOutputSchema,
       },
       async (args) => {
         const input = applyCommandsToolInputSchema.parse(args);
@@ -934,7 +1006,7 @@ export class LocalMcpBridge {
           await this.projectService.applyCommands({
             base_revision: input.base_revision,
             commands: input.commands,
-            project_id: input.project_id
+            project_id: input.project_id,
           }),
           applyCommandsOutputSchema,
           (data) => ({
@@ -942,10 +1014,10 @@ export class LocalMcpBridge {
             ...(data.effects === undefined ? {} : { effects: data.effects }),
             layout_refresh: data.layout_refresh,
             ok: true as const,
-            revision: data.revision
-          })
+            revision: data.revision,
+          }),
         );
-      }
+      },
     );
 
     server.registerTool(
@@ -1007,43 +1079,46 @@ export class LocalMcpBridge {
     return server;
   }
 
-  private toStructuredResult<TOutput>(schema: z.ZodType<TOutput>, payload: TOutput) {
+  private toStructuredResult<TOutput>(
+    schema: z.ZodType<TOutput>,
+    payload: TOutput,
+  ) {
     const structuredContent = schema.parse(
-      toJsonCompatibleValue(payload) as unknown as TOutput
+      toJsonCompatibleValue(payload) as unknown as TOutput,
     );
 
     return {
       content: [
         {
-          type: "text" as const,
-          text: JSON.stringify(structuredContent, null, 2)
-        }
+          type: 'text' as const,
+          text: JSON.stringify(structuredContent, null, 2),
+        },
       ],
-      structuredContent
+      structuredContent,
     };
   }
 
   private toToolError(error: z.infer<typeof appErrorSchema>) {
     const structuredContent = toolErrorSchema.parse({
       error,
-      ok: false
+      ok: false,
     });
 
     return {
       content: [
         {
-          type: "text" as const,
-          text: JSON.stringify(structuredContent, null, 2)
-        }
+          type: 'text' as const,
+          text: JSON.stringify(structuredContent, null, 2),
+        },
       ],
-      isError: true as const
+      isError: true as const,
     };
   }
 
   private toToolResponse<TInput, TOutput>(
     result: AppResult<TInput>,
     schema: z.ZodType<TOutput>,
-    mapSuccess: (data: TInput) => TOutput
+    mapSuccess: (data: TInput) => TOutput,
   ) {
     if (!result.ok) {
       return this.toToolError(result.error);
@@ -1063,7 +1138,7 @@ export class LocalMcpBridge {
       return undefined;
     }
 
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   }
 
   private emitStatusChanged(): void {
@@ -1076,5 +1151,7 @@ export class LocalMcpBridge {
 }
 
 function isPortInUseError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error && error.code === "EADDRINUSE";
+  return (
+    error instanceof Error && 'code' in error && error.code === 'EADDRINUSE'
+  );
 }

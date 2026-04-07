@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
-import { MarketingLink } from "./marketing-link";
+import { MarketingLink } from './marketing-link';
 
 type LinkButtonProps = {
   href: string;
-  kind?: "ghost" | "primary" | "secondary";
+  kind?: 'ghost' | 'primary' | 'secondary';
   label: string;
   leadingVisual?: ReactNode;
   newTab?: boolean;
@@ -12,13 +12,17 @@ type LinkButtonProps = {
 
 export function LinkButton({
   href,
-  kind = "secondary",
+  kind = 'secondary',
   label,
   leadingVisual,
-  newTab
+  newTab,
 }: LinkButtonProps) {
   return (
-    <MarketingLink className={`button button-${kind}`} href={href} newTab={newTab}>
+    <MarketingLink
+      className={`button button-${kind}`}
+      href={href}
+      newTab={newTab}
+    >
       {leadingVisual}
       {label}
     </MarketingLink>
