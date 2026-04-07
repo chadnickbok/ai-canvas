@@ -31,8 +31,9 @@ For rendering behavior, the order of authority is:
 
 1. this document
 2. the renderer implementation in `packages/editor-ui`
-3. `docs/document-schema.md`
-4. `docs/document-normalization.md`
+3. `docs/custom-fonts.md` for document font registration behavior
+4. `docs/document-schema.md`
+5. `docs/document-normalization.md`
 
 If these disagree, update the docs and implementation in the same change.
 
@@ -341,6 +342,9 @@ The renderer should apply the same basic box-style consumption rules as for fram
 
 `text` nodes render as HTML text elements.
 
+Before rendering text, the renderer must register valid document font faces from
+the document-level `fonts` registry as defined in `docs/custom-fonts.md`.
+
 The rendered text content comes from:
 
 - `text.content`
@@ -351,7 +355,35 @@ The renderer must preserve the text payload exactly as stored.
 
 It must not invent placeholder text at render time.
 
-## 12.1 Text style consumption
+## 12.1 Document font registration
+
+The renderer must attempt to register document-local font faces before
+rendering text that depends on them.
+
+The registration source is:
+
+- `fonts.families`
+- `fonts.faces`
+- referenced font asset bytes from `assets`
+
+The renderer should:
+
+1. resolve valid family and face records
+2. load font bytes from referenced assets
+3. construct browser `FontFace` objects
+4. add them to `document.fonts`
+5. await needed readiness before layout-sensitive persistence or measurement
+
+If a text node references a family name present in `fonts.families`, the
+renderer should prefer those registered document-local faces first.
+
+If the family name does not exist in `fonts.families`, the renderer should fall
+back to ordinary browser font resolution.
+
+If some or all faces fail to load, the renderer must degrade gracefully to other
+available faces or browser fallback without mutating the document.
+
+## 12.2 Text style consumption
 
 The renderer should consume text styles from `render_style`, including:
 
@@ -366,7 +398,7 @@ The renderer should consume text styles from `render_style`, including:
 - `textTransform`
 - `maxWidth`
 
-## 12.2 Text sizing
+## 12.3 Text sizing
 
 Text still renders from `text.content` plus `render_style` under normal browser layout behavior.
 
@@ -442,7 +474,10 @@ The goal is to support safe document rendering, not arbitrary embedded behavior.
 
 Assets are resolved from the document’s `assets` map.
 
-In v1, nodes reference assets through concrete document fields.
+In v1, assets are consumed through:
+
+1. concrete node-level asset references
+2. document font-face records pointing at font assets
 
 The only documented node-level asset reference is:
 
@@ -557,6 +592,7 @@ Fallback behavior is acceptable for:
 - malformed SVG payloads that survive normalization
 - unsupported style properties
 - missing assets
+- missing or invalid font faces
 - partially incomplete typed payloads
 
 ## 17.2 Fallback rule
@@ -591,6 +627,7 @@ The renderer assumes normalization has already done the following:
 - scene membership is consistent
 - semantic slots have been resolved
 - render-facing semantic properties have been materialized into `render_style`
+- the font registry is structurally coherent enough for document font registration
 
 The renderer may receive a document whose persisted `computed_layout` is stale or missing.
 

@@ -32,9 +32,10 @@ For normalization behavior, the order of authority is:
 
 1. this document
 2. the machine-readable normalization logic in `packages/document-core`
-3. `docs/document-schema.md`
-4. `docs/command-semantics.md`
-5. `docs/rendering-behavior.md`
+3. `docs/custom-fonts.md` for document font repair rules
+4. `docs/document-schema.md`
+5. `docs/command-semantics.md`
+6. `docs/rendering-behavior.md`
 
 If these disagree, update the docs and implementation in the same change.
 
@@ -47,7 +48,7 @@ Normalization must:
 - repair deterministic structural issues
 - drop broken references that cannot be repaired safely
 - recompute derived fields
-- normalize typed node, asset, variable, and style records into canonical shapes
+- normalize typed node, asset, font, variable, and style records into canonical shapes
 - resolve semantic authoring into deterministic render-facing state
 - preserve as much valid visible content as possible
 
@@ -127,6 +128,7 @@ Normalization must ensure the following top-level containers always exist:
 - `scenes`
 - `nodes`
 - `assets`
+- `fonts`
 - `variables`
 - `styles`
 
@@ -135,6 +137,8 @@ Normalization must ensure these substructures always exist:
 - `canvas.authoring`
 - `canvas.authoring.local_values`
 - `canvas.authoring.variable_bindings`
+- `fonts.families`
+- `fonts.faces`
 - `scene.scene_metadata`
 - `scene.scene_metadata.tags`
 - `node.authoring`
@@ -287,7 +291,8 @@ Reference repair removes or repairs broken references outside the structural gra
 
 ## 9.1 Asset references
 
-In v1, nodes reference assets through concrete document fields.
+In v1, assets are referenced through concrete document fields and font-face
+records.
 
 The only documented node-level asset reference is:
 
@@ -298,7 +303,22 @@ Normalization must:
 - remove or clear `backgroundImage` values that reference missing assets
 - preserve non-asset background images such as literal gradients or external URLs when those are allowed by the product
 
-## 9.2 Variable binding containers
+## 9.2 Font references
+
+Normalization must repair the font registry without rewriting authored typography
+strings.
+
+Normalization must:
+
+- drop faces whose `family_id` is missing
+- drop faces whose `asset_id` is missing
+- drop faces whose referenced asset is determinably not a supported font asset
+- preserve text `fontFamily` values, typography local values, typography variables, and text-style slot values even when the corresponding custom family is missing
+
+Broken font records should be dropped or marked invalid deterministically, while
+surviving text content and typography inputs remain intact.
+
+## 9.3 Variable binding containers
 
 Normalization keeps variable-binding containers structurally valid and drops broken references to missing variables.
 
@@ -310,7 +330,7 @@ This means:
 
 Alias-chain legality is handled separately under semantic repair.
 
-## 9.3 Style binding containers
+## 9.4 Style binding containers
 
 Normalization keeps style-binding containers structurally valid and drops bindings to missing styles.
 
@@ -322,7 +342,7 @@ This means:
 
 Style-slot variable references are repaired separately under semantic repair.
 
-## 9.4 Scene reference repair in external structures
+## 9.5 Scene reference repair in external structures
 
 Any auxiliary structure that references scenes or nodes must drop missing ids if the reference cannot be repaired deterministically.
 
@@ -438,6 +458,7 @@ Normalization must ensure:
 * non-text nodes do not carry text payloads
 * text nodes always have a text payload
 * missing text content defaults to `""`
+* missing custom font families do not trigger automatic rewrites of stored `fontFamily` strings
 
 ## 17. SVG Normalization
 
@@ -467,6 +488,7 @@ After normalization, the document must satisfy:
 * derived fields are recomputed
 * broken references are removed
 * semantic containers are canonically typed
+* surviving font records are coherent enough for document font registration
 * asset-backed render references are coherent enough for structural render and inspection
 
 If these conditions are not met and cannot be repaired safely, normalization must fail.

@@ -14,6 +14,9 @@ This file is a map to the docs set, not a source-of-truth contract. If behavior 
 - [document-schema.md](document-schema.md)
   Defines the canonical persisted `RendererDocument` schema used by the app.
 
+- [custom-fonts.md](custom-fonts.md)
+  Defines the document-level custom font registry, font-face asset linkage, and portability rules.
+
 - [document-normalization.md](document-normalization.md)
   Defines repair, semantic resolution, and render-style materialization for normalized documents.
 

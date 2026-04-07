@@ -155,6 +155,8 @@ That means import must regenerate and remap all persisted ids inside the importe
 * project id
 * document id
 * asset ids
+* font family ids
+* font face ids
 * scene ids and their backing frame node ids
 * node ids
 * variable collection ids
@@ -272,6 +274,7 @@ document.json
 The file contains the canonical persisted document shape defined in:
 
 * `docs/document-schema.md`
+* `docs/custom-fonts.md` for the font-specific portion of that document model
 
 That means the snapshot stores a normalized document, not partial or transient UI state.
 
@@ -280,6 +283,7 @@ That means the snapshot stores a normalized document, not partial or transient U
 * `document.json` is required
 * the document file contents must already be normalized and materialized
 * `document.json` must contain a `document_id` equal to `project.json.document_id`
+* the document must carry its `fonts` registry directly in `document.json`
 * snapshot import should still re-normalize defensively on load
 
 ## 11. Asset Files
@@ -287,6 +291,8 @@ That means the snapshot stores a normalized document, not partial or transient U
 Assets are stored separately from the document.
 
 The document references assets by asset id. The snapshot manifest maps those asset ids to actual payload files.
+
+This includes font asset bytes referenced by `fonts.faces[*].asset_id`.
 
 Canonical manifest entry:
 
@@ -353,6 +359,7 @@ The importer/exporter layer maps between:
 Keep the **document schema** and **snapshot format** conceptually separate:
 
 * the document says which asset ids exist
+* the document's `fonts` registry says which font families and faces use those asset ids
 * the snapshot manifest says where the bytes live
 
 That keeps the snapshot portable without forcing the live document schema to become bundle-path-aware.
@@ -385,7 +392,7 @@ previews/
 When writing a snapshot:
 
 1. normalize the project's sole document
-2. gather the full referenced asset set
+2. gather the full referenced asset set, including assets referenced by node fields and by `fonts.faces`
 3. write manifest
 4. write project metadata
 5. write `document.json`
@@ -427,6 +434,12 @@ When reading a snapshot:
 Import must allocate fresh local ids for the imported project and for every id-bearing entity in the imported document graph.
 
 The importer must rewrite all internal references to those new ids before the imported project is persisted or exposed for editing.
+
+This includes:
+
+* font family ids referenced by font faces
+* font face ids stored in the `fonts` registry
+* asset ids referenced by font faces and node fields
 
 This remapping is unconditional, so importing the same snapshot twice or importing a snapshot whose ids collide with existing local data must still succeed as two independent local projects.
 

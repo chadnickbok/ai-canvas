@@ -22,9 +22,10 @@ For computed-layout refresh behavior, the order of authority is:
 
 1. this document
 2. the machine-readable layout refresh logic in `packages/document-core`
-3. `docs/command-semantics.md`
-4. `docs/document-schema.md`
-5. `docs/rendering-behavior.md`
+3. `docs/custom-fonts.md` for document font readiness requirements
+4. `docs/command-semantics.md`
+5. `docs/document-schema.md`
+6. `docs/rendering-behavior.md`
 
 If these disagree, update the docs and implementation in the same change.
 
@@ -33,6 +34,7 @@ If these disagree, update the docs and implementation in the same change.
 Computed-layout refresh must:
 
 - start from a normalized, materialized document
+- register valid document-local fonts before measuring text that depends on them
 - let the browser-backed renderer resolve layout from structure plus `render_style`
 - measure resolved geometry for every affected node
 - write fresh `computed_layout` without rewriting authored inputs in `render_style`
@@ -60,9 +62,18 @@ That means the input document already has:
 - recomputed derived fields
 - resolved semantic slots
 - materialized render-facing values in `render_style`
+- a font registry coherent enough for document font registration
 - a live browser-backed measurement surface
 
 If those conditions are not met, the caller must normalize first.
+
+Before measuring layout for affected text content, the refresh path must attempt
+to register valid document font faces with the measurement surface and await the
+needed readiness for layout-sensitive work.
+
+If some font faces are missing or invalid, refresh may continue with degraded
+browser fallback after registration has settled. It must not pretend those faces
+successfully loaded.
 
 ## 4. When Computed-Layout Refresh Runs
 

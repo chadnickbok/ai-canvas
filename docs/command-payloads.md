@@ -46,7 +46,7 @@ Every command must have a `type` field.
 type Command = {
   type: string;
 };
-````
+```
 
 Concrete commands are discriminated by `type`.
 
@@ -59,6 +59,7 @@ This applies to:
 * scenes
 * nodes
 * assets
+* fonts
 * variables
 * styles
 
@@ -119,6 +120,8 @@ type Id = string;
 type SceneId = string;
 type NodeId = string;
 type AssetId = string;
+type FontFamilyId = string;
+type FontFaceId = string;
 type VariableId = string;
 type VariableCollectionId = string;
 type StyleId = string;
@@ -766,14 +769,112 @@ type DeleteStyleCommand = {
 };
 ```
 
-## 10. Asset Commands
+## 10. Font Commands
 
-## 10.1 `create_asset`
+## 10.1 `create_font_family`
+
+```ts
+type CreateFontFamilyCommand = {
+  type: "create_font_family";
+  family: {
+    id: FontFamilyId;
+    name: string;
+    generic_fallbacks?: string[];
+    notes?: string;
+  };
+};
+```
+
+## 10.2 `update_font_family`
+
+```ts
+type UpdateFontFamilyCommand = {
+  type: "update_font_family";
+  family_id: FontFamilyId;
+  patch: {
+    name?: string;
+    generic_fallbacks?: string[];
+    notes?: string | null;
+  };
+};
+```
+
+Rules:
+
+* `notes: null` clears notes
+
+## 10.3 `delete_font_family`
+
+```ts
+type DeleteFontFamilyCommand = {
+  type: "delete_font_family";
+  family_id: FontFamilyId;
+};
+```
+
+## 10.4 `create_font_face`
+
+```ts
+type CreateFontFaceCommand = {
+  type: "create_font_face";
+  face: {
+    id: FontFaceId;
+    family_id: FontFamilyId;
+    asset_id: AssetId;
+    source_format?: "woff2" | "woff" | "ttf" | "otf";
+    weight?: string | number;
+    style?: "normal" | "italic" | "oblique";
+    stretch?: string;
+    unicode_range?: string;
+    display?: "auto" | "block" | "swap" | "fallback" | "optional";
+    postscript_name?: string;
+    full_name?: string;
+  };
+};
+```
+
+## 10.5 `update_font_face`
+
+```ts
+type UpdateFontFaceCommand = {
+  type: "update_font_face";
+  face_id: FontFaceId;
+  patch: {
+    family_id?: FontFamilyId;
+    asset_id?: AssetId;
+    source_format?: "woff2" | "woff" | "ttf" | "otf";
+    weight?: string | number | null;
+    style?: "normal" | "italic" | "oblique" | null;
+    stretch?: string | null;
+    unicode_range?: string | null;
+    display?: "auto" | "block" | "swap" | "fallback" | "optional" | null;
+    postscript_name?: string | null;
+    full_name?: string | null;
+  };
+};
+```
+
+Rules:
+
+* nullable scalar-like fields clear when `null`
+
+## 10.6 `delete_font_face`
+
+```ts
+type DeleteFontFaceCommand = {
+  type: "delete_font_face";
+  face_id: FontFaceId;
+};
+```
+
+## 11. Asset Commands
+
+## 11.1 `create_asset`
 
 ```ts
 type AssetRecord = {
   id: AssetId;
-  kind: "image" | "svg" | "unknown";
+  kind: "image" | "svg" | "font" | "unknown";
   mime_type: string;
   width?: number;
   height?: number;
@@ -790,7 +891,7 @@ type CreateAssetCommand = {
 };
 ```
 
-## 10.2 `update_asset`
+## 11.2 `update_asset`
 
 ```ts
 type UpdateAssetCommand = {
@@ -814,7 +915,7 @@ Rules:
 * `metadata: null` clears metadata
 * asset `id`, `kind`, and `mime_type` are immutable through `update_asset`
 
-## 10.3 `delete_asset`
+## 11.3 `delete_asset`
 
 ```ts
 type DeleteAssetCommand = {
@@ -823,9 +924,9 @@ type DeleteAssetCommand = {
 };
 ```
 
-## 11. SVG Commands
+## 12. SVG Commands
 
-## 11.1 `update_svg_root`
+## 12.1 `update_svg_root`
 
 ```ts
 type UpdateSvgRootCommand = {
@@ -849,7 +950,7 @@ Rules:
 * nullable scalar-like fields clear when `null`
 * array/object fields replace when provided
 
-## 11.2 `update_svg_primitive`
+## 12.2 `update_svg_primitive`
 
 ```ts
 type UpdateSvgPrimitiveCommand = {
@@ -863,7 +964,7 @@ type UpdateSvgPrimitiveCommand = {
 };
 ```
 
-## 12. Full Command Union
+## 13. Full Command Union
 
 ```ts
 type Command =
@@ -896,6 +997,12 @@ type Command =
   | CreateStyleCommand
   | UpdateStyleCommand
   | DeleteStyleCommand
+  | CreateFontFamilyCommand
+  | UpdateFontFamilyCommand
+  | DeleteFontFamilyCommand
+  | CreateFontFaceCommand
+  | UpdateFontFaceCommand
+  | DeleteFontFaceCommand
   | CreateAssetCommand
   | UpdateAssetCommand
   | DeleteAssetCommand
@@ -903,7 +1010,7 @@ type Command =
   | UpdateSvgPrimitiveCommand;
 ```
 
-## 13. Result Envelope
+## 14. Result Envelope
 
 A command application result should return either the updated document state or a structured failure.
 
@@ -919,6 +1026,8 @@ type ApplyCommandsSuccess = {
     changed_node_ids?: NodeId[];
     changed_scene_ids?: SceneId[];
     changed_asset_ids?: AssetId[];
+    changed_font_family_ids?: FontFamilyId[];
+    changed_font_face_ids?: FontFaceId[];
     changed_variable_ids?: VariableId[];
     changed_style_ids?: StyleId[];
   };
@@ -960,9 +1069,9 @@ Rules:
 * `command_index` identifies the first failing command when the failure is attributable to one command
 * `effects` are optional convenience data and are not part of command meaning
 
-## 14. Examples
+## 15. Examples
 
-## 14.1 Create a scene
+## 15.1 Create a scene
 
 ```json
 {
@@ -985,7 +1094,7 @@ Rules:
 }
 ```
 
-## 14.2 Create a text node
+## 15.2 Create a text node
 
 ```json
 {
@@ -1012,7 +1121,7 @@ Rules:
 }
 ```
 
-## 14.3 Bind a paint style
+## 15.3 Bind a paint style
 
 ```json
 {
@@ -1023,7 +1132,7 @@ Rules:
 }
 ```
 
-## 14.4 Patch a semantic style field through `update_node`
+## 15.4 Patch a semantic style field through `update_node`
 
 ```json
 {
@@ -1039,7 +1148,7 @@ Rules:
 
 This payload is valid. Its semantic meaning is defined in `docs/command-semantics.md`.
 
-## 15. Non-Goals of This Document
+## 16. Non-Goals of This Document
 
 This document does not define:
 

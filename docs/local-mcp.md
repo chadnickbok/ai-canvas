@@ -9,6 +9,7 @@ Related contracts:
 - `docs/product-stance.md` for product/runtime behavior and capability states
 - `docs/command-semantics.md` and `docs/command-payloads.md` for mutation contracts
 - `docs/document-schema.md` for inspection shape
+- `docs/custom-fonts.md` for document font resources
 
 MCP is a local bridge over the same command/query/document core used by the UI.
 
@@ -20,6 +21,7 @@ The local MCP bridge should let an agent:
 - open and inspect a project
 - inspect scenes
 - inspect the design system
+- inspect document fonts and their usages
 - apply document commands when a live browser measurement surface is available
 - run explicit semantic styling workflows when a live browser measurement surface is available
 - promote selections or targets into styles or variables when a live browser measurement surface is available
@@ -87,7 +89,16 @@ Recommended initial read tools:
 - `inspect_tree`
 - `inspect_node`
 - `inspect_design_system`
+- `inspect_fonts`
+- `inspect_font_family`
+- `find_font_usage`
 - `inspect_scenes`
+
+`inspect_design_system` should include:
+
+- variables
+- styles
+- fonts
 
 Recommended initial mutation tools:
 
@@ -100,6 +111,18 @@ For the first implemented pass, ship `create_project` and `apply_commands`, and 
 
 These mutation tools are available only in `read_write` mode.
 
+Font mutations in v1 should route through `apply_commands` using the canonical
+font CRUD commands from `docs/command-payloads.md`, not through a separate MCP
+mutation-only contract.
+
+### Font-focused inspection tools
+
+Recommended guidance-level read tools:
+
+- `inspect_fonts`, returning document font families, faces, asset linkage, and degraded or missing status when known
+- `inspect_font_family`, returning one family, its faces, and a usage summary
+- `find_font_usage`, returning exact usages in text nodes, typography local values, typography variables, and text styles
+
 ## First implemented pass
 
 The first implemented MCP pass should:
@@ -107,14 +130,13 @@ The first implemented MCP pass should:
 - expose the core project targeting and inspection tools
 - expose `apply_commands` against the shared runtime session while the editor measurement surface is available
 - persist normalized document state and returned revision/effects through the same runtime path the UI uses
-- explicitly defer browser-backed `computed_layout` refresh to a later stage
+- use the same computed-layout refresh and document-font-registration prerequisites as the normal UI commit path
 
 That means:
 
 - `apply_commands` succeeds only while the runtime is in `read_write`
-- successful first-pass mutation responses should make it clear that computed-layout refresh was skipped because that stage is not implemented yet
-- callers should not treat first-pass mutation success as a guarantee that `computed_layout` is fresh
-- browser-capture and other layout-fresh workflows remain later-stage work
+- successful mutation responses should reflect the same normalized, materialized, measurement-backed state the UI would commit
+- font-dependent text measurement must use the same document-font registration behavior as the renderer and computed-layout refresh path
 
 ## Security and UX rules
 

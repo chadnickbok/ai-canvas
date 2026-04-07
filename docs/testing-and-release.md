@@ -91,6 +91,7 @@ These tests validate:
 - canonical required container creation
 - structural repair behavior
 - broken-reference cleanup
+- font-registry repair
 - scene/frame coupling repair
 - scene membership recomputation
 - semantic repair
@@ -108,6 +109,7 @@ At minimum, normalization tests must cover:
 
 - empty document normalization
 - missing authoring containers
+- missing `fonts.families` and `fonts.faces`
 - missing `scene_metadata.tags`
 - stale `scene.child_count`
 - broken `root.child_ids`
@@ -115,6 +117,9 @@ At minimum, normalization tests must cover:
 - cycle repair
 - invalid child container repair
 - missing `backgroundImage` asset references
+- broken font-face family references
+- broken font-face asset references
+- unsupported font asset repair when determinable
 - broken variable bindings
 - broken style bindings
 - broken variable binding repair without command-specific intent
@@ -126,6 +131,7 @@ At minimum, normalization tests must cover:
 - alias loop repair
 - scene record without valid backing frame
 - orphaned frame surviving as loose top-level content
+- missing custom font family preserves stored `fontFamily` strings
 - missing or stale `computed_layout` handling
 
 ## 5.2 Command semantics tests
@@ -163,6 +169,8 @@ At minimum, command tests must cover:
 - style bind/clear
 - create/update/delete variable
 - create/update/delete style
+- create/update/delete font family
+- create/update/delete font face
 - create/update/delete asset
 - create/update/delete variable collection if supported in v1
 - update SVG root and primitive payloads
@@ -174,6 +182,10 @@ At minimum, command tests must cover:
 - clear style binding snapshots family values during command application
 - delete variable performs command-owned detach-and-preserve behavior
 - delete style performs command-owned detach-and-preserve behavior
+- rename font family rewrites exact matching usages and does not rewrite CSS font stacks
+- delete font family preserves authored font-family strings while removing family-owned faces
+- delete font face preserves authored font-family strings
+- delete font asset drops dependent font faces without rewriting typography values
 - delete variable collection applies the same command-owned detach behavior for contained variables
 - valid paint-family binding on `frame`
 - valid paint-family binding on `rectangle`
@@ -193,6 +205,7 @@ At minimum, command rejection tests must cover:
 - create-scene duplicate geometry via convenience fields plus `render_style`
 - invalid semantic slot for the target node kind
 - invalid style family for the target node kind
+- duplicate font family name differing only by case
 - invalid semantic render-style patch for the target node kind
 - invalid reorder payloads
 - `measurement_surface_unavailable` fails before any mutation or durable commit when measurement is unavailable
@@ -209,6 +222,7 @@ These tests validate:
 - fallback to collection default mode
 - alias chain resolution
 - typography variable flattening
+- typography font-family value preservation when custom font families disappear
 - detach-to-local behavior
 - preservation of stronger overrides during style updates
 
@@ -230,6 +244,7 @@ At minimum, semantic tests must prove:
 - `svg` and `svg-visual-element` do not participate in node semantic slots or style bindings in v1
 - raw `render_style` patch on a semantic property behaves like local semantic edit
 - raw `render_style` patch on a non-semantic property remains raw render input only
+- deleting a custom font family or face does not erase text, text-style, or typography-variable font-family strings
 
 ## 5.4 Renderer and measurement tests
 
@@ -242,6 +257,7 @@ They must verify:
 - node rendering by kind
 - style application
 - asset-backed background resolution
+- document font registration
 - text rendering
 - SVG behavior
 - fallback behavior for degraded cases
@@ -255,7 +271,9 @@ At minimum, renderer tests must cover:
 
 - scene-backed frame rendering
 - loose top-level node rendering
+- document font registration before text render
 - text layout and styling
+- document-local custom font resolution by family name
 - frame flex layout
 - percentage-based layout
 - omitted width/height layout
@@ -264,6 +282,7 @@ At minimum, renderer tests must cover:
 - border radius and paint styles
 - asset-backed `backgroundImage`
 - missing asset degradation
+- missing or invalid font-face degradation
 - SVG root rendering
 - detached SVG primitive fallback
 - top-level paint order
@@ -278,6 +297,7 @@ At minimum, measurement tests must prove:
 - v1 computed-layout refresh may conservatively measure the whole containing scene rather than the exact minimal affected set
 - descendants affected by flex reflow refresh `computed_layout`
 - ancestors affected by child layout refresh `computed_layout` where required
+- document fonts are registered and ready before text measurement for affected layout refresh work
 - relative or flexible `render_style` inputs are preserved as inputs
 - `computed_layout` stores resolved geometry without collapsing authored inputs into pixel style declarations
 
@@ -358,6 +378,7 @@ They must prove:
 - MCP inspection reads the same live project session the UI sees
 - MCP mutation routes through the same command path
 - MCP mutations trigger the same normalization and materialization behavior
+- MCP font inspection reflects the same font registry and usage data the UI sees
 - project targeting rules behave predictably
 - localhost binding rules are enforced
 
@@ -369,6 +390,9 @@ At minimum, MCP tests must cover:
 - inspect active project
 - inspect scenes
 - inspect design system
+- inspect fonts
+- inspect one font family plus usages
+- find font usage
 - apply commands through MCP
 - update project state through MCP and verify UI-visible result
 - disable MCP and verify listener is unavailable
@@ -390,6 +414,7 @@ They must verify:
 - checksum generation
 - checksum validation
 - asset bundle correctness
+- font registry export/import correctness
 - import repair behavior
 - partial recovery behavior
 
@@ -399,6 +424,8 @@ At minimum, snapshot tests must cover:
 
 - minimal valid snapshot
 - snapshot with one document
+- snapshot with custom fonts includes the `fonts` registry plus referenced font asset bytes
+- snapshot import remaps font family ids, font face ids, and referenced asset ids consistently
 - reject multi-document snapshot as unsupported in v1
 - reject bundle shape that attempts to encode multiple projects
 - export excludes SQLite internals
@@ -428,21 +455,22 @@ At minimum, end-to-end coverage must include:
 2. create scene
 3. create nodes
 4. edit text
-5. apply semantic local value
-6. create and bind variable
-7. create and bind style
-8. autosave
-9. close and reopen project
-10. export snapshot
-11. import snapshot as new project
-12. verify imported project renders equivalently
-13. enable MCP
-14. mutate active project through MCP
-15. verify UI reflects MCP mutation
-16. close window to tray
-17. verify MCP still works
-18. explicitly quit app
-19. verify MCP stops
+5. import a custom font and apply it to text
+6. apply semantic local value
+7. create and bind variable
+8. create and bind style
+9. autosave
+10. close and reopen project
+11. export snapshot
+12. import snapshot as new project
+13. verify imported project renders equivalently
+14. enable MCP
+15. mutate active project through MCP
+16. verify UI reflects MCP mutation
+17. close window to tray
+18. verify MCP still works
+19. explicitly quit app
+20. verify MCP stops
 
 These do not all need to be covered by one giant scenario, but the release bar must prove all of them.
 

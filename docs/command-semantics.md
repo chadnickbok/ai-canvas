@@ -42,6 +42,7 @@ The command system must:
 - provide one mutation model for the editor and MCP
 - keep document behavior deterministic
 - preserve schema invariants
+- support document-level font resources alongside existing assets, variables, and styles
 - preserve semantic precedence rules
 - support scene-first authoring
 - support local repair where safe
@@ -234,6 +235,7 @@ After the full batch, normalize again so the document returns to canonical in-me
 
 * recompute scene child counts
 * remove broken asset-backed `backgroundImage` references
+* drop broken font-face references to missing families or missing assets
 * drop broken variable/style bindings
 * remove invalid root or child references
 * reattach orphaned nodes when repair policy requires it
@@ -859,15 +861,105 @@ The goal is to preserve visible appearance as much as possible.
 
 This is command-owned behavior. `delete_style` must snapshot the needed effective style-contributed values into authoring state before post-command normalization runs.
 
-## 14. Asset Command Semantics
+## 14. Font Command Semantics
 
-## 14.1 Create asset
+Fonts are document-level design resources.
+
+Font commands mutate the set of document-local font families and font faces
+available to rendering and layout measurement. They do not directly mutate text
+nodes unless a command explicitly says so.
+
+## 14.1 Create font family
+
+Creates a new family in `fonts.families`.
+
+The family must:
+
+* have a unique id
+* have a case-insensitively unique `name`
+
+Creation does not rewrite any text nodes, variables, or styles automatically.
+
+## 14.2 Update font family
+
+Updates font family metadata.
+
+This command may update:
+
+* `name`
+* `generic_fallbacks`
+* `notes`
+
+Rules:
+
+* a renamed family must still have a case-insensitively unique `name`
+* `notes: null` clears notes
+* renaming a family must rewrite exact matching usages of the old family name
+
+The exact-match rewrite applies only to values equal to the old family name.
+It must not parse or rewrite CSS font stacks or partial string matches.
+
+Rewrite targets are:
+
+* `node.render_style.fontFamily`
+* `node.authoring.local_values["node.typography.font_family"]`
+* typography variable value payloads at `value.font_family`
+* text-style slot values for `node.typography.font_family` when the slot is `{ kind: "value" }`
+
+## 14.3 Delete font family
+
+Deleting a family must delete all faces in that family as one atomic operation.
+
+Effects:
+
+* remove the family from `fonts.families`
+* remove all faces whose `family_id` points to that family
+* preserve authored `fontFamily` strings and typography values unchanged
+
+Deleting a family must not clear text node font-family values automatically.
+After deletion, rendering degrades to remaining family faces or ordinary browser
+fallback.
+
+## 14.4 Create font face
+
+Creates a new face in `fonts.faces`.
+
+The face must:
+
+* have a unique id
+* reference an existing font family
+* reference an existing asset containing supported font bytes
+
+## 14.5 Update font face
+
+Updates a font face descriptor or its referenced family/asset.
+
+If `family_id` or `asset_id` changes, the updated face must still reference a
+valid family and a valid font asset.
+
+Cleared optional descriptors simply stop contributing to font registration.
+
+## 14.6 Delete font face
+
+Deleting a font face removes only that face.
+
+Effects:
+
+* remove the face from `fonts.faces`
+* preserve font-family strings and other typography data unchanged
+
+Rendering may continue with other surviving faces in that family or ordinary
+browser fallback.
+
+## 15. Asset Command Semantics
+
+## 15.1 Create asset
 
 Creates or registers an asset record in `assets`.
 
 The asset id must be unique.
 
-## 14.2 Update asset metadata
+## 15.2 Update asset metadata
 
 Updates non-identity asset fields such as:
 
@@ -878,9 +970,12 @@ Updates non-identity asset fields such as:
 
 Changing an asset may affect any node whose `render_style.backgroundImage` references it through `url(asset://...)`.
 
+If the asset is a font asset referenced by `fonts.faces`, changing its bytes or
+source details may also affect document font registration and text measurement.
+
 Affected nodes should be re-resolved as needed before save, and any geometry change must refresh `computed_layout`.
 
-## 14.3 Delete asset
+## 15.3 Delete asset
 
 Deleting an asset must remove or repair all document references to it.
 
@@ -888,12 +983,16 @@ Effects:
 
 * remove the asset from `assets`
 * remove or clear `backgroundImage` values that reference the deleted asset
+* allow dependent font faces to become broken and be dropped during post-command normalization
+
+Deleting a font asset must not rewrite text node font-family values, typography
+variable payloads, or text-style slot values.
 
 The document should remain valid after asset deletion.
 
-## 15. SVG Command Semantics
+## 16. SVG Command Semantics
 
-## 15.1 Update SVG root payload
+## 16.1 Update SVG root payload
 
 Updating an SVG root payload affects only `kind: "svg"` nodes.
 
@@ -904,7 +1003,7 @@ This may update:
 * `view_box`
 * `preserve_aspect_ratio`
 
-## 15.2 Update SVG primitive payload
+## 16.2 Update SVG primitive payload
 
 Updating an SVG primitive affects only `kind: "svg-visual-element"` nodes.
 
@@ -919,7 +1018,7 @@ Primitive render order inside an SVG is determined by:
 1. `svg_primitive.order`
 2. child order as tiebreaker
 
-## 16. Derived State Recalculation
+## 17. Derived State Recalculation
 
 Before commit, command application must ensure all derived state affected by the batch is current.
 
@@ -929,9 +1028,10 @@ This includes at minimum:
 * semantic materialization into render-input properties
 * refreshed `computed_layout` for nodes whose layout changed
 * removal of broken style or variable bindings
+* removal of broken font-face references
 * removal of broken asset-backed `backgroundImage` references
 
-## 17. Undo/Redo Semantics
+## 18. Undo/Redo Semantics
 
 Undo and redo operate by replaying or inverting command batches against the same canonical command system.
 
@@ -945,7 +1045,7 @@ The storage shape used for undo/redo is an implementation detail.
 
 The mutation semantics are not.
 
-## 18. Non-Goals of This Document
+## 19. Non-Goals of This Document
 
 This document does not define:
 

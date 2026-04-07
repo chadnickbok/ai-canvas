@@ -34,7 +34,7 @@ The document model must be able to:
 - persist complete project documents locally
 - support scene-first editing
 - preserve renderer-grade visual state
-- support document-level variables and styles
+- support document-level fonts, variables, and styles
 - support semantic bindings and provenance
 - provide a stable target for the UI and local MCP
 - degrade safely when data is partially invalid
@@ -153,6 +153,7 @@ type RendererDocument = {
   scenes: Record<string, SceneRecord>;
   nodes: Record<string, RendererNode>;
   assets: Record<string, AssetRecord>;
+  fonts: RendererFonts;
   variables: RendererVariables;
   styles: RendererStyles;
 };
@@ -812,7 +813,54 @@ type RendererTextStyle = {
 };
 ```
 
-## 15. Assets
+## 15. Fonts
+
+Fonts are document-level design resources.
+
+Font bytes live in `assets`, but the canonical usable font model lives in the
+top-level `fonts` registry.
+
+Font-specific rendering, normalization, and portability rules are defined in
+`docs/custom-fonts.md`.
+
+```ts
+type RendererFonts = {
+  families: Record<string, RendererFontFamily>;
+  faces: Record<string, RendererFontFace>;
+};
+
+type RendererFontFamily = {
+  id: string;
+  name: string;
+  generic_fallbacks?: string[];
+  notes?: string;
+};
+
+type RendererFontFace = {
+  id: string;
+  family_id: string;
+  asset_id: string;
+  source_format?: "woff2" | "woff" | "ttf" | "otf";
+  weight?: string | number;
+  style?: "normal" | "italic" | "oblique";
+  stretch?: string;
+  unicode_range?: string;
+  display?: "auto" | "block" | "swap" | "fallback" | "optional";
+  postscript_name?: string;
+  full_name?: string;
+  status?: "ready" | "invalid_asset" | "invalid_font_data";
+};
+```
+
+### Rules
+
+* font family ids and font face ids are document-local
+* family names SHOULD be unique case-insensitively within the document
+* text nodes continue to author `fontFamily` by name in v1
+* v1 does not add a `font_id` field onto text nodes
+* font assets remain ordinary assets; the font registry is the authoritative document model
+
+## 16. Assets
 
 The canonical desktop asset model is local-first and project-local.
 
@@ -829,7 +877,7 @@ type OpaqueValue =
 ```ts
 type AssetRecord = {
   id: string;
-  kind: "image" | "svg" | "unknown";
+  kind: "image" | "svg" | "font" | "unknown";
   mime_type: string;
   width?: number;
   height?: number;
@@ -854,6 +902,7 @@ type LocalAssetStoreSource = {
 * `mime_type` is required
 * `width` and `height` SHOULD be present when known
 * `metadata` is optional
+* `kind: "font"` may be used for assets that store font bytes, but asset metadata is still not the authoritative font model
 * content is stored either:
 
   * embedded directly in the document, or
@@ -873,9 +922,9 @@ If additional node fields reference assets, they must define their own semantics
 
 If the app persists a display name for an asset in `metadata` or elsewhere, that name SHOULD be unique within the project, case-insensitively.
 
-## 16. Canonical Empty Document
+## 17. Canonical Empty Document
 
-A valid empty document has an infinite canvas, no scenes, no loose nodes, no assets, and empty semantic containers.
+A valid empty document has an infinite canvas, no scenes, no loose nodes, no assets, no custom font records, and empty semantic containers.
 
 ```json
 {
@@ -901,6 +950,10 @@ A valid empty document has an infinite canvas, no scenes, no loose nodes, no ass
   "scenes": {},
   "nodes": {},
   "assets": {},
+  "fonts": {
+    "families": {},
+    "faces": {}
+  },
   "variables": {
     "collections": {}
   },
@@ -911,7 +964,7 @@ A valid empty document has an infinite canvas, no scenes, no loose nodes, no ass
 }
 ```
 
-## 17. Validation and Repair Policy
+## 18. Validation and Repair Policy
 
 Normalization SHOULD repair documents where possible.
 
@@ -926,6 +979,7 @@ Normalization SHOULD repair or safely tolerate these when possible:
 * broken `root.child_ids` entries that refer to missing nodes
 * broken `child_ids` entries that refer to missing nodes
 * `backgroundImage` asset references to missing assets
+* broken font face references to missing families or missing assets
 * invalid style-binding keys or non-string style ids
 * invalid variable-binding keys or non-string variable ids
 
@@ -954,7 +1008,7 @@ The product should prefer:
 * inspect what can be inspected
 * drop only data that is provably broken and unsafe to keep
 
-## 18. Non-Goals of This Document
+## 19. Non-Goals of This Document
 
 This schema document does not define:
 
