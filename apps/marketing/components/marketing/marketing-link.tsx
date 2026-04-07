@@ -1,5 +1,5 @@
-import Link from "next/link";
-import type { ReactNode } from "react";
+import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 type MarketingLinkProps = {
   children: ReactNode;
@@ -9,18 +9,23 @@ type MarketingLinkProps = {
 };
 
 function isExternalHref(href: string): boolean {
-  return href.startsWith("http://") || href.startsWith("https://");
+  return href.startsWith('http://') || href.startsWith('https://');
 }
 
 export function MarketingLink({
   children,
   className,
   href,
-  newTab = isExternalHref(href)
+  newTab = isExternalHref(href),
 }: MarketingLinkProps) {
   if (isExternalHref(href)) {
     return (
-      <a className={className} href={href} rel="noreferrer" target={newTab ? "_blank" : undefined}>
+      <a
+        className={className}
+        href={href}
+        rel="noreferrer"
+        target={newTab ? '_blank' : undefined}
+      >
         {children}
       </a>
     );

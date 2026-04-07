@@ -1,8 +1,11 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
-import type { BrowserWindow } from "electron";
+import type { BrowserWindow } from 'electron';
 
-import type { ComputedLayout, RendererDocument } from "@ai-canvas/document-core";
+import type {
+  ComputedLayout,
+  RendererDocument,
+} from '@ai-canvas/document-core';
 import {
   appChannelNames,
   err,
@@ -11,8 +14,8 @@ import {
   type AppErrorCode,
   type AppResult,
   type EmptyPayload,
-  type LayoutMeasurementResult
-} from "@ai-canvas/ipc-contract";
+  type LayoutMeasurementResult,
+} from '@ai-canvas/ipc-contract';
 
 type MeasureDocumentLayoutInput = {
   document: RendererDocument;
@@ -37,16 +40,19 @@ export class LayoutMeasurementBridgeError extends Error {
 }
 
 export class RendererLayoutMeasurementBridge {
-  private readonly pendingRequests = new Map<string, PendingMeasurementRequest>();
+  private readonly pendingRequests = new Map<
+    string,
+    PendingMeasurementRequest
+  >();
 
   async measureDocumentLayout(
     browserWindow: BrowserWindow,
-    input: MeasureDocumentLayoutInput
+    input: MeasureDocumentLayoutInput,
   ): Promise<Record<string, ComputedLayout>> {
     if (browserWindow.isDestroyed()) {
       throw new LayoutMeasurementBridgeError(
-        "measurement_surface_unavailable",
-        "The renderer measurement surface is not available."
+        'measurement_surface_unavailable',
+        'The renderer measurement surface is not available.',
       );
     }
 
@@ -54,47 +60,52 @@ export class RendererLayoutMeasurementBridge {
     const request = layoutMeasurementRequestSchema.parse({
       document: input.document,
       request_id: requestId,
-      root_ids: input.rootIds
+      root_ids: input.rootIds,
     });
 
-    const measurementPromise = new Promise<Record<string, ComputedLayout>>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        this.pendingRequests.delete(requestId);
-        reject(
-          new LayoutMeasurementBridgeError(
-            "measurement_surface_unavailable",
-            "The renderer measurement surface did not respond."
-          )
-        );
-      }, DEFAULT_MEASUREMENT_TIMEOUT_MS);
+    const measurementPromise = new Promise<Record<string, ComputedLayout>>(
+      (resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          this.pendingRequests.delete(requestId);
+          reject(
+            new LayoutMeasurementBridgeError(
+              'measurement_surface_unavailable',
+              'The renderer measurement surface did not respond.',
+            ),
+          );
+        }, DEFAULT_MEASUREMENT_TIMEOUT_MS);
 
-      this.pendingRequests.set(requestId, {
-        reject: (error) => {
-          clearTimeout(timeoutId);
-          reject(error);
-        },
-        resolve: (measuredLayouts) => {
-          clearTimeout(timeoutId);
-          resolve(measuredLayouts);
-        },
-        timeoutId
-      });
-    });
+        this.pendingRequests.set(requestId, {
+          reject: (error) => {
+            clearTimeout(timeoutId);
+            reject(error);
+          },
+          resolve: (measuredLayouts) => {
+            clearTimeout(timeoutId);
+            resolve(measuredLayouts);
+          },
+          timeoutId,
+        });
+      },
+    );
 
-    browserWindow.webContents.send(appChannelNames.layoutMeasurementRequest, request);
+    browserWindow.webContents.send(
+      appChannelNames.layoutMeasurementRequest,
+      request,
+    );
 
     return measurementPromise;
   }
 
   submitLayoutMeasurementResult(
-    result: LayoutMeasurementResult
+    result: LayoutMeasurementResult,
   ): AppResult<EmptyPayload> {
     const pendingRequest = this.pendingRequests.get(result.request_id);
 
     if (!pendingRequest) {
       return err(
-        "not_found",
-        `No pending layout measurement request exists for ${result.request_id}.`
+        'not_found',
+        `No pending layout measurement request exists for ${result.request_id}.`,
       );
     }
 
@@ -103,7 +114,10 @@ export class RendererLayoutMeasurementBridge {
 
     if (!result.ok) {
       pendingRequest.reject(
-        new LayoutMeasurementBridgeError(result.error.code, result.error.message)
+        new LayoutMeasurementBridgeError(
+          result.error.code,
+          result.error.message,
+        ),
       );
       return ok({});
     }
@@ -116,7 +130,10 @@ export class RendererLayoutMeasurementBridge {
     for (const [requestId, pendingRequest] of this.pendingRequests) {
       clearTimeout(pendingRequest.timeoutId);
       pendingRequest.reject(
-        new LayoutMeasurementBridgeError("measurement_surface_unavailable", message)
+        new LayoutMeasurementBridgeError(
+          'measurement_surface_unavailable',
+          message,
+        ),
       );
       this.pendingRequests.delete(requestId);
     }

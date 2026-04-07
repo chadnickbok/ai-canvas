@@ -1,5 +1,12 @@
-import type { RendererDocument, RendererNode } from "@ai-canvas/document-core";
-import { type ReactNode, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { RendererDocument, RendererNode } from '@ai-canvas/document-core';
+import {
+  type ReactNode,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 type LayersInspectorProps = {
   document: RendererDocument;
@@ -7,29 +14,30 @@ type LayersInspectorProps = {
   onSelectNode: (nodeId: string) => void;
   selectedNodeId: string | null;
   selectedNodeSelectionSequence: number;
-  selectedNodeSelectionSource: "canvas" | "hierarchy" | null;
+  selectedNodeSelectionSource: 'canvas' | 'hierarchy' | null;
   workspaceIdentity: string;
 };
 
-type LayerPresentationKind = "frame" | "image" | "rectangle" | "svg" | "text";
-type FrameDirection = "column" | "row" | null;
+type LayerPresentationKind = 'frame' | 'image' | 'rectangle' | 'svg' | 'text';
+type FrameDirection = 'column' | 'row' | null;
 
 type LayerRow = {
   depth: number;
   frameDirection: FrameDirection;
   id: string;
   isContainer: boolean;
-  kind: RendererNode["kind"];
+  kind: RendererNode['kind'];
   name: string;
   presentationKind: LayerPresentationKind;
 };
 
-const ASSET_BACKGROUND_IMAGE_PATTERN = /url\(\s*(['"]?)asset:\/\/([^'")]+)\1\s*\)/i;
+const ASSET_BACKGROUND_IMAGE_PATTERN =
+  /url\(\s*(['"]?)asset:\/\/([^'")]+)\1\s*\)/i;
 const INDENT_SIZE = 18;
 const ROW_MIN_WIDTH = 220;
 
 function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  return classes.filter(Boolean).join(' ');
 }
 
 export function LayersInspector({
@@ -39,22 +47,25 @@ export function LayersInspector({
   selectedNodeId,
   selectedNodeSelectionSequence,
   selectedNodeSelectionSource,
-  workspaceIdentity
+  workspaceIdentity,
 }: LayersInspectorProps) {
   const defaultExpandedNodeIds = useMemo(
     () => createDefaultExpandedNodeIds(document),
-    [document]
+    [document],
   );
   const [expansionState, setExpansionState] = useState<{
     expandedNodeIds: Set<string>;
     workspaceIdentity: string;
   }>(() => ({
     expandedNodeIds: defaultExpandedNodeIds,
-    workspaceIdentity
+    workspaceIdentity,
   }));
   const selectedAncestorIds = useMemo(
-    () => (selectedNodeId ? collectAncestorContainerIds(document, selectedNodeId) : []),
-    [document, selectedNodeId]
+    () =>
+      selectedNodeId
+        ? collectAncestorContainerIds(document, selectedNodeId)
+        : [],
+    [document, selectedNodeId],
   );
   const baseExpandedNodeIds =
     expansionState.workspaceIdentity === workspaceIdentity
@@ -72,23 +83,26 @@ export function LayersInspector({
 
   const { maxDepth, rows } = useMemo(
     () => buildVisibleRows(document, expandedNodeIds),
-    [document, expandedNodeIds]
+    [document, expandedNodeIds],
   );
   const rowElementsByIdRef = useRef(new Map<string, HTMLButtonElement>());
   const scrollRegionRef = useRef<HTMLDivElement | null>(null);
   const totalNodeCount = Object.keys(document.nodes).length;
 
-  const registerRowElement = useCallback((nodeId: string, element: HTMLButtonElement | null) => {
-    if (!element) {
-      rowElementsByIdRef.current.delete(nodeId);
-      return;
-    }
+  const registerRowElement = useCallback(
+    (nodeId: string, element: HTMLButtonElement | null) => {
+      if (!element) {
+        rowElementsByIdRef.current.delete(nodeId);
+        return;
+      }
 
-    rowElementsByIdRef.current.set(nodeId, element);
-  }, []);
+      rowElementsByIdRef.current.set(nodeId, element);
+    },
+    [],
+  );
 
   useLayoutEffect(() => {
-    if (selectedNodeId === null || selectedNodeSelectionSource !== "canvas") {
+    if (selectedNodeId === null || selectedNodeSelectionSource !== 'canvas') {
       return;
     }
 
@@ -104,10 +118,15 @@ export function LayersInspector({
     }
 
     rowElement.scrollIntoView({
-      block: "nearest",
-      inline: "nearest"
+      block: 'nearest',
+      inline: 'nearest',
     });
-  }, [expandedNodeIds, selectedNodeId, selectedNodeSelectionSequence, selectedNodeSelectionSource]);
+  }, [
+    expandedNodeIds,
+    selectedNodeId,
+    selectedNodeSelectionSequence,
+    selectedNodeSelectionSource,
+  ]);
 
   return (
     <aside
@@ -116,8 +135,12 @@ export function LayersInspector({
     >
       <div className="flex items-start justify-between gap-3 border-b border-black/10 px-4 py-3">
         <div className="min-w-0">
-          <div className="ui-mono text-[11px] uppercase tracking-[0.16em] text-black/42">Layers</div>
-          <div className="mt-1 text-[13px] text-black/58">{totalNodeCount} items</div>
+          <div className="ui-mono text-[11px] uppercase tracking-[0.16em] text-black/42">
+            Layers
+          </div>
+          <div className="mt-1 text-[13px] text-black/58">
+            {totalNodeCount} items
+          </div>
         </div>
 
         {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
@@ -133,7 +156,7 @@ export function LayersInspector({
           data-tree-max-depth={String(maxDepth)}
           style={{
             minWidth: `${Math.max(ROW_MIN_WIDTH + maxDepth * INDENT_SIZE, 100)}px`,
-            width: "max-content"
+            width: 'max-content',
           }}
         >
           {rows.length === 0 ? (
@@ -150,16 +173,18 @@ export function LayersInspector({
                   data-layer-entry="true"
                   key={row.id}
                   style={{
-                    paddingLeft: `${row.depth * INDENT_SIZE}px`
+                    paddingLeft: `${row.depth * INDENT_SIZE}px`,
                   }}
                 >
                   <div className="flex items-center gap-1">
                     {row.isContainer ? (
                       <button
                         aria-expanded={expandedNodeIds.has(row.id)}
-                        aria-label={`${expandedNodeIds.has(row.id) ? "Collapse" : "Expand"} ${row.name}`}
+                        aria-label={`${expandedNodeIds.has(row.id) ? 'Collapse' : 'Expand'} ${row.name}`}
                         className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-black/42 transition hover:bg-black/[0.04] hover:text-[#111111]"
-                        data-expanded={expandedNodeIds.has(row.id) ? "true" : "false"}
+                        data-expanded={
+                          expandedNodeIds.has(row.id) ? 'true' : 'false'
+                        }
                         data-layer-disclosure="true"
                         data-layer-node-id={row.id}
                         onClick={(event) => {
@@ -167,9 +192,10 @@ export function LayersInspector({
                           event.stopPropagation();
                           setExpansionState((currentExpansionState) => {
                             const nextExpandedNodeIds = new Set(
-                              currentExpansionState.workspaceIdentity === workspaceIdentity
+                              currentExpansionState.workspaceIdentity ===
+                                workspaceIdentity
                                 ? currentExpansionState.expandedNodeIds
-                                : defaultExpandedNodeIds
+                                : defaultExpandedNodeIds,
                             );
 
                             if (nextExpandedNodeIds.has(row.id)) {
@@ -180,13 +206,15 @@ export function LayersInspector({
 
                             return {
                               expandedNodeIds: nextExpandedNodeIds,
-                              workspaceIdentity
+                              workspaceIdentity,
                             };
                           });
                         }}
                         type="button"
                       >
-                        <DisclosureGlyph expanded={expandedNodeIds.has(row.id)} />
+                        <DisclosureGlyph
+                          expanded={expandedNodeIds.has(row.id)}
+                        />
                       </button>
                     ) : (
                       <div className="h-6 w-6 shrink-0" />
@@ -194,14 +222,14 @@ export function LayersInspector({
 
                     <button
                       className={cn(
-                        "flex w-full min-w-[220px] items-center gap-2 rounded px-2 py-1 text-left text-[13px] transition",
+                        'flex w-full min-w-[220px] items-center gap-2 rounded px-2 py-1 text-left text-[13px] transition',
                         isSelected
-                          ? "bg-[#111111] text-[var(--chrome-ink-inverse)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]"
-                          : "text-[#111111] hover:bg-black/[0.04]"
+                          ? 'bg-[#111111] text-[var(--chrome-ink-inverse)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]'
+                          : 'text-[#111111] hover:bg-black/[0.04]',
                       )}
                       data-layer-node-id={row.id}
                       data-layer-row="true"
-                      data-layer-selected={isSelected ? "true" : "false"}
+                      data-layer-selected={isSelected ? 'true' : 'false'}
                       onClick={() => {
                         onSelectNode(row.id);
                       }}
@@ -209,17 +237,19 @@ export function LayersInspector({
                         registerRowElement(row.id, element);
                       }}
                       style={{
-                        whiteSpace: "nowrap"
+                        whiteSpace: 'nowrap',
                       }}
                       type="button"
                     >
                       <span
                         aria-hidden="true"
                         className={cn(
-                          "flex h-4 w-4 shrink-0 items-center justify-center",
-                          isSelected ? "text-[var(--chrome-ink-inverse)]" : "text-black/54"
+                          'flex h-4 w-4 shrink-0 items-center justify-center',
+                          isSelected
+                            ? 'text-[var(--chrome-ink-inverse)]'
+                            : 'text-black/54',
                         )}
-                        data-layer-icon-direction={row.frameDirection ?? "none"}
+                        data-layer-icon-direction={row.frameDirection ?? 'none'}
                         data-layer-icon-type={row.presentationKind}
                       >
                         <LayerGlyph
@@ -243,7 +273,7 @@ export function LayersInspector({
 
 function isElementFullyVisibleWithinContainer(
   containerElement: HTMLElement,
-  targetElement: HTMLElement
+  targetElement: HTMLElement,
 ): boolean {
   const containerRect = containerElement.getBoundingClientRect();
   const targetRect = targetElement.getBoundingClientRect();
@@ -258,13 +288,15 @@ function isElementFullyVisibleWithinContainer(
 
 function buildVisibleRows(
   document: RendererDocument,
-  expandedNodeIds: ReadonlySet<string>
+  expandedNodeIds: ReadonlySet<string>,
 ): { maxDepth: number; rows: LayerRow[] } {
   const rows: LayerRow[] = [];
   let maxDepth = 0;
 
   const visitNode = (node: RendererNode, depth: number) => {
-    const childIds = node.child_ids.filter((childId) => document.nodes[childId] !== undefined);
+    const childIds = node.child_ids.filter(
+      (childId) => document.nodes[childId] !== undefined,
+    );
 
     rows.push({
       depth,
@@ -273,7 +305,7 @@ function buildVisibleRows(
       isContainer: childIds.length > 0,
       kind: node.kind,
       name: node.name,
-      presentationKind: resolvePresentationKind(node)
+      presentationKind: resolvePresentationKind(node),
     });
     maxDepth = Math.max(maxDepth, depth);
 
@@ -321,7 +353,7 @@ function createDefaultExpandedNodeIds(document: RendererDocument): Set<string> {
 
 function collectAncestorContainerIds(
   document: RendererDocument,
-  nodeId: string
+  nodeId: string,
 ): string[] {
   const ancestorIds: string[] = [];
   let currentNode = document.nodes[nodeId] ?? null;
@@ -345,65 +377,69 @@ function collectAncestorContainerIds(
 
 function resolveTopLevelNode(
   document: RendererDocument,
-  childId: string
+  childId: string,
 ): RendererNode | null {
   const scene = document.scenes[childId];
 
   if (scene) {
     const sceneFrameNode = document.nodes[scene.id];
 
-    return sceneFrameNode && sceneFrameNode.kind === "frame" ? sceneFrameNode : null;
+    return sceneFrameNode && sceneFrameNode.kind === 'frame'
+      ? sceneFrameNode
+      : null;
   }
 
   const looseTopLevelNode = document.nodes[childId];
 
-  return looseTopLevelNode && looseTopLevelNode.parent_id === null ? looseTopLevelNode : null;
+  return looseTopLevelNode && looseTopLevelNode.parent_id === null
+    ? looseTopLevelNode
+    : null;
 }
 
 function resolvePresentationKind(node: RendererNode): LayerPresentationKind {
-  if (node.kind === "rectangle" && isAssetBackedRectangle(node)) {
-    return "image";
+  if (node.kind === 'rectangle' && isAssetBackedRectangle(node)) {
+    return 'image';
   }
 
   switch (node.kind) {
-    case "frame":
-      return "frame";
-    case "rectangle":
-      return "rectangle";
-    case "text":
-      return "text";
-    case "svg":
-    case "svg-visual-element":
-      return "svg";
+    case 'frame':
+      return 'frame';
+    case 'rectangle':
+      return 'rectangle';
+    case 'text':
+      return 'text';
+    case 'svg':
+    case 'svg-visual-element':
+      return 'svg';
   }
 }
 
 function isAssetBackedRectangle(node: RendererNode): boolean {
   return (
-    node.kind === "rectangle" &&
-    typeof node.render_style.backgroundImage === "string" &&
+    node.kind === 'rectangle' &&
+    typeof node.render_style.backgroundImage === 'string' &&
     ASSET_BACKGROUND_IMAGE_PATTERN.test(node.render_style.backgroundImage)
   );
 }
 
 function resolveFrameDirection(node: RendererNode): FrameDirection {
-  if (node.kind !== "frame" || node.render_style.display !== "flex") {
+  if (node.kind !== 'frame' || node.render_style.display !== 'flex') {
     return null;
   }
 
   if (
     node.render_style.flexDirection === undefined ||
-    node.render_style.flexDirection === "column" ||
-    node.render_style.flexDirection === "column-reverse"
+    node.render_style.flexDirection === 'column' ||
+    node.render_style.flexDirection === 'column-reverse'
   ) {
-    return "column";
+    return 'column';
   }
 
   if (
-    node.render_style.flexDirection === "row" ||
-    node.render_style.flexDirection === "row-reverse"
+    node.render_style.flexDirection === 'row' ||
+    node.render_style.flexDirection === 'row-reverse'
   ) {
-    return "row";
+    return 'row';
   }
 
   return null;
@@ -411,14 +447,9 @@ function resolveFrameDirection(node: RendererNode): FrameDirection {
 
 function DisclosureGlyph({ expanded }: { expanded: boolean }) {
   return (
-    <svg
-      fill="none"
-      height="12"
-      viewBox="0 0 12 12"
-      width="12"
-    >
+    <svg fill="none" height="12" viewBox="0 0 12 12" width="12">
       <path
-        d={expanded ? "M2.5 4.25 6 7.75l3.5-3.5" : "m4.25 2.5 3.5 3.5-3.5 3.5"}
+        d={expanded ? 'M2.5 4.25 6 7.75l3.5-3.5' : 'm4.25 2.5 3.5 3.5-3.5 3.5'}
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -430,21 +461,21 @@ function DisclosureGlyph({ expanded }: { expanded: boolean }) {
 
 function LayerGlyph({
   direction,
-  kind
+  kind,
 }: {
   direction: FrameDirection;
   kind: LayerPresentationKind;
 }) {
   switch (kind) {
-    case "frame":
+    case 'frame':
       return <FrameGlyph direction={direction} />;
-    case "image":
+    case 'image':
       return <ImageGlyph />;
-    case "rectangle":
+    case 'rectangle':
       return <RectangleGlyph />;
-    case "text":
+    case 'text':
       return <TextGlyph />;
-    case "svg":
+    case 'svg':
       return <SvgGlyph />;
   }
 }
@@ -452,14 +483,22 @@ function LayerGlyph({
 function FrameGlyph({ direction }: { direction: FrameDirection }) {
   return (
     <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
-      <rect height="11" rx="2" stroke="currentColor" strokeWidth="1.1" width="11" x="1.5" y="1.5" />
-      {direction === "row" ? (
+      <rect
+        height="11"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        width="11"
+        x="1.5"
+        y="1.5"
+      />
+      {direction === 'row' ? (
         <>
           <rect fill="currentColor" height="2" rx="1" width="2" x="3" y="6" />
           <rect fill="currentColor" height="2" rx="1" width="2" x="6" y="6" />
           <rect fill="currentColor" height="2" rx="1" width="2" x="9" y="6" />
         </>
-      ) : direction === "column" ? (
+      ) : direction === 'column' ? (
         <>
           <rect fill="currentColor" height="2" rx="1" width="2" x="6" y="3" />
           <rect fill="currentColor" height="2" rx="1" width="2" x="6" y="6" />
@@ -473,7 +512,15 @@ function FrameGlyph({ direction }: { direction: FrameDirection }) {
 function RectangleGlyph() {
   return (
     <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
-      <rect height="9" rx="1.6" stroke="currentColor" strokeWidth="1.1" width="11" x="1.5" y="2.5" />
+      <rect
+        height="9"
+        rx="1.6"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        width="11"
+        x="1.5"
+        y="2.5"
+      />
     </svg>
   );
 }
@@ -495,7 +542,15 @@ function TextGlyph() {
 function ImageGlyph() {
   return (
     <svg fill="none" height="14" viewBox="0 0 14 14" width="14">
-      <rect height="10" rx="1.6" stroke="currentColor" strokeWidth="1.1" width="11" x="1.5" y="2" />
+      <rect
+        height="10"
+        rx="1.6"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        width="11"
+        x="1.5"
+        y="2"
+      />
       <circle cx="4.5" cy="5" fill="currentColor" r="1" />
       <path
         d="m3 10 2.4-2.6 1.7 1.8 2.3-2.8L11 10"

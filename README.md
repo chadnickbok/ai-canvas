@@ -203,6 +203,24 @@ Lint a single workspace package:
 pnpm --filter @ai-canvas/editor-ui lint
 ```
 
+### Format
+
+```bash
+pnpm format
+```
+
+Check formatting without writing changes:
+
+```bash
+pnpm format:check
+```
+
+Enable the repository pre-commit hook (runs Prettier on staged files):
+
+```bash
+pnpm hooks:install
+```
+
 ### Build
 
 ```bash
@@ -312,7 +330,7 @@ Policy docs:
 
 ## Contributing
 
-This project is *not* currently accepting Pull Requests from anyone who hasn't met Nick Chadwick in-person.
+This project is _not_ currently accepting Pull Requests from anyone who hasn't met Nick Chadwick in-person.
 
 If you'd like to contribute to this project, come find me at a meetup in San Francisco sometime and buy me a beer!
 

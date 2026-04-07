@@ -132,11 +132,11 @@ snapshot-root/
 
 ### Rules
 
-* `manifest.json` is required
-* `project.json` is required
-* `document.json` is required
-* `assets/` is required if any asset is referenced
-* `previews/` is optional
+- `manifest.json` is required
+- `project.json` is required
+- `document.json` is required
+- `assets/` is required if any asset is referenced
+- `previews/` is optional
 
 ## 7. Snapshot Identity Model
 
@@ -152,15 +152,15 @@ Import always creates a new local project and a new local document identity grap
 
 That means import must regenerate and remap all persisted ids inside the imported graph, including:
 
-* project id
-* document id
-* asset ids
-* scene ids and their backing frame node ids
-* node ids
-* variable collection ids
-* variable mode ids
-* variable ids
-* style ids
+- project id
+- document id
+- asset ids
+- scene ids and their backing frame node ids
+- node ids
+- variable collection ids
+- variable mode ids
+- variable ids
+- style ids
 
 All internal references must be rewritten consistently during import.
 
@@ -170,8 +170,8 @@ Original snapshot ids may be preserved only as informational provenance metadata
 
 V1 export and import do not support:
 
-* multiple projects per bundle
-* multiple documents per project
+- multiple projects per bundle
+- multiple documents per project
 
 Snapshot version 1 must not imply those shapes.
 
@@ -181,31 +181,31 @@ Snapshot version 1 must not imply those shapes.
 
 It describes:
 
-* format version
-* project id
-* document id
-* asset inventory
-* checksums
-* entrypoints
-* optional preview files
+- format version
+- project id
+- document id
+- asset inventory
+- checksums
+- entrypoints
+- optional preview files
 
 Canonical shape:
 
 ```ts
 type SnapshotManifest = {
-  snapshot_format: "ai-canvas-project";
+  snapshot_format: 'ai-canvas-project';
   snapshot_version: 1;
 
   project_id: string;
   created_at: string; // ISO-8601 UTC timestamp
   created_by: {
-    app: "ai-canvas-desktop";
+    app: 'ai-canvas-desktop';
     app_version?: string;
   };
 
   entries: {
-    project: "project.json";
-    document: "document.json";
+    project: 'project.json';
+    document: 'document.json';
     assets: Record<string, SnapshotAssetEntry>;
     previews?: {
       project_thumbnail?: string;
@@ -224,11 +224,11 @@ type SnapshotManifest = {
 
 ### Rules
 
-* `snapshot_format` is fixed to `"ai-canvas-project"`
-* `snapshot_version` is the snapshot-format version, not the document schema version
-* all paths are relative to the snapshot root
-* all checksums are SHA-256 hex digests
-* every referenced asset must appear in `checksums`
+- `snapshot_format` is fixed to `"ai-canvas-project"`
+- `snapshot_version` is the snapshot-format version, not the document schema version
+- all paths are relative to the snapshot root
+- all checksums are SHA-256 hex digests
+- every referenced asset must appear in `checksums`
 
 ## 9. Project Metadata
 
@@ -258,8 +258,8 @@ type ProjectSnapshotMetadata = {
 
 ### Rules
 
-* `id` must match `manifest.project_id`
-* `document_id` must match the `document_id` stored inside `document.json`
+- `id` must match `manifest.project_id`
+- `document_id` must match the `document_id` stored inside `document.json`
 
 ## 10. Document File
 
@@ -271,16 +271,16 @@ document.json
 
 The file contains the canonical persisted document shape defined in:
 
-* `docs/document-schema.md`
+- `docs/document-schema.md`
 
 That means the snapshot stores a normalized document, not partial or transient UI state.
 
 ### Rules
 
-* `document.json` is required
-* the document file contents must already be normalized and materialized
-* `document.json` must contain a `document_id` equal to `project.json.document_id`
-* snapshot import should still re-normalize defensively on load
+- `document.json` is required
+- the document file contents must already be normalized and materialized
+- `document.json` must contain a `document_id` equal to `project.json.document_id`
+- snapshot import should still re-normalize defensively on load
 
 ## 11. Asset Files
 
@@ -319,10 +319,10 @@ assets/sha256/ab/ab4f2d5d9e0d1f...
 
 ### Rules
 
-* `content_hash` must equal the SHA-256 of the asset file bytes
-* `path` must point to the asset file
-* the asset file path should match the content-addressed convention
-* if multiple asset ids point to identical content, they may reference the same file path
+- `content_hash` must equal the SHA-256 of the asset file bytes
+- `path` must point to the asset file
+- the asset file path should match the content-addressed convention
+- if multiple asset ids point to identical content, they may reference the same file path
 
 ## 12. Asset Model Inside Documents
 
@@ -330,30 +330,30 @@ Inside the document JSON, assets should still use the canonical document asset m
 
 However, for snapshot portability, the preferred snapshot write policy is:
 
-* the document includes asset metadata records
-* binary content is stored as separate files in the snapshot bundle
-* document asset records should use snapshot-import-friendly source metadata rather than large embedded payloads when possible
+- the document includes asset metadata records
+- binary content is stored as separate files in the snapshot bundle
+- document asset records should use snapshot-import-friendly source metadata rather than large embedded payloads when possible
 
 Recommended exported document asset source shape for snapshot portability:
 
 ```ts
 type SnapshotDocumentAssetSource = {
-  kind: "snapshot_asset";
+  kind: 'snapshot_asset';
   asset_id: string;
 };
 ```
 
 The importer/exporter layer maps between:
 
-* canonical in-app asset representation
-* snapshot bundle asset references
+- canonical in-app asset representation
+- snapshot bundle asset references
 
 ### Recommendation
 
 Keep the **document schema** and **snapshot format** conceptually separate:
 
-* the document says which asset ids exist
-* the snapshot manifest says where the bytes live
+- the document says which asset ids exist
+- the snapshot manifest says where the bytes live
 
 That keeps the snapshot portable without forcing the live document schema to become bundle-path-aware.
 
@@ -365,8 +365,8 @@ They are not authoritative.
 
 Examples:
 
-* project thumbnail
-* document thumbnail
+- project thumbnail
+- document thumbnail
 
 Preview files live under:
 
@@ -376,9 +376,9 @@ previews/
 
 ### Rules
 
-* previews may be missing
-* import must not fail just because previews are missing or corrupt
-* previews should never be treated as source-of-truth render data
+- previews may be missing
+- import must not fail just because previews are missing or corrupt
+- previews should never be treated as source-of-truth render data
 
 ## 14. Canonical Export Rules
 
@@ -398,13 +398,13 @@ When writing a snapshot:
 
 The snapshot must not include:
 
-* SQLite files
-* WAL files
-* temporary editor state
-* unsaved form drafts
-* undo/redo stacks
-* renderer caches
-* OS-specific absolute paths
+- SQLite files
+- WAL files
+- temporary editor state
+- unsaved form drafts
+- undo/redo stacks
+- renderer caches
+- OS-specific absolute paths
 
 ## 15. Canonical Import Rules
 
@@ -434,9 +434,9 @@ This remapping is unconditional, so importing the same snapshot twice or importi
 
 For v1, import must fail fast if the bundle attempts to encode:
 
-* multiple projects
-* multiple documents
-* a multi-document manifest or metadata shape
+- multiple projects
+- multiple documents
+- a multi-document manifest or metadata shape
 
 This is not a recoverable warning because it changes the supported identity model of the import.
 
@@ -444,10 +444,10 @@ This is not a recoverable warning because it changes the supported identity mode
 
 If part of a supported v1 snapshot is damaged:
 
-* preserve the readable document
-* preserve readable assets
-* drop broken references when necessary
-* surface warnings to the user
+- preserve the readable document
+- preserve readable assets
+- drop broken references when necessary
+- surface warnings to the user
 
 The app should prefer partial recovery over full refusal whenever safe.
 
@@ -455,35 +455,35 @@ The app should prefer partial recovery over full refusal whenever safe.
 
 A snapshot is valid when:
 
-* `manifest.json` exists and parses
-* `project.json` exists and parses
-* `document.json` exists and parses
-* every listed asset path exists for referenced assets
-* checksums match when validation is enabled
-* project/document id relationships are coherent
-* the bundle does not attempt to encode multiple projects or multiple documents
+- `manifest.json` exists and parses
+- `project.json` exists and parses
+- `document.json` exists and parses
+- every listed asset path exists for referenced assets
+- checksums match when validation is enabled
+- project/document id relationships are coherent
+- the bundle does not attempt to encode multiple projects or multiple documents
 
 ### Recoverable issues
 
 These should produce warnings, not necessarily hard failure:
 
-* missing preview files
-* stale preview checksums
-* extra unreferenced files in `previews/`
-* extra unreferenced files in `assets/`
-* missing optional metadata fields
+- missing preview files
+- stale preview checksums
+- extra unreferenced files in `previews/`
+- extra unreferenced files in `assets/`
+- missing optional metadata fields
 
 ### Hard failure issues
 
 These should fail snapshot import unless the user explicitly chooses partial recovery:
 
-* missing `manifest.json`
-* missing `project.json`
-* missing `document.json`
-* unreadable or invalid `document.json`
-* invalid archive structure that prevents traversal
-* any declared multi-project bundle shape
-* any declared multi-document bundle shape
+- missing `manifest.json`
+- missing `project.json`
+- missing `document.json`
+- unreadable or invalid `document.json`
+- invalid archive structure that prevents traversal
+- any declared multi-project bundle shape
+- any declared multi-document bundle shape
 
 ## 17. Checksums
 
@@ -493,13 +493,13 @@ They are not part of document identity.
 
 All checksums use:
 
-* SHA-256
-* lowercase hex encoding
+- SHA-256
+- lowercase hex encoding
 
 If checksum validation fails:
 
-* import should warn
-* partial recovery may still proceed if the content is otherwise readable
+- import should warn
+- partial recovery may still proceed if the content is otherwise readable
 
 ## 18. Version Compatibility
 
@@ -557,33 +557,33 @@ Example `project.json`:
 
 A writer should:
 
-* emit canonical normalized document JSON
-* emit exactly one document in v1
-* include only referenced assets by default
-* de-duplicate identical asset bytes by content hash
-* emit previews only as optional extras
-* keep the archive human-inspectable
-* avoid format features that depend on local machine paths or SQLite internals
+- emit canonical normalized document JSON
+- emit exactly one document in v1
+- include only referenced assets by default
+- de-duplicate identical asset bytes by content hash
+- emit previews only as optional extras
+- keep the archive human-inspectable
+- avoid format features that depend on local machine paths or SQLite internals
 
 ## 21. Recommended Reader Behavior
 
 A reader should:
 
-* accept both directory and archive form
-* validate conservatively
-* reject multi-document or multi-project v1 bundle shapes
-* import defensively
-* normalize the document after load
-* preserve recoverable content
-* surface warnings for missing previews, missing assets, and checksum mismatches
+- accept both directory and archive form
+- validate conservatively
+- reject multi-document or multi-project v1 bundle shapes
+- import defensively
+- normalize the document after load
+- preserve recoverable content
+- surface warnings for missing previews, missing assets, and checksum mismatches
 
 ## 22. Non-Goals of This Document
 
 This document does not define:
 
-* live SQLite storage layout
-* in-memory editor session shape
-* undo/redo history
-* sync protocol behavior
-* command transport
-* collaborative merge semantics
+- live SQLite storage layout
+- in-memory editor session shape
+- undo/redo history
+- sync protocol behavior
+- command transport
+- collaborative merge semantics

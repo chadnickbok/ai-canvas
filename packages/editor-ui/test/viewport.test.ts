@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { createEmptyDocument, type RendererDocument } from "@ai-canvas/document-core";
+import {
+  createEmptyDocument,
+  type RendererDocument,
+} from '@ai-canvas/document-core';
 
 import {
   createViewportForContentBounds,
@@ -8,83 +11,88 @@ import {
   isCanvasBoundsFullyVisible,
   parseViewportZoomPercent,
   revealCanvasBounds,
-  resolveTopLevelContentBounds
-} from "../src/rendering/viewport.js";
+  resolveTopLevelContentBounds,
+} from '../src/rendering/viewport.js';
 
 function createEmptyAuthoring() {
   return {
     local_values: {},
     style_bindings: {},
-    variable_bindings: {}
+    variable_bindings: {},
   };
 }
 
 function createBoundsFixtureDocument(): RendererDocument {
   const document = createEmptyDocument({
-    documentId: "doc_viewport_fixture",
-    name: "Viewport Fixture"
+    documentId: 'doc_viewport_fixture',
+    name: 'Viewport Fixture',
   });
 
-  document.root.child_ids = ["scene_home", "rect_loose", "rect_hidden", "rect_measured"];
+  document.root.child_ids = [
+    'scene_home',
+    'rect_loose',
+    'rect_hidden',
+    'rect_measured',
+  ];
   document.scenes.scene_home = {
     child_count: 0,
-    frame_node_id: "scene_home",
-    id: "scene_home",
-    name: "Home",
+    frame_node_id: 'scene_home',
+    id: 'scene_home',
+    name: 'Home',
     scene_metadata: {
-      tags: []
-    }
+      tags: [],
+    },
   };
   document.nodes.scene_home = {
     authoring: createEmptyAuthoring(),
     child_ids: [],
-    id: "scene_home",
+    id: 'scene_home',
     is_locked: false,
     is_visible: true,
-    kind: "frame",
-    name: "Home",
+    kind: 'frame',
+    name: 'Home',
     parent_id: null,
     render_style: {
       height: 844,
       left: 40,
       top: 60,
-      width: 390
+      width: 390,
     },
-    scene_id: "scene_home"
+    scene_id: 'scene_home',
   };
   document.nodes.rect_loose = {
     authoring: createEmptyAuthoring(),
     child_ids: [],
-    id: "rect_loose",
+    id: 'rect_loose',
     is_locked: false,
     is_visible: true,
-    kind: "rectangle",
-    name: "Loose",
+    kind: 'rectangle',
+    name: 'Loose',
     parent_id: null,
     render_style: {
       height: 120,
-      left: "640px",
+      left: '640px',
       top: 140,
-      width: 160
+      width: 160,
     },
-    scene_id: null
+    scene_id: null,
   };
   document.nodes.rect_hidden = {
     authoring: createEmptyAuthoring(),
     child_ids: [],
-    id: "rect_hidden",
+    id: 'rect_hidden',
     is_locked: false,
     is_visible: false,
-    kind: "rectangle",
-    name: "Hidden",
+    kind: 'rectangle',
+    name: 'Hidden',
     parent_id: null,
     render_style: {
       height: 400,
       left: -400,
       top: -400,
-      width: 400
+      width: 400,
     },
-    scene_id: null
+    scene_id: null,
   };
   document.nodes.rect_measured = {
     authoring: createEmptyAuthoring(),
@@ -93,47 +101,47 @@ function createBoundsFixtureDocument(): RendererDocument {
       height: 90,
       width: 60,
       x: -120,
-      y: 200
+      y: 200,
     },
-    id: "rect_measured",
+    id: 'rect_measured',
     is_locked: false,
     is_visible: true,
-    kind: "rectangle",
-    name: "Measured",
+    kind: 'rectangle',
+    name: 'Measured',
     parent_id: null,
     render_style: {
-      width: "50%"
+      width: '50%',
     },
-    scene_id: null
+    scene_id: null,
   };
 
   return document;
 }
 
-describe("viewport helpers", () => {
-  it("unions visible top-level scene and loose-node bounds using computed-layout fallback when needed", () => {
+describe('viewport helpers', () => {
+  it('unions visible top-level scene and loose-node bounds using computed-layout fallback when needed', () => {
     const document = createBoundsFixtureDocument();
 
     expect(resolveTopLevelContentBounds(document)).toEqual({
       height: 844,
       width: 920,
       x: -120,
-      y: 60
+      y: 60,
     });
   });
 
-  it("fits large content into the viewport with padding and without exceeding 100%", () => {
+  it('fits large content into the viewport with padding and without exceeding 100%', () => {
     const viewport = createViewportForContentBounds(
       {
         height: 2048,
         width: 2048,
         x: 0,
-        y: 0
+        y: 0,
       },
       {
         height: 1024,
-        width: 1024
-      }
+        width: 1024,
+      },
     );
 
     expect(viewport.zoom).toBeCloseTo(1024 / 2176, 6);
@@ -141,95 +149,97 @@ describe("viewport helpers", () => {
     expect(viewport.panY).toBeCloseTo(30.117647, 6);
   });
 
-  it("centers smaller content at 100% instead of zooming in past actual size", () => {
+  it('centers smaller content at 100% instead of zooming in past actual size', () => {
     const viewport = createViewportForContentBounds(
       {
         height: 844,
         width: 390,
         x: 80,
-        y: 80
+        y: 80,
       },
       {
         height: 1024,
-        width: 1024
-      }
+        width: 1024,
+      },
     );
 
     expect(viewport).toEqual({
       panX: 237,
       panY: 10,
-      zoom: 1
+      zoom: 1,
     });
   });
 
-  it("parses and formats viewport zoom percentages using clamped values", () => {
-    expect(parseViewportZoomPercent(" 250% ")).toBe(2.5);
-    expect(parseViewportZoomPercent("999%")).toBe(4);
-    expect(parseViewportZoomPercent("0%")).toBeNull();
-    expect(parseViewportZoomPercent("-25%")).toBeNull();
-    expect(parseViewportZoomPercent("not-a-number")).toBeNull();
+  it('parses and formats viewport zoom percentages using clamped values', () => {
+    expect(parseViewportZoomPercent(' 250% ')).toBe(2.5);
+    expect(parseViewportZoomPercent('999%')).toBe(4);
+    expect(parseViewportZoomPercent('0%')).toBeNull();
+    expect(parseViewportZoomPercent('-25%')).toBeNull();
+    expect(parseViewportZoomPercent('not-a-number')).toBeNull();
 
-    expect(formatViewportZoomPercent(0.005)).toBe("2%");
-    expect(formatViewportZoomPercent(1.234)).toBe("123%");
+    expect(formatViewportZoomPercent(0.005)).toBe('2%');
+    expect(formatViewportZoomPercent(1.234)).toBe('123%');
   });
 
-  it("reveals offscreen bounds while respecting padding", () => {
+  it('reveals offscreen bounds while respecting padding', () => {
     const viewport = revealCanvasBounds(
       {
         panX: 237,
         panY: -890,
-        zoom: 1
+        zoom: 1,
       },
       {
         height: 844,
         width: 390,
         x: 80,
-        y: 80
+        y: 80,
       },
       {
         height: 1024,
-        width: 1024
+        width: 1024,
       },
       {
-        padding: 64
-      }
+        padding: 64,
+      },
     );
 
     expect(viewport).toEqual({
       panX: 237,
       panY: -16,
-      zoom: 1
+      zoom: 1,
     });
   });
 
-  it("detects when bounds are already fully visible with padding", () => {
+  it('detects when bounds are already fully visible with padding', () => {
     const viewport = {
       panX: 237,
       panY: 10,
-      zoom: 1
+      zoom: 1,
     };
     const bounds = {
       height: 844,
       width: 390,
       x: 80,
-      y: 80
+      y: 80,
     };
     const viewportSize = {
       height: 1024,
-      width: 1024
+      width: 1024,
     };
 
-    expect(isCanvasBoundsFullyVisible(viewport, bounds, viewportSize, 64)).toBe(true);
+    expect(isCanvasBoundsFullyVisible(viewport, bounds, viewportSize, 64)).toBe(
+      true,
+    );
     expect(
       isCanvasBoundsFullyVisible(
         {
           ...viewport,
-          panY: viewport.panY - 900
+          panY: viewport.panY - 900,
         },
         bounds,
         viewportSize,
-        64
-      )
+        64,
+      ),
     ).toBe(false);
   });
 });

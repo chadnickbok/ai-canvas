@@ -1,15 +1,29 @@
-import type { RendererDocument, RendererNode } from "@ai-canvas/document-core";
-import type { AppResult, ApplyCommandsInput, CommandResult } from "@ai-canvas/ipc-contract";
+import type { RendererDocument, RendererNode } from '@ai-canvas/document-core';
+import type {
+  AppResult,
+  ApplyCommandsInput,
+  CommandResult,
+} from '@ai-canvas/ipc-contract';
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
-  RefObject
-} from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+  RefObject,
+} from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import type { CanvasTool, CreateCanvasTool } from "../canvasTools.js";
-import { isCreateCanvasTool } from "../canvasTools.js";
-import type { RendererMeasurementHandle, ViewportState } from "../rendering/types.js";
+import type { CanvasTool, CreateCanvasTool } from '../canvasTools.js';
+import { isCreateCanvasTool } from '../canvasTools.js';
+import type {
+  RendererMeasurementHandle,
+  ViewportState,
+} from '../rendering/types.js';
 import {
   createCanvasRect,
   type CanvasPoint,
@@ -22,14 +36,14 @@ import {
   resolveCanvasPointFromClientCoordinates,
   resolveInteractionTargetNodeId,
   resolveNodeCanvasRect,
-  resolveResizeHandleFromTarget
-} from "./geometry.js";
+  resolveResizeHandleFromTarget,
+} from './geometry.js';
 
 const GESTURE_MOVE_THRESHOLD = 1;
 const MIN_RESIZE_SIZE = 8;
 
 type InteractionPreview = {
-  kind: "move" | "resize";
+  kind: 'move' | 'resize';
   nodeId: string;
   originalRect: CanvasRect;
   previewRect: CanvasRect;
@@ -53,7 +67,10 @@ type CreateCommandDescriptor = {
   input: ApplyCommandsInput;
 };
 
-type CreateNodePayload = Extract<ApplyCommandsInput["commands"][number], { type: "create_node" }>["node"];
+type CreateNodePayload = Extract<
+  ApplyCommandsInput['commands'][number],
+  { type: 'create_node' }
+>['node'];
 
 type CreateInsertionTarget = {
   index?: number;
@@ -67,7 +84,9 @@ export type UseInteractionControllerInput = {
   isPanModifierActive?: boolean;
   onCanvasToolChange?: (tool: CanvasTool) => void;
   onSelectedNodeIdChange?: (nodeId: string | null) => void;
-  onApplyCommands?: (input: ApplyCommandsInput) => Promise<AppResult<CommandResult>>;
+  onApplyCommands?: (
+    input: ApplyCommandsInput,
+  ) => Promise<AppResult<CommandResult>>;
   rendererRef: RefObject<RendererMeasurementHandle | null>;
   revision: number;
   selectedNodeId: string | null;
@@ -103,15 +122,14 @@ export function useInteractionController({
   revision,
   selectedNodeId,
   viewport,
-  workspaceIdentity
+  workspaceIdentity,
 }: UseInteractionControllerInput): UseInteractionControllerResult {
   const [commandError, setCommandError] = useState<string | null>(null);
   const [gestureState, setGestureState] = useState<GestureState | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isMutatingSelection, setIsMutatingSelection] = useState(false);
-  const [selectionRectOverride, setSelectionRectOverride] = useState<SelectionRectOverride | null>(
-    null
-  );
+  const [selectionRectOverride, setSelectionRectOverride] =
+    useState<SelectionRectOverride | null>(null);
   const suppressNextClickRef = useRef(false);
 
   useEffect(() => {
@@ -137,20 +155,30 @@ export function useInteractionController({
       setIsMutatingSelection(false);
     }
 
-    if (selectionRectOverride && !document.nodes[selectionRectOverride.nodeId]) {
+    if (
+      selectionRectOverride &&
+      !document.nodes[selectionRectOverride.nodeId]
+    ) {
       setSelectionRectOverride(null);
     }
-  }, [document, gestureState, hoveredNodeId, onSelectedNodeIdChange, selectedNodeId, selectionRectOverride]);
+  }, [
+    document,
+    gestureState,
+    hoveredNodeId,
+    onSelectedNodeIdChange,
+    selectedNodeId,
+    selectionRectOverride,
+  ]);
 
   useEffect(() => {
-    if (activeTool === "selection") {
+    if (activeTool === 'selection') {
       return;
     }
 
     setGestureState(null);
     setSelectionRectOverride(null);
 
-    if (activeTool === "grab") {
+    if (activeTool === 'grab') {
       setHoveredNodeId(null);
     }
   }, [activeTool]);
@@ -170,10 +198,13 @@ export function useInteractionController({
       selectionRectOverride.nodeId,
       rendererRef.current,
       viewport.zoom,
-      revision
+      revision,
     );
 
-    if (measuredRect && areCanvasRectsClose(measuredRect, selectionRectOverride.rect)) {
+    if (
+      measuredRect &&
+      areCanvasRectsClose(measuredRect, selectionRectOverride.rect)
+    ) {
       setSelectionRectOverride(null);
       return;
     }
@@ -184,7 +215,14 @@ export function useInteractionController({
     ) {
       setSelectionRectOverride(null);
     }
-  }, [document, rendererRef, revision, selectedNodeId, selectionRectOverride, viewport.zoom]);
+  }, [
+    document,
+    rendererRef,
+    revision,
+    selectedNodeId,
+    selectionRectOverride,
+    viewport.zoom,
+  ]);
 
   useEffect(() => {
     if (!gestureState) {
@@ -192,7 +230,7 @@ export function useInteractionController({
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") {
+      if (event.key !== 'Escape') {
         return;
       }
 
@@ -201,33 +239,34 @@ export function useInteractionController({
       setGestureState(null);
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [gestureState]);
 
   const selectedNode = useMemo(
-    () => (selectedNodeId ? document.nodes[selectedNodeId] ?? null : null),
-    [document.nodes, selectedNodeId]
+    () => (selectedNodeId ? (document.nodes[selectedNodeId] ?? null) : null),
+    [document.nodes, selectedNodeId],
   );
   const selectedNodeCanBeManipulated =
-    selectedNode !== null && isNodeDirectlyManipulable(document, selectedNode, allowMutation);
+    selectedNode !== null &&
+    isNodeDirectlyManipulable(document, selectedNode, allowMutation);
 
   const startGesture = useCallback(
     (
       event: ReactPointerEvent<HTMLDivElement>,
       node: RendererNode,
-      kind: "move" | "resize",
-      resizeHandle: ResizeHandle | null
+      kind: 'move' | 'resize',
+      resizeHandle: ResizeHandle | null,
     ) => {
       const originalRect = resolveNodeCanvasRect(
         document,
         node.id,
         rendererRef.current,
         viewport.zoom,
-        revision
+        revision,
       );
 
       if (!originalRect) {
@@ -252,13 +291,13 @@ export function useInteractionController({
           clientX: event.clientX,
           clientY: event.clientY,
           viewportElement: event.currentTarget,
-          viewportState: viewport
-        })
+          viewportState: viewport,
+        }),
       });
 
       return true;
     },
-    [document, rendererRef, revision, viewport]
+    [document, rendererRef, revision, viewport],
   );
 
   const commitGesture = useCallback(
@@ -277,7 +316,7 @@ export function useInteractionController({
       setSelectionRectOverride({
         nodeId: nextGesture.nodeId,
         rect: nextGesture.previewRect,
-        targetRevision: null
+        targetRevision: null,
       });
 
       try {
@@ -289,22 +328,25 @@ export function useInteractionController({
         } else {
           setCommandError(null);
           setSelectionRectOverride((currentSelectionRectOverride) =>
-            currentSelectionRectOverride && currentSelectionRectOverride.nodeId === nextGesture.nodeId
+            currentSelectionRectOverride &&
+            currentSelectionRectOverride.nodeId === nextGesture.nodeId
               ? {
                   ...currentSelectionRectOverride,
-                  targetRevision: result.data.revision
+                  targetRevision: result.data.revision,
                 }
-              : currentSelectionRectOverride
+              : currentSelectionRectOverride,
           );
         }
       } catch (error) {
-        setCommandError(error instanceof Error ? error.message : "Failed to apply commands");
+        setCommandError(
+          error instanceof Error ? error.message : 'Failed to apply commands',
+        );
         setSelectionRectOverride(null);
       } finally {
         setIsMutatingSelection(false);
       }
     },
-    [document, onApplyCommands, revision]
+    [document, onApplyCommands, revision],
   );
 
   const commitCreateNode = useCallback(
@@ -319,11 +361,11 @@ export function useInteractionController({
         rendererRef: rendererRef.current,
         revision,
         tool,
-        viewport
+        viewport,
       });
 
       if (!createCommand) {
-        setCommandError("Failed to resolve insertion target");
+        setCommandError('Failed to resolve insertion target');
         return;
       }
 
@@ -342,20 +384,31 @@ export function useInteractionController({
         setHoveredNodeId(null);
         setSelectionRectOverride(null);
         onSelectedNodeIdChange?.(createCommand.createdNodeId);
-        onCanvasToolChange?.("selection");
+        onCanvasToolChange?.('selection');
       } catch (error) {
-        setCommandError(error instanceof Error ? error.message : "Failed to apply commands");
+        setCommandError(
+          error instanceof Error ? error.message : 'Failed to apply commands',
+        );
       } finally {
         setIsMutatingSelection(false);
       }
     },
-    [allowMutation, document, onApplyCommands, onCanvasToolChange, onSelectedNodeIdChange, rendererRef, revision, viewport]
+    [
+      allowMutation,
+      document,
+      onApplyCommands,
+      onCanvasToolChange,
+      onSelectedNodeIdChange,
+      rendererRef,
+      revision,
+      viewport,
+    ],
   );
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (
-        activeTool !== "selection" ||
+        activeTool !== 'selection' ||
         event.button !== 0 ||
         isMutatingSelection ||
         isPanModifierActive
@@ -386,10 +439,10 @@ export function useInteractionController({
       }
 
       if (resizeHandle) {
-        return startGesture(event, targetNode, "resize", resizeHandle);
+        return startGesture(event, targetNode, 'resize', resizeHandle);
       }
 
-      return startGesture(event, targetNode, "move", null);
+      return startGesture(event, targetNode, 'move', null);
     },
     [
       activeTool,
@@ -398,8 +451,8 @@ export function useInteractionController({
       isMutatingSelection,
       isPanModifierActive,
       onSelectedNodeIdChange,
-      startGesture
-    ]
+      startGesture,
+    ],
   );
 
   const handlePointerMove = useCallback(
@@ -415,19 +468,24 @@ export function useInteractionController({
           clientX: event.clientX,
           clientY: event.clientY,
           viewportElement: event.currentTarget,
-          viewportState: viewport
+          viewportState: viewport,
         });
         const deltaX = nextPoint.x - gestureState.startPoint.x;
         const deltaY = nextPoint.y - gestureState.startPoint.y;
         const previewRect =
-          gestureState.kind === "move"
+          gestureState.kind === 'move'
             ? createCanvasRect({
                 height: gestureState.originalRect.height,
                 width: gestureState.originalRect.width,
                 x: gestureState.originalRect.x + deltaX,
-                y: gestureState.originalRect.y + deltaY
+                y: gestureState.originalRect.y + deltaY,
               })
-            : resolveResizePreviewRect(gestureState.originalRect, gestureState.resizeHandle, deltaX, deltaY);
+            : resolveResizePreviewRect(
+                gestureState.originalRect,
+                gestureState.resizeHandle,
+                deltaX,
+                deltaY,
+              );
 
         setGestureState((currentGesture) =>
           currentGesture
@@ -435,13 +493,19 @@ export function useInteractionController({
                 ...currentGesture,
                 hasMoved:
                   currentGesture.hasMoved ||
-                  Math.abs(previewRect.x - currentGesture.originalRect.x) >= GESTURE_MOVE_THRESHOLD ||
-                  Math.abs(previewRect.y - currentGesture.originalRect.y) >= GESTURE_MOVE_THRESHOLD ||
-                  Math.abs(previewRect.width - currentGesture.originalRect.width) >= GESTURE_MOVE_THRESHOLD ||
-                  Math.abs(previewRect.height - currentGesture.originalRect.height) >= GESTURE_MOVE_THRESHOLD,
-                previewRect
+                  Math.abs(previewRect.x - currentGesture.originalRect.x) >=
+                    GESTURE_MOVE_THRESHOLD ||
+                  Math.abs(previewRect.y - currentGesture.originalRect.y) >=
+                    GESTURE_MOVE_THRESHOLD ||
+                  Math.abs(
+                    previewRect.width - currentGesture.originalRect.width,
+                  ) >= GESTURE_MOVE_THRESHOLD ||
+                  Math.abs(
+                    previewRect.height - currentGesture.originalRect.height,
+                  ) >= GESTURE_MOVE_THRESHOLD,
+                previewRect,
               }
-            : currentGesture
+            : currentGesture,
         );
 
         return true;
@@ -451,7 +515,7 @@ export function useInteractionController({
         return false;
       }
 
-      if (activeTool === "grab") {
+      if (activeTool === 'grab') {
         setHoveredNodeId(null);
         return false;
       }
@@ -459,7 +523,7 @@ export function useInteractionController({
       setHoveredNodeId(resolveInteractionTargetNodeId(event.target));
       return false;
     },
-    [activeTool, gestureState, isMutatingSelection, viewport]
+    [activeTool, gestureState, isMutatingSelection, viewport],
   );
 
   const handlePointerUp = useCallback(
@@ -481,7 +545,7 @@ export function useInteractionController({
       void commitGesture(gestureState);
       return true;
     },
-    [commitGesture, gestureState]
+    [commitGesture, gestureState],
   );
 
   const handlePointerCancel = useCallback(
@@ -498,7 +562,7 @@ export function useInteractionController({
       setGestureState(null);
       return true;
     },
-    [gestureState]
+    [gestureState],
   );
 
   const handlePointerLeave = useCallback(() => {
@@ -522,7 +586,7 @@ export function useInteractionController({
         return;
       }
 
-      if (activeTool === "grab") {
+      if (activeTool === 'grab') {
         return;
       }
 
@@ -537,7 +601,7 @@ export function useInteractionController({
       onSelectedNodeIdChange?.(targetNodeId);
       setHoveredNodeId(targetNodeId);
     },
-    [activeTool, commitCreateNode, isMutatingSelection, onSelectedNodeIdChange]
+    [activeTool, commitCreateNode, isMutatingSelection, onSelectedNodeIdChange],
   );
 
   return {
@@ -557,7 +621,7 @@ export function useInteractionController({
             kind: gestureState.kind,
             nodeId: gestureState.nodeId,
             originalRect: gestureState.originalRect,
-            previewRect: gestureState.previewRect
+            previewRect: gestureState.previewRect,
           }
         : null
       : null,
@@ -566,7 +630,7 @@ export function useInteractionController({
         ? selectionRectOverride.rect
         : null,
     selectedNodeId,
-    ...(selectedNodeCanBeManipulated ? {} : {})
+    ...(selectedNodeCanBeManipulated ? {} : {}),
   };
 }
 
@@ -583,7 +647,7 @@ function resolveResizePreviewRect(
   originalRect: CanvasRect,
   resizeHandle: ResizeHandle | null,
   deltaX: number,
-  deltaY: number
+  deltaY: number,
 ): CanvasRect {
   if (!resizeHandle) {
     return originalRect;
@@ -594,20 +658,20 @@ function resolveResizePreviewRect(
   let nextWidth = originalRect.width;
   let nextHeight = originalRect.height;
 
-  if (resizeHandle.includes("e")) {
+  if (resizeHandle.includes('e')) {
     nextWidth = Math.max(MIN_RESIZE_SIZE, originalRect.width + deltaX);
   }
 
-  if (resizeHandle.includes("s")) {
+  if (resizeHandle.includes('s')) {
     nextHeight = Math.max(MIN_RESIZE_SIZE, originalRect.height + deltaY);
   }
 
-  if (resizeHandle.includes("w")) {
+  if (resizeHandle.includes('w')) {
     nextWidth = Math.max(MIN_RESIZE_SIZE, originalRect.width - deltaX);
     nextX = originalRect.right - nextWidth;
   }
 
-  if (resizeHandle.includes("n")) {
+  if (resizeHandle.includes('n')) {
     nextHeight = Math.max(MIN_RESIZE_SIZE, originalRect.height - deltaY);
     nextY = originalRect.bottom - nextHeight;
   }
@@ -616,14 +680,14 @@ function resolveResizePreviewRect(
     height: nextHeight,
     width: nextWidth,
     x: nextX,
-    y: nextY
+    y: nextY,
   });
 }
 
 function createCommitInput(
   document: RendererDocument,
   gestureState: GestureState,
-  revision: number
+  revision: number,
 ): ApplyCommandsInput | null {
   const node = document.nodes[gestureState.nodeId];
 
@@ -631,10 +695,10 @@ function createCommitInput(
     return null;
   }
 
-  if (gestureState.kind === "move") {
+  if (gestureState.kind === 'move') {
     const patch = {
       left: roundCanvasNumber(gestureState.previewRect.x),
-      top: roundCanvasNumber(gestureState.previewRect.y)
+      top: roundCanvasNumber(gestureState.previewRect.y),
     };
 
     if (isSceneFrameNode(document, node)) {
@@ -644,10 +708,10 @@ function createCommitInput(
           {
             patch,
             scene_id: node.id,
-            type: "update_scene"
-          }
+            type: 'update_scene',
+          },
         ],
-        document_id: document.document_id
+        document_id: document.document_id,
       };
     }
 
@@ -657,22 +721,23 @@ function createCommitInput(
         {
           node_id: node.id,
           patch,
-          type: "update_node"
-        }
+          type: 'update_node',
+        },
       ],
-      document_id: document.document_id
+      document_id: document.document_id,
     };
   }
 
   const resizePatch = {
-    ...(gestureState.resizeHandle?.includes("w") || gestureState.resizeHandle?.includes("n")
+    ...(gestureState.resizeHandle?.includes('w') ||
+    gestureState.resizeHandle?.includes('n')
       ? {
           left: roundCanvasNumber(gestureState.previewRect.x),
-          top: roundCanvasNumber(gestureState.previewRect.y)
+          top: roundCanvasNumber(gestureState.previewRect.y),
         }
       : {}),
     height: roundCanvasNumber(gestureState.previewRect.height),
-    width: roundCanvasNumber(gestureState.previewRect.width)
+    width: roundCanvasNumber(gestureState.previewRect.width),
   };
 
   if (isSceneFrameNode(document, node)) {
@@ -682,10 +747,10 @@ function createCommitInput(
         {
           patch: resizePatch,
           scene_id: node.id,
-          type: "update_scene"
-        }
+          type: 'update_scene',
+        },
       ],
-      document_id: document.document_id
+      document_id: document.document_id,
     };
   }
 
@@ -695,10 +760,10 @@ function createCommitInput(
       {
         node_id: node.id,
         patch: resizePatch,
-        type: "update_node"
-      }
+        type: 'update_node',
+      },
     ],
-    document_id: document.document_id
+    document_id: document.document_id,
   };
 }
 
@@ -715,16 +780,19 @@ function resolveCreateCommandDescriptor(input: {
     clientX: input.event.clientX,
     clientY: input.event.clientY,
     viewportElement: input.event.currentTarget,
-    viewportState: input.viewport
+    viewportState: input.viewport,
   });
-  const insertionTarget = resolveCreateInsertionTarget(input.document, targetNodeId);
+  const insertionTarget = resolveCreateInsertionTarget(
+    input.document,
+    targetNodeId,
+  );
 
   if (!insertionTarget) {
     return null;
   }
 
   const parentNode = insertionTarget.parentId
-    ? input.document.nodes[insertionTarget.parentId] ?? null
+    ? (input.document.nodes[insertionTarget.parentId] ?? null)
     : null;
   const localPoint = resolveCreateLocalPoint({
     clickPoint,
@@ -732,7 +800,7 @@ function resolveCreateCommandDescriptor(input: {
     parentNode,
     rendererRef: input.rendererRef,
     revision: input.revision,
-    viewportZoom: input.viewport.zoom
+    viewportZoom: input.viewport.zoom,
   });
 
   if (!localPoint) {
@@ -740,17 +808,17 @@ function resolveCreateCommandDescriptor(input: {
   }
 
   const createdNodeId = createNodeId(input.tool);
-  const commands: ApplyCommandsInput["commands"] = [];
+  const commands: ApplyCommandsInput['commands'] = [];
 
   if (shouldPatchParentToRelative(parentNode)) {
     commands.push({
       node_id: parentNode.id,
       patch: {
         render_style: {
-          position: "relative"
-        }
+          position: 'relative',
+        },
       },
-      type: "update_node"
+      type: 'update_node',
     });
   }
 
@@ -758,9 +826,11 @@ function resolveCreateCommandDescriptor(input: {
     node: createNodePayload(input.tool, createdNodeId, localPoint),
     parent: {
       parent_id: insertionTarget.parentId,
-      ...(insertionTarget.index === undefined ? {} : { index: insertionTarget.index })
+      ...(insertionTarget.index === undefined
+        ? {}
+        : { index: insertionTarget.index }),
     },
-    type: "create_node"
+    type: 'create_node',
   });
 
   return {
@@ -768,19 +838,19 @@ function resolveCreateCommandDescriptor(input: {
     input: {
       base_revision: input.revision,
       commands,
-      document_id: input.document.document_id
-    }
+      document_id: input.document.document_id,
+    },
   };
 }
 
 function resolveCreateInsertionTarget(
   document: RendererDocument,
-  targetNodeId: string | null
+  targetNodeId: string | null,
 ): CreateInsertionTarget | null {
   if (!targetNodeId) {
     return {
       index: document.root.child_ids.length,
-      parentId: null
+      parentId: null,
     };
   }
 
@@ -791,25 +861,27 @@ function resolveCreateInsertionTarget(
   }
 
   switch (targetNode.kind) {
-    case "frame":
+    case 'frame':
       return {
         index: targetNode.child_ids.length,
-        parentId: targetNode.id
+        parentId: targetNode.id,
       };
-    case "rectangle":
-    case "text":
+    case 'rectangle':
+    case 'text':
       return resolveSiblingInsertionTarget(document, targetNode.id);
-    case "svg":
-    case "svg-visual-element": {
+    case 'svg':
+    case 'svg-visual-element': {
       const svgSiblingAnchor = resolveSvgSiblingAnchor(document, targetNode.id);
-      return svgSiblingAnchor ? resolveSiblingInsertionTarget(document, svgSiblingAnchor.id) : null;
+      return svgSiblingAnchor
+        ? resolveSiblingInsertionTarget(document, svgSiblingAnchor.id)
+        : null;
     }
   }
 }
 
 function resolveSiblingInsertionTarget(
   document: RendererDocument,
-  nodeId: string
+  nodeId: string,
 ): CreateInsertionTarget | null {
   const node = document.nodes[nodeId];
 
@@ -822,7 +894,7 @@ function resolveSiblingInsertionTarget(
 
     return {
       index: index === -1 ? document.root.child_ids.length : index + 1,
-      parentId: null
+      parentId: null,
     };
   }
 
@@ -836,20 +908,20 @@ function resolveSiblingInsertionTarget(
 
   return {
     index: index === -1 ? parentNode.child_ids.length : index + 1,
-    parentId: parentNode.id
+    parentId: parentNode.id,
   };
 }
 
 function resolveSvgSiblingAnchor(
   document: RendererDocument,
-  nodeId: string
+  nodeId: string,
 ): RendererNode | null {
   let currentNode = document.nodes[nodeId] ?? null;
 
   while (currentNode?.parent_id) {
     const parentNode = document.nodes[currentNode.parent_id] ?? null;
 
-    if (!parentNode || parentNode.kind !== "svg") {
+    if (!parentNode || parentNode.kind !== 'svg') {
       break;
     }
 
@@ -870,7 +942,7 @@ function resolveCreateLocalPoint(input: {
   if (!input.parentNode) {
     return {
       x: roundCanvasNumber(input.clickPoint.x),
-      y: roundCanvasNumber(input.clickPoint.y)
+      y: roundCanvasNumber(input.clickPoint.y),
     };
   }
 
@@ -879,7 +951,7 @@ function resolveCreateLocalPoint(input: {
     input.parentNode.id,
     input.rendererRef,
     input.viewportZoom,
-    input.revision
+    input.revision,
   );
 
   if (!parentRect) {
@@ -887,18 +959,31 @@ function resolveCreateLocalPoint(input: {
   }
 
   const paddingInsets =
-    input.parentNode.kind === "frame"
-      ? resolveFramePaddingInsets(input.parentNode) ?? { bottom: 0, left: 0, right: 0, top: 0 }
+    input.parentNode.kind === 'frame'
+      ? (resolveFramePaddingInsets(input.parentNode) ?? {
+          bottom: 0,
+          left: 0,
+          right: 0,
+          top: 0,
+        })
       : { bottom: 0, left: 0, right: 0, top: 0 };
 
   return {
-    x: roundCanvasNumber(input.clickPoint.x - parentRect.x - paddingInsets.left),
-    y: roundCanvasNumber(input.clickPoint.y - parentRect.y - paddingInsets.top)
+    x: roundCanvasNumber(
+      input.clickPoint.x - parentRect.x - paddingInsets.left,
+    ),
+    y: roundCanvasNumber(input.clickPoint.y - parentRect.y - paddingInsets.top),
   };
 }
 
-function shouldPatchParentToRelative(parentNode: RendererNode | null): parentNode is RendererNode {
-  if (!parentNode || parentNode.kind !== "frame" || parentNode.parent_id === null) {
+function shouldPatchParentToRelative(
+  parentNode: RendererNode | null,
+): parentNode is RendererNode {
+  if (
+    !parentNode ||
+    parentNode.kind !== 'frame' ||
+    parentNode.parent_id === null
+  ) {
     return false;
   }
 
@@ -906,18 +991,23 @@ function shouldPatchParentToRelative(parentNode: RendererNode | null): parentNod
 }
 
 function isPositionedValue(value: unknown): boolean {
-  return value === "absolute" || value === "fixed" || value === "relative" || value === "sticky";
+  return (
+    value === 'absolute' ||
+    value === 'fixed' ||
+    value === 'relative' ||
+    value === 'sticky'
+  );
 }
 
 function createNodeId(tool: CreateCanvasTool): string {
   const suffix = globalThis.crypto?.randomUUID?.() ?? createFallbackId();
 
   switch (tool) {
-    case "frame":
+    case 'frame':
       return `frame_${suffix}`;
-    case "rectangle":
+    case 'rectangle':
       return `rect_${suffix}`;
-    case "text":
+    case 'text':
       return `text_${suffix}`;
   }
 }
@@ -929,55 +1019,55 @@ function createFallbackId(): string {
 function createNodePayload(
   tool: CreateCanvasTool,
   nodeId: string,
-  localPoint: CanvasPoint
+  localPoint: CanvasPoint,
 ): CreateNodePayload {
   switch (tool) {
-    case "frame":
+    case 'frame':
       return {
         height: 240,
         id: nodeId,
-        kind: "frame" as const,
+        kind: 'frame' as const,
         left: localPoint.x,
-        name: "Frame",
+        name: 'Frame',
         render_style: {
-          backgroundColor: "#f5f5f5",
-          border: "1px solid rgba(17, 17, 17, 0.14)",
-          position: "absolute"
+          backgroundColor: '#f5f5f5',
+          border: '1px solid rgba(17, 17, 17, 0.14)',
+          position: 'absolute',
         },
         top: localPoint.y,
-        width: 320
+        width: 320,
       };
-    case "rectangle":
+    case 'rectangle':
       return {
         height: 120,
         id: nodeId,
-        kind: "rectangle" as const,
+        kind: 'rectangle' as const,
         left: localPoint.x,
-        name: "Rectangle",
+        name: 'Rectangle',
         render_style: {
-          backgroundColor: "#d4d4d4",
-          position: "absolute"
+          backgroundColor: '#d4d4d4',
+          position: 'absolute',
         },
         top: localPoint.y,
-        width: 160
+        width: 160,
       };
-    case "text":
+    case 'text':
       return {
         id: nodeId,
-        kind: "text" as const,
+        kind: 'text' as const,
         left: localPoint.x,
-        name: "Text",
+        name: 'Text',
         render_style: {
-          color: "#111111",
-          fontFamily: "IBM Plex Sans",
+          color: '#111111',
+          fontFamily: 'IBM Plex Sans',
           fontSize: 24,
           fontWeight: 500,
-          position: "absolute"
+          position: 'absolute',
         },
         text: {
-          content: "Text"
+          content: 'Text',
         },
-        top: localPoint.y
+        top: localPoint.y,
       };
   }
 }

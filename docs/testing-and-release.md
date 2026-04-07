@@ -483,16 +483,16 @@ fixtures/
   snapshots/
   recovery/
   mcp/
-````
+```
 
 ## 6.3 Golden output policy
 
 Golden fixtures are acceptable for:
 
-* normalized document output
-* command result document output
-* exported snapshot manifest structure
-* selected render screenshots
+- normalized document output
+- command result document output
+- exported snapshot manifest structure
+- selected render screenshots
 
 Golden fixtures must not become an excuse to bless accidental behavior.
 
@@ -508,25 +508,25 @@ These block release.
 
 A release must not ship if any of the following fail:
 
-* schema validation suite
-* normalization suite
-* command semantics suite
-* semantic resolution suite
-* snapshot import/export suite
-* core IPC validation suite
-* MCP parity suite
-* required end-to-end workflows
-* packaging/build success for the target release platform
-* manual smoke test checklist for the release candidate
+- schema validation suite
+- normalization suite
+- command semantics suite
+- semantic resolution suite
+- snapshot import/export suite
+- core IPC validation suite
+- MCP parity suite
+- required end-to-end workflows
+- packaging/build success for the target release platform
+- manual smoke test checklist for the release candidate
 
 ## 7.2 Warning-level gates
 
 These do not automatically block release, but must be reviewed explicitly:
 
-* missing optional preview files during snapshot tests
-* non-critical visual diffs in degraded fallback rendering
-* performance regressions below hard failure threshold but above target budget
-* flaky test quarantines that have an approved temporary exception
+- missing optional preview files during snapshot tests
+- non-critical visual diffs in degraded fallback rendering
+- performance regressions below hard failure threshold but above target budget
+- flaky test quarantines that have an approved temporary exception
 
 A warning-level issue may ship only if the release decision explicitly accepts it.
 
@@ -534,15 +534,15 @@ A warning-level issue may ship only if the release decision explicitly accepts i
 
 The following always block release:
 
-* data-loss bug in normal edit flow
-* corrupted project reopen after normal autosave
-* UI and MCP producing divergent project state from equivalent operations
-* project snapshot export that cannot be re-imported by the same release
-* Electron security posture regression such as context isolation disabled or renderer Node integration enabled
-* crash on opening a valid project fixture
-* crash on importing a minimally valid snapshot
-* command atomicity violation
-* any test proving `render_style` input collapse into computed pixel values where the authored input should survive
+- data-loss bug in normal edit flow
+- corrupted project reopen after normal autosave
+- UI and MCP producing divergent project state from equivalent operations
+- project snapshot export that cannot be re-imported by the same release
+- Electron security posture regression such as context isolation disabled or renderer Node integration enabled
+- crash on opening a valid project fixture
+- crash on importing a minimally valid snapshot
+- command atomicity violation
+- any test proving `render_style` input collapse into computed pixel values where the authored input should survive
 
 ## 8. CI Expectations
 
@@ -552,34 +552,34 @@ CI should validate the product at multiple speeds.
 
 Fast CI should include:
 
-* typecheck
-* lint
-* schema and normalization tests
-* command semantics tests
-* semantic resolution tests
-* core IPC contract tests
+- typecheck
+- lint
+- schema and normalization tests
+- command semantics tests
+- semantic resolution tests
+- core IPC contract tests
 
 ## 8.2 Heavier validation on protected branches or release candidates
 
 Heavier CI should include:
 
-* renderer tests
-* screenshot or visual regression tests
-* snapshot import/export tests
-* MCP parity tests
-* packaging smoke build
-* end-to-end desktop workflow tests
+- renderer tests
+- screenshot or visual regression tests
+- snapshot import/export tests
+- MCP parity tests
+- packaging smoke build
+- end-to-end desktop workflow tests
 
 ## 8.3 Release-candidate CI
 
 A release candidate should run the full suite required by the target platform, including:
 
-* packaged app build
-* install or launch smoke test
-* end-to-end workflow run
-* snapshot export/import run
-* tray-close and explicit-quit behavior validation
-* MCP localhost validation
+- packaged app build
+- install or launch smoke test
+- end-to-end workflow run
+- snapshot export/import run
+- tray-close and explicit-quit behavior validation
+- MCP localhost validation
 
 ## 9. Manual Verification
 
@@ -591,32 +591,32 @@ Every release candidate should pass a manual smoke test.
 
 At minimum, manual release verification should cover:
 
-* launch app successfully
-* create a project
-* open a project
-* create a scene
-* create and edit a text node
-* apply a style and a variable
-* verify visible rendering is reasonable
-* verify autosave indicator behavior if present
-* close and reopen the project
-* edit a project, close the window, and verify close waits for final save before tray transition
-* export a snapshot
-* import the snapshot as a new project
-* close the editor window and verify tray-resident behavior
-* verify MCP status UI
-* apply one safe read call and one mutation through MCP
-* explicitly quit app and verify MCP stops
-* relaunch app and confirm project library remains intact
+- launch app successfully
+- create a project
+- open a project
+- create a scene
+- create and edit a text node
+- apply a style and a variable
+- verify visible rendering is reasonable
+- verify autosave indicator behavior if present
+- close and reopen the project
+- edit a project, close the window, and verify close waits for final save before tray transition
+- export a snapshot
+- import the snapshot as a new project
+- close the editor window and verify tray-resident behavior
+- verify MCP status UI
+- apply one safe read call and one mutation through MCP
+- explicitly quit app and verify MCP stops
+- relaunch app and confirm project library remains intact
 
 ## 9.2 Manual degraded-state checks
 
 At minimum, at least one release candidate should be checked manually against:
 
-* missing asset behavior
-* damaged snapshot partial recovery behavior
-* detached SVG primitive fallback behavior
-* recovery prompt behavior after simulated interruption
+- missing asset behavior
+- damaged snapshot partial recovery behavior
+- detached SVG primitive fallback behavior
+- recovery prompt behavior after simulated interruption
 
 ## 10. Performance and Stability Bar
 
@@ -626,11 +626,11 @@ AI Canvas Desktop does not need hyperscale backend-style SLOs, but it does need 
 
 The app is not releasable if:
 
-* it crashes in normal project create/open/edit flow
-* it hangs indefinitely during normal autosave or during close-triggered final save
-* it cannot reopen a project saved by the same version
-* MCP commonly wedges the active project session
-* snapshot import/export commonly fails on valid fixtures
+- it crashes in normal project create/open/edit flow
+- it hangs indefinitely during normal autosave or during close-triggered final save
+- it cannot reopen a project saved by the same version
+- MCP commonly wedges the active project session
+- snapshot import/export commonly fails on valid fixtures
 
 ## 10.2 Performance targets
 
@@ -638,13 +638,13 @@ Performance should be judged against representative project fixtures.
 
 Recommended tracked metrics include:
 
-* cold app launch time
-* project open time
-* command batch apply time for common edits
-* post-edit save time
-* snapshot export time
-* snapshot import time
-* renderer frame stability during common edits
+- cold app launch time
+- project open time
+- command batch apply time for common edits
+- post-edit save time
+- snapshot export time
+- snapshot import time
+- renderer frame stability during common edits
 
 These metrics are release signals for v1.
 
@@ -654,51 +654,51 @@ Validation should prefer deterministic local execution.
 
 Recommended rules:
 
-* tests should not require network access for core product validation
-* fixture assets should be local and versioned where appropriate
-* MCP tests should bind to ephemeral localhost ports during automation
-* snapshot tests should use temporary directories
-* Electron tests should avoid depending on developer-specific absolute paths
-* renderer screenshot baselines should run in a controlled environment to reduce noise
+- tests should not require network access for core product validation
+- fixture assets should be local and versioned where appropriate
+- MCP tests should bind to ephemeral localhost ports during automation
+- snapshot tests should use temporary directories
+- Electron tests should avoid depending on developer-specific absolute paths
+- renderer screenshot baselines should run in a controlled environment to reduce noise
 
 ## 12. Failure Triage Rules
 
 When a release gate fails, the team should classify the failure as one of:
 
-* spec bug
-* implementation bug
-* test bug
-* fixture bug
-* accepted product change requiring fixture and doc update
+- spec bug
+- implementation bug
+- test bug
+- fixture bug
+- accepted product change requiring fixture and doc update
 
 The correct response is:
 
-* if the spec is wrong, update spec and implementation together
-* if the implementation is wrong, fix code without weakening the gate
-* if the fixture is outdated because the product changed intentionally, update fixture and docs in the same change
-* if the test is flaky or invalid, fix the test rather than deleting coverage
+- if the spec is wrong, update spec and implementation together
+- if the implementation is wrong, fix code without weakening the gate
+- if the fixture is outdated because the product changed intentionally, update fixture and docs in the same change
+- if the test is flaky or invalid, fix the test rather than deleting coverage
 
 ## 13. Launch Bar
 
 The desktop release is ready when all of the following are true:
 
-* schema, normalization, command, and semantic tests pass
-* renderer behavior is validated for required node kinds and layout cases
-* autosave and reopen work reliably
-* recovery behavior works for supported failure cases
-* snapshot export/import work for the supported format
-* MCP reads and mutates the same live project session as the UI
-* MCP remains available after the window closes and stops on explicit quit
-* target-platform packaging succeeds
-* manual smoke verification passes on the release candidate
+- schema, normalization, command, and semantic tests pass
+- renderer behavior is validated for required node kinds and layout cases
+- autosave and reopen work reliably
+- recovery behavior works for supported failure cases
+- snapshot export/import work for the supported format
+- MCP reads and mutates the same live project session as the UI
+- MCP remains available after the window closes and stops on explicit quit
+- target-platform packaging succeeds
+- manual smoke verification passes on the release candidate
 
 ## 14. Non-Goals of This Document
 
 This document does not define:
 
-* the exact schema of command payloads
-* the internal structure of every test file
-* a cloud release system
-* analytics-driven rollout strategy
-* auto-update infrastructure
-* team process such as code review ownership or sprint planning
+- the exact schema of command payloads
+- the internal structure of every test file
+- a cloud release system
+- analytics-driven rollout strategy
+- auto-update infrastructure
+- team process such as code review ownership or sprint planning

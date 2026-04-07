@@ -1,7 +1,7 @@
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "electron-vite";
-import type { PluginOption } from "vite";
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'electron-vite';
+import type { PluginOption } from 'vite';
 
 // electron-vite and @tailwindcss/vite currently surface distinct Vite plugin types.
 const tailwindPlugin = tailwindcss() as unknown as PluginOption;
@@ -11,23 +11,23 @@ export default defineConfig({
     build: {
       externalizeDeps: {
         exclude: [
-          "@ai-canvas/document-core",
-          "@ai-canvas/ipc-contract",
-          "@ai-canvas/mcp-bridge"
-        ]
-      }
-    }
+          '@ai-canvas/document-core',
+          '@ai-canvas/ipc-contract',
+          '@ai-canvas/mcp-bridge',
+        ],
+      },
+    },
   },
   preload: {
     build: {
       rollupOptions: {
         output: {
-          format: "cjs"
-        }
-      }
-    }
+          format: 'cjs',
+        },
+      },
+    },
   },
   renderer: {
-    plugins: [react(), tailwindPlugin]
-  }
+    plugins: [react(), tailwindPlugin],
+  },
 });

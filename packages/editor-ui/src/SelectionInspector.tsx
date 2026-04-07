@@ -5,25 +5,33 @@ import {
   type NodeInspectorInspection,
   type RendererDocument,
   type RendererNode,
-  type SelectionInspection
-} from "@ai-canvas/document-core";
-import { useLayoutEffect, useState, type ReactNode, type RefObject } from "react";
+  type SelectionInspection,
+} from '@ai-canvas/document-core';
+import {
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 
 import {
   parseFiniteCanvasLength,
   resolveFramePaddingInsets,
   resolveNodeCanvasRect,
   type CanvasRect,
-  type EdgeInsets
-} from "./interaction/geometry.js";
-import type { RendererMeasurementHandle, ViewportState } from "./rendering/types.js";
+  type EdgeInsets,
+} from './interaction/geometry.js';
+import type {
+  RendererMeasurementHandle,
+  ViewportState,
+} from './rendering/types.js';
 
 type SelectionInspectorProps = {
   canEditAppearance?: boolean;
   document: RendererDocument;
   onUpdateNodeFillColor?: (
     nodeId: string,
-    color: string
+    color: string,
   ) => Promise<{ errorMessage?: string; ok: boolean }>;
   rendererRef: RefObject<RendererMeasurementHandle | null>;
   selectedNodeId: string | null;
@@ -46,11 +54,13 @@ export function SelectionInspector({
   onUpdateNodeFillColor,
   rendererRef,
   selectedNodeId,
-  viewport
+  viewport,
 }: SelectionInspectorProps) {
   const selection = inspectSelection(document, selectedNodeId);
-  const [bestAvailableCanvasRect, setBestAvailableCanvasRect] = useState<CanvasRect | null>(null);
-  const selectedInspectableNodeId = selection.kind === "document" ? null : selection.node.id;
+  const [bestAvailableCanvasRect, setBestAvailableCanvasRect] =
+    useState<CanvasRect | null>(null);
+  const selectedInspectableNodeId =
+    selection.kind === 'document' ? null : selection.node.id;
 
   useLayoutEffect(() => {
     const animationFrameId = requestAnimationFrame(() => {
@@ -60,7 +70,12 @@ export function SelectionInspector({
       }
 
       setBestAvailableCanvasRect(
-        resolveNodeCanvasRect(document, selectedInspectableNodeId, rendererRef.current, viewport.zoom)
+        resolveNodeCanvasRect(
+          document,
+          selectedInspectableNodeId,
+          rendererRef.current,
+          viewport.zoom,
+        ),
       );
     });
 
@@ -78,7 +93,7 @@ export function SelectionInspector({
       <InspectorHeader selection={selection} />
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
-        {selection.kind === "document" ? (
+        {selection.kind === 'document' ? (
           <DocumentSummaryView document={selection.document} />
         ) : (
           <SelectionDetailView
@@ -94,11 +109,7 @@ export function SelectionInspector({
   );
 }
 
-function InspectorHeader({
-  selection
-}: {
-  selection: SelectionInspection;
-}) {
+function InspectorHeader({ selection }: { selection: SelectionInspection }) {
   return (
     <div className="border-b border-black/10 px-4 py-3">
       <div className="ui-mono text-[11px] uppercase tracking-[0.16em] text-black/42">
@@ -122,20 +133,20 @@ function InspectorHeader({
 }
 
 function DocumentSummaryView({
-  document
+  document,
 }: {
   document: DocumentSummaryInspection;
 }) {
   const pageRows: InspectorRow[] = [
-    { label: "Page", value: document.page_name },
+    { label: 'Page', value: document.page_name },
     ...(document.canvas_background_color
       ? [
           {
-            label: "Canvas",
-            value: <ColorValue color={document.canvas_background_color} />
-          }
+            label: 'Canvas',
+            value: <ColorValue color={document.canvas_background_color} />,
+          },
         ]
-      : [])
+      : []),
   ];
 
   return (
@@ -144,17 +155,25 @@ function DocumentSummaryView({
         <div className="space-y-3">
           <MetricGrid
             items={[
-              { label: "W", value: String(document.scene_count), metricLabel: "Scenes" },
-              { label: "H", value: String(document.node_count), metricLabel: "Items" },
+              {
+                label: 'W',
+                value: String(document.scene_count),
+                metricLabel: 'Scenes',
+              },
+              {
+                label: 'H',
+                value: String(document.node_count),
+                metricLabel: 'Items',
+              },
               ...(document.loose_top_level_node_count > 0
                 ? [
                     {
-                      label: "X" as const,
+                      label: 'X' as const,
                       value: String(document.loose_top_level_node_count),
-                      metricLabel: "Loose"
-                    }
+                      metricLabel: 'Loose',
+                    },
                   ]
-                : [])
+                : []),
             ]}
           />
           <PropertyList rows={pageRows} />
@@ -173,16 +192,16 @@ function SelectionDetailView({
   canEditAppearance,
   document,
   onUpdateNodeFillColor,
-  selection
+  selection,
 }: {
   bestAvailableCanvasRect: CanvasRect | null;
   canEditAppearance: boolean;
   document: RendererDocument;
   onUpdateNodeFillColor?: (
     nodeId: string,
-    color: string
+    color: string,
   ) => Promise<{ errorMessage?: string; ok: boolean }>;
-  selection: Exclude<SelectionInspection, { kind: "document" }>;
+  selection: Exclude<SelectionInspection, { kind: 'document' }>;
 }) {
   const selectedNode = selection.node;
   const rendererNode = document.nodes[selectedNode.id];
@@ -191,7 +210,7 @@ function SelectionDetailView({
       ? document.nodes[rendererNode.parent_id]
       : undefined;
   const fillColor =
-    typeof selectedNode.raw_render_style.backgroundColor === "string"
+    typeof selectedNode.raw_render_style.backgroundColor === 'string'
       ? selectedNode.raw_render_style.backgroundColor
       : null;
   const appearanceRows = resolveAppearanceRows(selectedNode);
@@ -202,11 +221,18 @@ function SelectionDetailView({
 
   return (
     <div className="space-y-4">
-      <LayoutSection bestAvailableCanvasRect={bestAvailableCanvasRect} node={selectedNode} />
+      <LayoutSection
+        bestAvailableCanvasRect={bestAvailableCanvasRect}
+        node={selectedNode}
+      />
 
-      {isFlexContainer(rendererNode) ? <AutoLayoutSection node={rendererNode} /> : null}
+      {isFlexContainer(rendererNode) ? (
+        <AutoLayoutSection node={rendererNode} />
+      ) : null}
 
-      {isFlexContainer(parentRendererNode) ? <FlexItemSection node={rendererNode} /> : null}
+      {isFlexContainer(parentRendererNode) ? (
+        <FlexItemSection node={rendererNode} />
+      ) : null}
 
       {fillColor || appearanceRows.length > 0 ? (
         <InspectorSection title="Appearance">
@@ -219,19 +245,23 @@ function SelectionDetailView({
                 onUpdateNodeFillColor={onUpdateNodeFillColor}
               />
             ) : null}
-            {appearanceRows.length > 0 ? <PropertyList rows={appearanceRows} /> : null}
+            {appearanceRows.length > 0 ? (
+              <PropertyList rows={appearanceRows} />
+            ) : null}
           </div>
         </InspectorSection>
       ) : null}
 
-      {selectedNode.text_content !== undefined ? <TextSection node={selectedNode} /> : null}
+      {selectedNode.text_content !== undefined ? (
+        <TextSection node={selectedNode} />
+      ) : null}
     </div>
   );
 }
 
 function LayoutSection({
   bestAvailableCanvasRect,
-  node
+  node,
 }: {
   bestAvailableCanvasRect: CanvasRect | null;
   node: NodeInspectorInspection;
@@ -239,9 +269,9 @@ function LayoutSection({
   const metrics = resolveLayoutMetrics(node, bestAvailableCanvasRect);
   const rows: InspectorRow[] = [
     {
-      label: "Position",
-      value: resolvePositionLabel(node)
-    }
+      label: 'Position',
+      value: resolvePositionLabel(node),
+    },
   ];
 
   return (
@@ -260,41 +290,37 @@ function LayoutSection({
   );
 }
 
-function AutoLayoutSection({
-  node
-}: {
-  node: RendererNode;
-}) {
+function AutoLayoutSection({ node }: { node: RendererNode }) {
   const paddingInsets = resolveFramePaddingInsets(node);
   const rows: InspectorRow[] = [
     {
-      label: "Direction",
-      value: resolveFlexDirectionLabel(node.render_style.flexDirection)
+      label: 'Direction',
+      value: resolveFlexDirectionLabel(node.render_style.flexDirection),
     },
     {
-      label: "Gap",
-      value: resolveGapSummary(node.render_style)
+      label: 'Gap',
+      value: resolveGapSummary(node.render_style),
     },
     ...(paddingInsets
       ? [
           {
-            label: "Padding",
-            value: formatInsets(paddingInsets)
-          }
+            label: 'Padding',
+            value: formatInsets(paddingInsets),
+          },
         ]
       : []),
     {
-      label: "Align",
-      value: resolveAlignmentLabel(node.render_style.alignItems, "Stretch")
+      label: 'Align',
+      value: resolveAlignmentLabel(node.render_style.alignItems, 'Stretch'),
     },
     {
-      label: "Distribute",
-      value: resolveAlignmentLabel(node.render_style.justifyContent, "Start")
+      label: 'Distribute',
+      value: resolveAlignmentLabel(node.render_style.justifyContent, 'Start'),
     },
     {
-      label: "Clip",
-      value: resolveClipContentLabel(node.render_style)
-    }
+      label: 'Clip',
+      value: resolveClipContentLabel(node.render_style),
+    },
   ];
 
   return (
@@ -304,28 +330,24 @@ function AutoLayoutSection({
   );
 }
 
-function FlexItemSection({
-  node
-}: {
-  node: RendererNode;
-}) {
+function FlexItemSection({ node }: { node: RendererNode }) {
   const rows: InspectorRow[] = [
     {
-      label: "Grow",
-      value: formatStyleValue(node.render_style.flexGrow) ?? "0"
+      label: 'Grow',
+      value: formatStyleValue(node.render_style.flexGrow) ?? '0',
     },
     {
-      label: "Shrink",
-      value: formatStyleValue(node.render_style.flexShrink) ?? "1"
+      label: 'Shrink',
+      value: formatStyleValue(node.render_style.flexShrink) ?? '1',
     },
     {
-      label: "Basis",
-      value: formatStyleValue(node.render_style.flexBasis) ?? "Auto"
+      label: 'Basis',
+      value: formatStyleValue(node.render_style.flexBasis) ?? 'Auto',
     },
     {
-      label: "Align",
-      value: resolveAlignmentLabel(node.render_style.alignSelf, "Auto")
-    }
+      label: 'Align',
+      value: resolveAlignmentLabel(node.render_style.alignSelf, 'Auto'),
+    },
   ];
 
   return (
@@ -335,19 +357,15 @@ function FlexItemSection({
   );
 }
 
-function TextSection({
-  node
-}: {
-  node: NodeInspectorInspection;
-}) {
+function TextSection({ node }: { node: NodeInspectorInspection }) {
   const rows: InspectorRow[] = [
-    maybeCreateRow("Font", node.raw_render_style.fontFamily),
-    maybeCreateRow("Size", node.raw_render_style.fontSize),
-    maybeCreateRow("Weight", node.raw_render_style.fontWeight),
-    maybeCreateRow("Line height", node.raw_render_style.lineHeight),
-    maybeCreateRow("Letter spacing", node.raw_render_style.letterSpacing),
-    maybeCreateKeywordRow("Align", node.raw_render_style.textAlign),
-    maybeCreateKeywordRow("Transform", node.raw_render_style.textTransform)
+    maybeCreateRow('Font', node.raw_render_style.fontFamily),
+    maybeCreateRow('Size', node.raw_render_style.fontSize),
+    maybeCreateRow('Weight', node.raw_render_style.fontWeight),
+    maybeCreateRow('Line height', node.raw_render_style.lineHeight),
+    maybeCreateRow('Letter spacing', node.raw_render_style.letterSpacing),
+    maybeCreateKeywordRow('Align', node.raw_render_style.textAlign),
+    maybeCreateKeywordRow('Transform', node.raw_render_style.textTransform),
   ].filter((row): row is InspectorRow => row !== null);
 
   return (
@@ -367,7 +385,7 @@ function TextSection({
 
 function InspectorSection({
   children,
-  title
+  title,
 }: {
   children: ReactNode;
   title: string;
@@ -375,7 +393,7 @@ function InspectorSection({
   return (
     <section
       className="rounded border border-black/10 bg-white/92"
-      data-inspector-section={title.toLowerCase().replace(/\s+/g, "-")}
+      data-inspector-section={title.toLowerCase().replace(/\s+/g, '-')}
     >
       <div className="border-b border-black/8 px-3 py-2.5">
         <div className="ui-mono text-[10px] uppercase tracking-[0.16em] text-black/42">
@@ -388,7 +406,7 @@ function InspectorSection({
 }
 
 function MetricGrid({
-  items
+  items,
 }: {
   items: Array<InspectorMetric | (InspectorMetric & { metricLabel: string })>;
 }) {
@@ -401,7 +419,7 @@ function MetricGrid({
           key={`${item.label}-${item.value}`}
         >
           <div className="ui-mono text-[10px] uppercase tracking-[0.14em] text-black/42">
-            {"metricLabel" in item ? item.metricLabel : item.label}
+            {'metricLabel' in item ? item.metricLabel : item.label}
           </div>
           <div className="mt-1 text-[16px] font-semibold tracking-[-0.03em] text-[#111111]">
             {item.value}
@@ -412,11 +430,7 @@ function MetricGrid({
   );
 }
 
-function PropertyList({
-  rows
-}: {
-  rows: InspectorRow[];
-}) {
+function PropertyList({ rows }: { rows: InspectorRow[] }) {
   return (
     <dl className="space-y-2.5">
       {rows.map((row) => (
@@ -433,18 +447,14 @@ function PropertyList({
   );
 }
 
-function ColorValue({
-  color
-}: {
-  color: string;
-}) {
+function ColorValue({ color }: { color: string }) {
   return (
     <span className="inline-flex items-center gap-2">
       <span
         aria-hidden="true"
         className="h-3 w-3 rounded-[3px] border border-black/14"
         style={{
-          backgroundColor: color
+          backgroundColor: color,
         }}
       />
       <span>{color}</span>
@@ -456,14 +466,14 @@ function FillColorControl({
   canEdit,
   color,
   nodeId,
-  onUpdateNodeFillColor
+  onUpdateNodeFillColor,
 }: {
   canEdit: boolean;
   color: string;
   nodeId: string;
   onUpdateNodeFillColor?: (
     nodeId: string,
-    color: string
+    color: string,
   ) => Promise<{ errorMessage?: string; ok: boolean }>;
 }) {
   const [isSaving, setIsSaving] = useState(false);
@@ -483,7 +493,7 @@ function FillColorControl({
       const result = await onUpdateNodeFillColor(nodeId, nextColor);
 
       if (!result.ok) {
-        setSaveError(result.errorMessage ?? "Failed to update fill color.");
+        setSaveError(result.errorMessage ?? 'Failed to update fill color.');
       }
     } finally {
       setIsSaving(false);
@@ -512,7 +522,9 @@ function FillColorControl({
           </span>
         </div>
       </div>
-      {saveError ? <div className="text-[12px] leading-5 text-black/62">{saveError}</div> : null}
+      {saveError ? (
+        <div className="text-[12px] leading-5 text-black/62">{saveError}</div>
+      ) : null}
     </div>
   );
 }
@@ -523,43 +535,52 @@ function maybeCreateRow(label: string, value: unknown): InspectorRow | null {
   return formattedValue ? { label, value: formattedValue } : null;
 }
 
-function maybeCreateKeywordRow(label: string, value: unknown): InspectorRow | null {
-  const formattedValue = typeof value === "string" ? formatKeywordValue(value) : null;
+function maybeCreateKeywordRow(
+  label: string,
+  value: unknown,
+): InspectorRow | null {
+  const formattedValue =
+    typeof value === 'string' ? formatKeywordValue(value) : null;
 
   return formattedValue ? { label, value: formattedValue } : null;
 }
 
 function resolveLayoutMetrics(
   node: NodeInspectorInspection,
-  bestAvailableCanvasRect: CanvasRect | null
+  bestAvailableCanvasRect: CanvasRect | null,
 ): InspectorMetric[] {
   const metrics: InspectorMetric[] = [];
-  const shouldShowPositionMetrics = node.parent_id === null || node.raw_render_style.position === "absolute";
+  const shouldShowPositionMetrics =
+    node.parent_id === null || node.raw_render_style.position === 'absolute';
   const x = shouldShowPositionMetrics
-    ? bestAvailableCanvasRect?.x ?? parseFiniteCanvasLength(node.raw_render_style.left)
+    ? (bestAvailableCanvasRect?.x ??
+      parseFiniteCanvasLength(node.raw_render_style.left))
     : null;
   const y = shouldShowPositionMetrics
-    ? bestAvailableCanvasRect?.y ?? parseFiniteCanvasLength(node.raw_render_style.top)
+    ? (bestAvailableCanvasRect?.y ??
+      parseFiniteCanvasLength(node.raw_render_style.top))
     : null;
   const width =
-    bestAvailableCanvasRect?.width ?? parseFiniteCanvasLength(node.raw_render_style.width);
+    bestAvailableCanvasRect?.width ??
+    parseFiniteCanvasLength(node.raw_render_style.width);
   const height =
-    bestAvailableCanvasRect?.height ?? parseFiniteCanvasLength(node.raw_render_style.height);
+    bestAvailableCanvasRect?.height ??
+    parseFiniteCanvasLength(node.raw_render_style.height);
 
   if (x !== null) {
-    metrics.push({ label: "X", value: formatRoundedNumber(x) });
+    metrics.push({ label: 'X', value: formatRoundedNumber(x) });
   }
 
   if (y !== null) {
-    metrics.push({ label: "Y", value: formatRoundedNumber(y) });
+    metrics.push({ label: 'Y', value: formatRoundedNumber(y) });
   }
 
   if (width !== null) {
-    metrics.push({ label: "W", value: formatRoundedNumber(width) });
+    metrics.push({ label: 'W', value: formatRoundedNumber(width) });
   }
 
   if (height !== null) {
-    metrics.push({ label: "H", value: formatRoundedNumber(height) });
+    metrics.push({ label: 'H', value: formatRoundedNumber(height) });
   }
 
   return metrics;
@@ -572,22 +593,22 @@ function resolveAppearanceRows(node: NodeInspectorInspection): InspectorRow[] {
 
   if (node.background_asset) {
     rows.push({
-      label: "Image",
-      value: describeBackgroundAsset(node.background_asset)
+      label: 'Image',
+      value: describeBackgroundAsset(node.background_asset),
     });
   }
 
   if (radius) {
     rows.push({
-      label: "Radius",
-      value: radius
+      label: 'Radius',
+      value: radius,
     });
   }
 
   if (opacity) {
     rows.push({
-      label: "Opacity",
-      value: opacity
+      label: 'Opacity',
+      value: opacity,
     });
   }
 
@@ -596,96 +617,100 @@ function resolveAppearanceRows(node: NodeInspectorInspection): InspectorRow[] {
 
 function resolveInspectorTitle(selection: SelectionInspection): string {
   switch (selection.kind) {
-    case "document":
+    case 'document':
       return selection.document.name;
-    case "scene":
+    case 'scene':
       return selection.scene.name;
-    case "node":
+    case 'node':
       return selection.node.name;
   }
 }
 
 function resolveInspectorSubtitle(selection: SelectionInspection): string {
   switch (selection.kind) {
-    case "document":
-      return "Nothing selected";
-    case "scene":
-      return "Scene frame";
-    case "node": {
-      const labels = [selection.node.parent_name ? `Inside ${selection.node.parent_name}` : "Top level"];
+    case 'document':
+      return 'Nothing selected';
+    case 'scene':
+      return 'Scene frame';
+    case 'node': {
+      const labels = [
+        selection.node.parent_name
+          ? `Inside ${selection.node.parent_name}`
+          : 'Top level',
+      ];
 
       if (!selection.node.is_visible) {
-        labels.push("Hidden");
+        labels.push('Hidden');
       }
 
       if (selection.node.is_locked) {
-        labels.push("Locked");
+        labels.push('Locked');
       }
 
-      return labels.join(" · ");
+      return labels.join(' · ');
     }
   }
 }
 
 function resolveInspectorKindLabel(selection: SelectionInspection): string {
   switch (selection.kind) {
-    case "document":
-      return "Page";
-    case "scene":
-      return "Scene";
-    case "node":
+    case 'document':
+      return 'Page';
+    case 'scene':
+      return 'Scene';
+    case 'node':
       return resolveNodeKindLabel(selection.node);
   }
 }
 
 function resolveNodeKindLabel(node: NodeInspectorInspection): string {
-  if (node.background_asset && node.kind !== "text") {
-    return "Image";
+  if (node.background_asset && node.kind !== 'text') {
+    return 'Image';
   }
 
   switch (node.kind) {
-    case "frame":
-      return "Frame";
-    case "rectangle":
-      return "Rectangle";
-    case "text":
-      return "Text";
-    case "svg":
-      return "SVG";
-    case "svg-visual-element":
-      return "Vector";
+    case 'frame':
+      return 'Frame';
+    case 'rectangle':
+      return 'Rectangle';
+    case 'text':
+      return 'Text';
+    case 'svg':
+      return 'SVG';
+    case 'svg-visual-element':
+      return 'Vector';
   }
 }
 
 function resolvePositionLabel(node: NodeInspectorInspection): string {
   if (node.parent_id === null) {
-    return "Top level";
+    return 'Top level';
   }
 
-  if (node.raw_render_style.position === "absolute") {
-    return "Absolute";
+  if (node.raw_render_style.position === 'absolute') {
+    return 'Absolute';
   }
 
-  return "In flow";
+  return 'In flow';
 }
 
 function isFlexContainer(node: RendererNode | undefined): node is RendererNode {
-  return node?.kind === "frame" && node.render_style.display === "flex";
+  return node?.kind === 'frame' && node.render_style.display === 'flex';
 }
 
 function resolveFlexDirectionLabel(value: unknown): string {
-  if (value === "column") {
-    return "Vertical";
+  if (value === 'column') {
+    return 'Vertical';
   }
 
-  if (value === "row") {
-    return "Horizontal";
+  if (value === 'row') {
+    return 'Horizontal';
   }
 
-  return "Default";
+  return 'Default';
 }
 
-function resolveGapSummary(renderStyle: RendererNode["render_style"]): string {
+function resolveGapSummary(renderStyle: RendererNode['render_style']): string {
   const gap = formatStyleValue(renderStyle.gap);
 
   if (gap) {
@@ -699,41 +724,57 @@ function resolveGapSummary(renderStyle: RendererNode["render_style"]): string {
     return rowGap === columnGap ? rowGap : `${rowGap} / ${columnGap}`;
   }
 
-  return rowGap ?? columnGap ?? "0";
+  return rowGap ?? columnGap ?? '0';
 }
 
 function resolveAlignmentLabel(value: unknown, fallback: string): string {
-  return typeof value === "string" ? formatKeywordValue(value) ?? fallback : fallback;
+  return typeof value === 'string'
+    ? (formatKeywordValue(value) ?? fallback)
+    : fallback;
 }
 
-function resolveClipContentLabel(renderStyle: RendererNode["render_style"]): string {
-  const overflowValues = [renderStyle.overflow, renderStyle.overflowX, renderStyle.overflowY];
+function resolveClipContentLabel(
+  renderStyle: RendererNode['render_style'],
+): string {
+  const overflowValues = [
+    renderStyle.overflow,
+    renderStyle.overflowX,
+    renderStyle.overflowY,
+  ];
 
-  return overflowValues.some((value) => value !== undefined && value !== "visible") ? "On" : "Off";
+  return overflowValues.some(
+    (value) => value !== undefined && value !== 'visible',
+  )
+    ? 'On'
+    : 'Off';
 }
 
-function describeBackgroundAsset(assetInspection: BackgroundAssetInspection): string {
+function describeBackgroundAsset(
+  assetInspection: BackgroundAssetInspection,
+): string {
   const asset = assetInspection.asset;
-  const parts = ["Image fill"];
-  const mimeLabel = asset.mime_type.split("/")[1];
+  const parts = ['Image fill'];
+  const mimeLabel = asset.mime_type.split('/')[1];
 
   if (mimeLabel) {
     parts.push(mimeLabel.toUpperCase());
   }
 
-  if (typeof asset.width === "number" && typeof asset.height === "number") {
-    parts.push(`${formatRoundedNumber(asset.width)} × ${formatRoundedNumber(asset.height)}`);
+  if (typeof asset.width === 'number' && typeof asset.height === 'number') {
+    parts.push(
+      `${formatRoundedNumber(asset.width)} × ${formatRoundedNumber(asset.height)}`,
+    );
   }
 
-  return parts.join(" · ");
+  return parts.join(' · ');
 }
 
 function formatOpacityValue(value: unknown): string | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return `${formatRoundedNumber(value * 100)}%`;
   }
 
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
 
@@ -745,7 +786,7 @@ function formatOpacityValue(value: unknown): string | null {
 
   const numericValue = Number.parseFloat(trimmedValue);
 
-  if (trimmedValue.endsWith("%") || Number.isNaN(numericValue)) {
+  if (trimmedValue.endsWith('%') || Number.isNaN(numericValue)) {
     return trimmedValue;
   }
 
@@ -757,11 +798,11 @@ function formatStyleValue(value: unknown): string | null {
     return null;
   }
 
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     return formatRoundedNumber(value);
   }
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const trimmedValue = value.trim();
     return trimmedValue.length > 0 ? trimmedValue : null;
   }
@@ -777,16 +818,16 @@ function formatKeywordValue(value: string): string | null {
   }
 
   switch (normalizedValue) {
-    case "flex-start":
-      return "Start";
-    case "flex-end":
-      return "End";
-    case "space-between":
-      return "Space Between";
-    case "space-around":
-      return "Space Around";
-    case "space-evenly":
-      return "Space Evenly";
+    case 'flex-start':
+      return 'Start';
+    case 'flex-end':
+      return 'End';
+    case 'space-between':
+      return 'Space Between';
+    case 'space-around':
+      return 'Space Around';
+    case 'space-evenly':
+      return 'Space Evenly';
     default:
       return normalizedValue
         .split(/[-_]/)
@@ -797,7 +838,7 @@ function formatKeywordValue(value: string): string | null {
 
           return `${part[0].toUpperCase()}${part.slice(1)}`;
         })
-        .join(" ");
+        .join(' ');
   }
 }
 
@@ -825,7 +866,9 @@ function formatInsets(insets: EdgeInsets): string {
 function formatRoundedNumber(value: number): string {
   const roundedValue = Math.round(value * 100) / 100;
 
-  return Number.isInteger(roundedValue) ? String(roundedValue) : `${roundedValue}`;
+  return Number.isInteger(roundedValue)
+    ? String(roundedValue)
+    : `${roundedValue}`;
 }
 
 function resolveColorInputValue(color: string): string {
@@ -836,9 +879,9 @@ function resolveColorInputValue(color: string): string {
   }
 
   if (/^#[0-9a-fA-F]{3}$/.test(normalizedColor)) {
-    const [r, g, b] = normalizedColor.slice(1).split("");
+    const [r, g, b] = normalizedColor.slice(1).split('');
     return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
   }
 
-  return "#111111";
+  return '#111111';
 }

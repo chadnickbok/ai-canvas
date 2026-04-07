@@ -1,133 +1,127 @@
-import Image from "next/image";
-import { siGithub } from "simple-icons";
+import Image from 'next/image';
+import { siGithub } from 'simple-icons';
 
-import strappingLogoDark from "../../src/assets/branding/strappingai-logo-dark.png";
-import heroProjectLibraryImage from "../../src/assets/screenshots/hero-project-library.png";
-import mcpInstallationImage from "../../src/assets/screenshots/mcp-installation.png";
-import workflowSceneImage from "../../src/assets/screenshots/workflow-scene.png";
-import { BrandIcon } from "./brand-icon";
-import { siteConfig } from "../../lib/site-config";
-import { LinkButton } from "./link-button";
-import { MarketingLink } from "./marketing-link";
-import { SectionHeading } from "./section-heading";
+import strappingLogoDark from '../../src/assets/branding/strappingai-logo-dark.png';
+import heroProjectLibraryImage from '../../src/assets/screenshots/hero-project-library.png';
+import mcpInstallationImage from '../../src/assets/screenshots/mcp-installation.png';
+import workflowSceneImage from '../../src/assets/screenshots/workflow-scene.png';
+import { BrandIcon } from './brand-icon';
+import { siteConfig } from '../../lib/site-config';
+import { LinkButton } from './link-button';
+import { MarketingLink } from './marketing-link';
+import { SectionHeading } from './section-heading';
 
 const navigationItems = [
-  { href: "#why", label: "Why" },
-  { href: "#workflow", label: "Workflow" },
-  { href: "#mcp", label: "MCP" },
-  { href: "#trust", label: "Trust" },
-  { href: "#faq", label: "FAQ" },
-  { href: "#download", label: "Download" }
+  { href: '#why', label: 'Why' },
+  { href: '#workflow', label: 'Workflow' },
+  { href: '#mcp', label: 'MCP' },
+  { href: '#trust', label: 'Trust' },
+  { href: '#faq', label: 'FAQ' },
+  { href: '#download', label: 'Download' },
 ] as const;
 
 const proofPoints = [
-  "Bootstrap screens fast",
-  "Desktop + MCP parity",
-  "Scene-first structure",
-  "Local projects",
-  "Deterministic edits"
+  'Bootstrap screens fast',
+  'Desktop + MCP parity',
+  'Scene-first structure',
+  'Local projects',
+  'Deterministic edits',
 ] as const;
 
 const valueCards = [
   {
-    body:
-      "Start with a structured first pass instead of a blank page. Rough in scenes, layout blocks, copy, and system primitives quickly, then refine from a visible direction.",
-    title: "Fast First Pass"
+    body: 'Start with a structured first pass instead of a blank page. Rough in scenes, layout blocks, copy, and system primitives quickly, then refine from a visible direction.',
+    title: 'Fast First Pass',
   },
   {
-    body:
-      "The editor UI and the local MCP bridge use the same document schema, command system, and semantic logic. Agent edits do not disappear into a second automation layer.",
-    title: "One Runtime"
+    body: 'The editor UI and the local MCP bridge use the same document schema, command system, and semantic logic. Agent edits do not disappear into a second automation layer.',
+    title: 'One Runtime',
   },
   {
-    body:
-      "Scenes, variables, styles, bindings, and provenance give the model something better than pixels alone, so bootstrap edits stay inspectable and usable.",
-    title: "Structured Mockups"
-  }
+    body: 'Scenes, variables, styles, bindings, and provenance give the model something better than pixels alone, so bootstrap edits stay inspectable and usable.',
+    title: 'Structured Mockups',
+  },
 ] as const;
 
 const workflowSteps = [
   {
-    body:
-      "Create or open a local project in the desktop app and establish the workspace you want to push forward.",
-    title: "Open a local workspace"
+    body: 'Create or open a local project in the desktop app and establish the workspace you want to push forward.',
+    title: 'Open a local workspace',
   },
   {
-    body:
-      "Connect Claude, Codex, or Gemini through the local MCP endpoint and generate first-pass structure, copy, and layout against the same active project session.",
-    title: "Bootstrap with an agent"
+    body: 'Connect Claude, Codex, or Gemini through the local MCP endpoint and generate first-pass structure, copy, and layout against the same active project session.',
+    title: 'Bootstrap with an agent',
   },
   {
-    body:
-      "Use the canvas, layers, and inspector to tighten what the agent started without exporting, translating, or losing state across tools.",
-    title: "Refine in the canvas"
-  }
+    body: 'Use the canvas, layers, and inspector to tighten what the agent started without exporting, translating, or losing state across tools.',
+    title: 'Refine in the canvas',
+  },
 ] as const;
 
 const mcpTools = [
-  "list_projects",
-  "create_project",
-  "open_project",
-  "inspect_project",
-  "inspect_tree",
-  "inspect_node",
-  "inspect_scenes",
-  "inspect_design_system",
-  "apply_commands"
+  'list_projects',
+  'create_project',
+  'open_project',
+  'inspect_project',
+  'inspect_tree',
+  'inspect_node',
+  'inspect_scenes',
+  'inspect_design_system',
+  'apply_commands',
 ] as const;
 
 const trustPoints = [
-  "Projects, metadata, and assets stay local.",
-  "No mandatory backend or account setup.",
-  "Core editing workflows are offline-capable.",
-  "MCP is localhost-only and user-visible.",
-  "UI and MCP share one document model.",
-  "Write boundaries stay explicit and deterministic."
+  'Projects, metadata, and assets stay local.',
+  'No mandatory backend or account setup.',
+  'Core editing workflows are offline-capable.',
+  'MCP is localhost-only and user-visible.',
+  'UI and MCP share one document model.',
+  'Write boundaries stay explicit and deterministic.',
 ] as const;
 
 const excludedScope = [
-  "Not a browser-first editor",
-  "Not cloud collaboration",
-  "Not realtime multi-user",
-  "Not multi-document per project in v1"
+  'Not a browser-first editor',
+  'Not cloud collaboration',
+  'Not realtime multi-user',
+  'Not multi-document per project in v1',
 ] as const;
 
 const faqItems = [
   {
     answer:
-      "Strapping AI Canvas is built as a standalone Electron app so the editor, local persistence, and MCP runtime can share one local-first document model without a mandatory backend.",
-    question: "Why desktop instead of browser-first?"
+      'Strapping AI Canvas is built as a standalone Electron app so the editor, local persistence, and MCP runtime can share one local-first document model without a mandatory backend.',
+    question: 'Why desktop instead of browser-first?',
   },
   {
     answer:
-      "It means getting from a blank canvas to a credible visual direction quickly: scenes, layout blocks, headline copy, and reusable system primitives before detailed polish.",
-    question: "What does bootstrapping visual design mean here?"
+      'It means getting from a blank canvas to a credible visual direction quickly: scenes, layout blocks, headline copy, and reusable system primitives before detailed polish.',
+    question: 'What does bootstrapping visual design mean here?',
   },
   {
     answer:
-      "No. Core editing workflows are designed to work locally without a running server or cloud control plane.",
-    question: "Does Strapping AI Canvas require the cloud?"
+      'No. Core editing workflows are designed to work locally without a running server or cloud control plane.',
+    question: 'Does Strapping AI Canvas require the cloud?',
   },
   {
     answer:
-      "Closing the editor window does not quit the app. The app stays resident in the tray, and MCP inspection remains available against the active project session.",
-    question: "What happens when the editor window closes?"
+      'Closing the editor window does not quit the app. The app stays resident in the tray, and MCP inspection remains available against the active project session.',
+    question: 'What happens when the editor window closes?',
   },
   {
     answer:
-      "Yes. Inspection remains available after the window closes until the user explicitly quits the tray app.",
-    question: "Can agents still inspect projects after close?"
+      'Yes. Inspection remains available after the window closes until the user explicitly quits the tray app.',
+    question: 'Can agents still inspect projects after close?',
   },
   {
     answer:
-      "No. In v1, mutations fail fast with measurement_surface_unavailable when the editor window is closed because the browser-backed measurement surface is unavailable.",
-    question: "Can agents mutate while the window is closed?"
+      'No. In v1, mutations fail fast with measurement_surface_unavailable when the editor window is closed because the browser-backed measurement surface is unavailable.',
+    question: 'Can agents mutate while the window is closed?',
   },
   {
     answer:
-      "No. In v1, each project contains exactly one document. Project targeting is the primary MCP target surface.",
-    question: "Does a project contain multiple documents?"
-  }
+      'No. In v1, each project contains exactly one document. Project targeting is the primary MCP target surface.',
+    question: 'Does a project contain multiple documents?',
+  },
 ] as const;
 
 const commandSnippet = `endpoint: http://localhost:9311/mcp
@@ -144,21 +138,21 @@ commands:
 mode: read_write`;
 
 const treeRows = [
-  "project: launchpad",
-  "document: current_document_json",
-  "scene: scene_launch",
-  "frame: scene_launch",
-  "rectangle: rect_shell",
-  "text: text_headline",
-  "style: hero_surface",
-  "variable: color.neutral.950"
+  'project: launchpad',
+  'document: current_document_json',
+  'scene: scene_launch',
+  'frame: scene_launch',
+  'rectangle: rect_shell',
+  'text: text_headline',
+  'style: hero_surface',
+  'variable: color.neutral.950',
 ] as const;
 
 const designSystemRows = [
-  "variables: color.neutral.950, type.display.lg",
-  "styles: hero_surface, body_copy",
-  "bindings: text_headline -> hero_copy",
-  "provenance: command batch / revision 12"
+  'variables: color.neutral.950, type.display.lg',
+  'styles: hero_surface, body_copy',
+  'bindings: text_headline -> hero_copy',
+  'provenance: command batch / revision 12',
 ] as const;
 
 export function MarketingHomePage() {
@@ -205,28 +199,44 @@ export function MarketingHomePage() {
             label="GitHub"
             leadingVisual={githubIcon}
           />
-          <LinkButton href={siteConfig.downloadPath} kind="primary" label="Download Desktop" />
+          <LinkButton
+            href={siteConfig.downloadPath}
+            kind="primary"
+            label="Download Desktop"
+          />
         </div>
       </header>
 
       <main>
         <section className="hero section" id="top">
           <div className="hero-copy">
-            <span className="section-eyebrow">Bootstrap visual design with desktop + MCP</span>
+            <span className="section-eyebrow">
+              Bootstrap visual design with desktop + MCP
+            </span>
             <h1>Bootstrap visual design fast.</h1>
             <p className="hero-body">
-              Strapping AI Canvas is the fastest way to go from a blank surface to a structured
-              visual direction. Open the desktop app, point an MCP client at the same project, and
-              rough in scenes, layout, and copy before polishing by hand.
+              Strapping AI Canvas is the fastest way to go from a blank surface
+              to a structured visual direction. Open the desktop app, point an
+              MCP client at the same project, and rough in scenes, layout, and
+              copy before polishing by hand.
             </p>
 
             <div className="hero-actions">
-              <LinkButton href={siteConfig.downloadPath} kind="primary" label="Download Desktop" />
-              <LinkButton href={siteConfig.docsPath} kind="secondary" label="Read the Docs" />
+              <LinkButton
+                href={siteConfig.downloadPath}
+                kind="primary"
+                label="Download Desktop"
+              />
+              <LinkButton
+                href={siteConfig.docsPath}
+                kind="secondary"
+                label="Read the Docs"
+              />
             </div>
 
             <p className="hero-note">
-              Fast first pass, local runtime, explicit boundaries, one shared document core.
+              Fast first pass, local runtime, explicit boundaries, one shared
+              document core.
             </p>
           </div>
 
@@ -258,7 +268,10 @@ export function MarketingHomePage() {
           </div>
         </section>
 
-        <section aria-label="Product proof points" className="proof-strip section">
+        <section
+          aria-label="Product proof points"
+          className="proof-strip section"
+        >
           {proofPoints.map((point) => (
             <div className="proof-pill" key={point}>
               {point}
@@ -276,7 +289,9 @@ export function MarketingHomePage() {
           <div className="value-grid">
             {valueCards.map((card) => (
               <article className="value-card" key={card.title}>
-                <span className="card-index ui-mono">{card.title.slice(0, 2).toUpperCase()}</span>
+                <span className="card-index ui-mono">
+                  {card.title.slice(0, 2).toUpperCase()}
+                </span>
                 <h3>{card.title}</h3>
                 <p>{card.body}</p>
               </article>
@@ -295,7 +310,9 @@ export function MarketingHomePage() {
             <div className="workflow-steps">
               {workflowSteps.map((step, index) => (
                 <article className="workflow-step" key={step.title}>
-                  <span className="step-number ui-mono">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="step-number ui-mono">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
                   <div>
                     <h3>{step.title}</h3>
                     <p>{step.body}</p>
@@ -328,8 +345,9 @@ export function MarketingHomePage() {
                   />
                 </div>
                 <p className="card-footnote">
-                  One workspace carries the whole loop: bootstrap the structure fast, inspect the
-                  result, and keep tightening in the same scene-first editor.
+                  One workspace carries the whole loop: bootstrap the structure
+                  fast, inspect the result, and keep tightening in the same
+                  scene-first editor.
                 </p>
               </article>
 
@@ -388,8 +406,8 @@ export function MarketingHomePage() {
                 />
               </div>
               <p className="card-footnote">
-                Use the full localhost endpoint, including the <span>/mcp</span> path, and keep
-                the editor window open for write-capable actions.
+                Use the full localhost endpoint, including the <span>/mcp</span>{' '}
+                path, and keep the editor window open for write-capable actions.
               </p>
             </article>
 
@@ -401,13 +419,21 @@ export function MarketingHomePage() {
               <div className="mode-grid">
                 <div className="mode-card">
                   <span className="mode-label ui-mono">read_write</span>
-                  <p>Available while the editor window is open and the measurement surface exists.</p>
+                  <p>
+                    Available while the editor window is open and the
+                    measurement surface exists.
+                  </p>
                 </div>
                 <div className="mode-card">
                   <span className="mode-label ui-mono">read_only</span>
                   <p>
-                    Inspection remains available after close. Mutation fails fast with
-                    <span className="ui-mono"> measurement_surface_unavailable</span>.
+                    Inspection remains available after close. Mutation fails
+                    fast with
+                    <span className="ui-mono">
+                      {' '}
+                      measurement_surface_unavailable
+                    </span>
+                    .
                   </p>
                 </div>
               </div>
@@ -481,14 +507,22 @@ export function MarketingHomePage() {
         <section className="section status-section">
           <article className="status-card">
             <span className="status-badge ui-mono">Experimental</span>
-            <h2>Current status: sharp first-pass workflow, active product development.</h2>
+            <h2>
+              Current status: sharp first-pass workflow, active product
+              development.
+            </h2>
             <p>
-              Strapping AI Canvas is still under active development, but the direction is clear:
-              get from zero to usable visual design faster by keeping desktop editing and agent
-              actions in one local workspace.
+              Strapping AI Canvas is still under active development, but the
+              direction is clear: get from zero to usable visual design faster
+              by keeping desktop editing and agent actions in one local
+              workspace.
             </p>
             <div className="status-actions">
-              <LinkButton href={siteConfig.docsPath} kind="secondary" label="Read Docs" />
+              <LinkButton
+                href={siteConfig.docsPath}
+                kind="secondary"
+                label="Read Docs"
+              />
               <LinkButton
                 href={siteConfig.githubUrl}
                 kind="ghost"
@@ -520,34 +554,52 @@ export function MarketingHomePage() {
           <article className="download-card">
             <div>
               <span className="section-eyebrow">Download</span>
-              <h2>Bootstrap your next interface direction in one local workspace.</h2>
+              <h2>
+                Bootstrap your next interface direction in one local workspace.
+              </h2>
               <p>
-                Download the latest desktop build, inspect the docs, or review the source. The
-                current release is experimental, but the value is immediate: faster first-pass
-                visual design with a local editor and MCP in the same loop.
+                Download the latest desktop build, inspect the docs, or review
+                the source. The current release is experimental, but the value
+                is immediate: faster first-pass visual design with a local
+                editor and MCP in the same loop.
               </p>
             </div>
 
             <div className="download-actions">
-              <LinkButton href={siteConfig.downloadPath} kind="primary" label="Download Desktop" />
+              <LinkButton
+                href={siteConfig.downloadPath}
+                kind="primary"
+                label="Download Desktop"
+              />
               <LinkButton
                 href={siteConfig.githubUrl}
                 kind="secondary"
                 label="View GitHub"
                 leadingVisual={githubIcon}
               />
-              <LinkButton href={siteConfig.docsPath} kind="ghost" label="Read Docs" />
+              <LinkButton
+                href={siteConfig.docsPath}
+                kind="ghost"
+                label="Read Docs"
+              />
             </div>
           </article>
         </section>
       </main>
 
       <footer className="site-footer">
-        <p>Bootstrap visual design fast with one local desktop + MCP workspace.</p>
+        <p>
+          Bootstrap visual design fast with one local desktop + MCP workspace.
+        </p>
         <div className="footer-links">
           <MarketingLink href={siteConfig.githubUrl}>
             <span className="inline-link">
-              <BrandIcon aria-hidden="true" className="inline-link-icon" icon={siGithub} title="GitHub" />
+              <BrandIcon
+                aria-hidden="true"
+                className="inline-link-icon"
+                icon={siGithub}
+                title="GitHub"
+              />
               <span>GitHub</span>
             </span>
           </MarketingLink>

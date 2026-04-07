@@ -4,28 +4,25 @@ import {
   type RendererNode,
   type SvgNode,
   type SvgVisualElementNode,
-  type TextNode
-} from "@ai-canvas/document-core";
+  type TextNode,
+} from '@ai-canvas/document-core';
 import {
   createElement,
   forwardRef,
   type ReactNode,
   useImperativeHandle,
   useRef,
-  useState
-} from "react";
+  useState,
+} from 'react';
 
-import { measureRenderedSubtrees } from "./measurement.js";
-import { buildRenderStyle } from "./styleUtils.js";
+import { measureRenderedSubtrees } from './measurement.js';
+import { buildRenderStyle } from './styleUtils.js';
 import {
   sanitizeSvgAttributeBag,
   sanitizeSvgDefinitionsMarkup,
-  sanitizeSvgElementName
-} from "./svgSanitization.js";
-import type {
-  RendererMeasurementHandle,
-  ResolvedAssetsById
-} from "./types.js";
+  sanitizeSvgElementName,
+} from './svgSanitization.js';
+import type { RendererMeasurementHandle, ResolvedAssetsById } from './types.js';
 
 export type DocumentRendererProps = {
   className?: string;
@@ -47,12 +44,12 @@ type RenderNodeOptions = {
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  return classes.filter(Boolean).join(' ');
 }
 
 function createNodeRef(
   context: RenderContext,
-  nodeId: string
+  nodeId: string,
 ): (element: Element | null) => void {
   return (element) => {
     context.registerNodeElement(nodeId, element);
@@ -61,7 +58,7 @@ function createNodeRef(
 
 function createSvgPrimitiveFallback(
   node: SvgVisualElementNode,
-  context: RenderContext
+  context: RenderContext,
 ): ReactNode {
   return (
     <g
@@ -91,14 +88,14 @@ function createSvgPrimitiveFallback(
 function renderSvgVisualElementNode(
   node: SvgVisualElementNode,
   context: RenderContext,
-  options: RenderNodeOptions
+  options: RenderNodeOptions,
 ): ReactNode {
   if (!options.inSvg) {
     const fallbackStyle = buildRenderStyle(node.render_style, {
       isHtmlBox: true,
       isLeaf: true,
       isTopLevel: options.isTopLevel,
-      resolvedAssetsById: context.resolvedAssetsById
+      resolvedAssetsById: context.resolvedAssetsById,
     });
 
     return (
@@ -109,18 +106,18 @@ function renderSvgVisualElementNode(
         key={node.id}
         ref={createNodeRef(context, node.id)}
         style={{
-          alignItems: "center",
-          backgroundColor: "rgba(242, 242, 242, 0.96)",
-          border: "1px dashed #a3a3a3",
-          color: "#6b6b6b",
-          display: "flex",
-          fontFamily: "IBM Plex Mono, monospace",
+          alignItems: 'center',
+          backgroundColor: 'rgba(242, 242, 242, 0.96)',
+          border: '1px dashed #a3a3a3',
+          color: '#6b6b6b',
+          display: 'flex',
+          fontFamily: 'IBM Plex Mono, monospace',
           fontSize: 10,
           height: fallbackStyle.height ?? 24,
-          justifyContent: "center",
-          overflow: "hidden",
+          justifyContent: 'center',
+          overflow: 'hidden',
           width: fallbackStyle.width ?? 24,
-          ...fallbackStyle
+          ...fallbackStyle,
         }}
       >
         svg
@@ -136,36 +133,42 @@ function renderSvgVisualElementNode(
 
   return createElement(elementName, {
     ...sanitizeSvgAttributeBag(node.svg_primitive.attributes),
-    "data-node-id": node.id,
-    "data-node-kind": node.kind,
+    'data-node-id': node.id,
+    'data-node-kind': node.kind,
     key: node.id,
-    ref: createNodeRef(context, node.id)
+    ref: createNodeRef(context, node.id),
   });
 }
 
 function renderSvgNode(
   node: SvgNode,
   context: RenderContext,
-  options: RenderNodeOptions
+  options: RenderNodeOptions,
 ): ReactNode {
   const sanitizedDefinitions = (node.svg.definitions ?? [])
-    .map((definition: NonNullable<SvgNode["svg"]["definitions"]>[number]) =>
-      sanitizeSvgDefinitionsMarkup(definition.markup)
+    .map((definition: NonNullable<SvgNode['svg']['definitions']>[number]) =>
+      sanitizeSvgDefinitionsMarkup(definition.markup),
     )
     .filter((markup: string) => markup.length > 0)
-    .join("");
+    .join('');
 
   const childNodes = node.child_ids
     .map((childId: string) => context.document.nodes[childId])
-    .filter((childNode: RendererNode | undefined): childNode is RendererNode => childNode !== undefined);
+    .filter(
+      (childNode: RendererNode | undefined): childNode is RendererNode =>
+        childNode !== undefined,
+    );
 
   const shouldSortPrimitivesOnly = childNodes.every(
-    (childNode) => childNode.kind === "svg-visual-element"
+    (childNode) => childNode.kind === 'svg-visual-element',
   );
 
   const orderedChildNodes = shouldSortPrimitivesOnly
     ? [...childNodes].sort((left, right) => {
-        if (left.kind !== "svg-visual-element" || right.kind !== "svg-visual-element") {
+        if (
+          left.kind !== 'svg-visual-element' ||
+          right.kind !== 'svg-visual-element'
+        ) {
           return 0;
         }
 
@@ -185,7 +188,7 @@ function renderSvgNode(
         isHtmlBox: false,
         isLeaf: false,
         isTopLevel: options.isTopLevel,
-        resolvedAssetsById: context.resolvedAssetsById
+        resolvedAssetsById: context.resolvedAssetsById,
       })}
       viewBox={node.svg.view_box}
     >
@@ -195,8 +198,8 @@ function renderSvgNode(
       {orderedChildNodes.map((childNode: RendererNode) =>
         renderNode(childNode, context, {
           inSvg: true,
-          isTopLevel: false
-        })
+          isTopLevel: false,
+        }),
       )}
     </svg>
   );
@@ -205,7 +208,7 @@ function renderSvgNode(
 function renderTextNode(
   node: TextNode,
   context: RenderContext,
-  options: RenderNodeOptions
+  options: RenderNodeOptions,
 ): ReactNode {
   return (
     <div
@@ -217,7 +220,7 @@ function renderTextNode(
         isHtmlBox: true,
         isLeaf: true,
         isTopLevel: options.isTopLevel,
-        resolvedAssetsById: context.resolvedAssetsById
+        resolvedAssetsById: context.resolvedAssetsById,
       })}
     >
       {node.text.content}
@@ -228,20 +231,20 @@ function renderTextNode(
 function renderFrameNode(
   node: FrameNode,
   context: RenderContext,
-  options: RenderNodeOptions
+  options: RenderNodeOptions,
 ): ReactNode {
   return (
     <div
       data-node-id={node.id}
       data-node-kind={node.kind}
-      data-scene-root={node.scene_id === node.id ? "true" : undefined}
+      data-scene-root={node.scene_id === node.id ? 'true' : undefined}
       key={node.id}
       ref={createNodeRef(context, node.id)}
       style={buildRenderStyle(node.render_style, {
         isHtmlBox: true,
         isLeaf: false,
         isTopLevel: options.isTopLevel,
-        resolvedAssetsById: context.resolvedAssetsById
+        resolvedAssetsById: context.resolvedAssetsById,
       })}
     >
       {node.child_ids.map((childId) => {
@@ -253,7 +256,7 @@ function renderFrameNode(
 
         return renderNode(childNode, context, {
           inSvg: false,
-          isTopLevel: false
+          isTopLevel: false,
         });
       })}
     </div>
@@ -263,7 +266,7 @@ function renderFrameNode(
 function renderRectangleNode(
   node: RendererNode,
   context: RenderContext,
-  options: RenderNodeOptions
+  options: RenderNodeOptions,
 ): ReactNode {
   return (
     <div
@@ -275,7 +278,7 @@ function renderRectangleNode(
         isHtmlBox: true,
         isLeaf: true,
         isTopLevel: options.isTopLevel,
-        resolvedAssetsById: context.resolvedAssetsById
+        resolvedAssetsById: context.resolvedAssetsById,
       })}
     />
   );
@@ -284,110 +287,117 @@ function renderRectangleNode(
 function renderNode(
   node: RendererNode,
   context: RenderContext,
-  options: RenderNodeOptions
+  options: RenderNodeOptions,
 ): ReactNode {
   if (!node.is_visible) {
     return null;
   }
 
   switch (node.kind) {
-    case "frame":
+    case 'frame':
       return renderFrameNode(node, context, options);
-    case "rectangle":
+    case 'rectangle':
       return renderRectangleNode(node, context, options);
-    case "text":
+    case 'text':
       return renderTextNode(node, context, options);
-    case "svg":
+    case 'svg':
       return renderSvgNode(node, context, options);
-    case "svg-visual-element":
+    case 'svg-visual-element':
       return renderSvgVisualElementNode(node, context, options);
   }
 }
 
-export const DocumentRenderer = forwardRef<RendererMeasurementHandle, DocumentRendererProps>(
-  function DocumentRenderer(
-    { className, document, documentRevision, resolvedAssetsById, viewportZoom = 1 },
-    ref
-  ) {
-    const rootElementRef = useRef<HTMLDivElement | null>(null);
-    const [nodeElementsById] = useState(() => new Map<string, Element>());
+export const DocumentRenderer = forwardRef<
+  RendererMeasurementHandle,
+  DocumentRendererProps
+>(function DocumentRenderer(
+  {
+    className,
+    document,
+    documentRevision,
+    resolvedAssetsById,
+    viewportZoom = 1,
+  },
+  ref,
+) {
+  const rootElementRef = useRef<HTMLDivElement | null>(null);
+  const [nodeElementsById] = useState(() => new Map<string, Element>());
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        getDocumentRevision: () => documentRevision,
-        getNodeElement: (nodeId) => nodeElementsById.get(nodeId) ?? null,
-        getRootElement: () => rootElementRef.current,
-        measureSubtrees: ({ rootIds }) =>
-          measureRenderedSubtrees({
-            document,
-            nodeElementsById,
-            rootElement: rootElementRef.current,
-            rootIds,
-            zoom: viewportZoom
-          })
-      }),
-      [document, documentRevision, nodeElementsById, viewportZoom]
-    );
+  useImperativeHandle(
+    ref,
+    () => ({
+      getDocumentRevision: () => documentRevision,
+      getNodeElement: (nodeId) => nodeElementsById.get(nodeId) ?? null,
+      getRootElement: () => rootElementRef.current,
+      measureSubtrees: ({ rootIds }) =>
+        measureRenderedSubtrees({
+          document,
+          nodeElementsById,
+          rootElement: rootElementRef.current,
+          rootIds,
+          zoom: viewportZoom,
+        }),
+    }),
+    [document, documentRevision, nodeElementsById, viewportZoom],
+  );
 
-    const context: RenderContext = {
-      document,
-      registerNodeElement: (nodeId, element) => {
-        if (!element) {
-          nodeElementsById.delete(nodeId);
-          return;
-        }
+  const context: RenderContext = {
+    document,
+    registerNodeElement: (nodeId, element) => {
+      if (!element) {
+        nodeElementsById.delete(nodeId);
+        return;
+      }
 
-        nodeElementsById.set(nodeId, element);
-      },
-      resolvedAssetsById
-    };
+      nodeElementsById.set(nodeId, element);
+    },
+    resolvedAssetsById,
+  };
 
-    return (
-      <div
-        className={cn(className)}
-        data-document-id={document.document_id}
-        data-document-revision={String(documentRevision)}
-        data-renderer-root="true"
-        ref={rootElementRef}
-        style={{
-          backgroundColor: document.canvas.background_color ?? "transparent",
-          height: "100%",
-          minHeight: "100%",
-          minWidth: "100%",
-          overflow: "visible",
-          position: "relative",
-          width: "100%"
-        }}
-      >
-        {document.root.child_ids.map((childId) => {
-          const scene = document.scenes[childId];
+  return (
+    <div
+      className={cn(className)}
+      data-document-id={document.document_id}
+      data-document-revision={String(documentRevision)}
+      data-renderer-root="true"
+      ref={rootElementRef}
+      style={{
+        backgroundColor: document.canvas.background_color ?? 'transparent',
+        height: '100%',
+        minHeight: '100%',
+        minWidth: '100%',
+        overflow: 'visible',
+        position: 'relative',
+        width: '100%',
+      }}
+    >
+      {document.root.child_ids.map((childId) => {
+        const scene = document.scenes[childId];
 
-          if (scene) {
-            const sceneFrameNode = document.nodes[scene.id];
+        if (scene) {
+          const sceneFrameNode = document.nodes[scene.id];
 
-            if (!sceneFrameNode || sceneFrameNode.kind !== "frame") {
-              return null;
-            }
-
-            return renderNode(sceneFrameNode, context, {
-              inSvg: false,
-              isTopLevel: true
-            });
-          }
-
-          const looseTopLevelNode = document.nodes[childId];
-
-          if (!looseTopLevelNode || looseTopLevelNode.parent_id !== null) {
+          if (!sceneFrameNode || sceneFrameNode.kind !== 'frame') {
             return null;
           }
 
-          return renderNode(looseTopLevelNode, context, {
+          return renderNode(sceneFrameNode, context, {
             inSvg: false,
-            isTopLevel: true
+            isTopLevel: true,
           });
-        })}
-      </div>
-    );
-  }
-);
+        }
+
+        const looseTopLevelNode = document.nodes[childId];
+
+        if (!looseTopLevelNode || looseTopLevelNode.parent_id !== null) {
+          return null;
+        }
+
+        return renderNode(looseTopLevelNode, context, {
+          inSvg: false,
+          isTopLevel: true,
+        });
+      })}
+    </div>
+  );
+});

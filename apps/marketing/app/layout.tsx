@@ -1,36 +1,36 @@
-import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 
-import { siteConfig } from "../lib/site-config";
+import { siteConfig } from '../lib/site-config';
 
-import "./globals.css";
+import './globals.css';
 
 export const metadata: Metadata = {
   alternates: {
-    canonical: "/"
+    canonical: '/',
   },
   applicationName: siteConfig.brandName,
   description:
-    "Strapping AI Canvas is the fastest way to bootstrap visual design with a local desktop editor and MCP clients working against one shared document model.",
+    'Strapping AI Canvas is the fastest way to bootstrap visual design with a local desktop editor and MCP clients working against one shared document model.',
   icons: {
-    apple: "/apple-icon.png",
+    apple: '/apple-icon.png',
     icon: [
-      { type: "image/x-icon", url: "/favicon.ico" },
-      { sizes: "512x512", type: "image/png", url: "/icon.png" }
-    ]
+      { type: 'image/x-icon', url: '/favicon.ico' },
+      { sizes: '512x512', type: 'image/png', url: '/icon.png' },
+    ],
   },
   metadataBase: new URL(siteConfig.siteUrl),
   openGraph: {
     description:
-      "Bootstrap visual design fast with a local desktop editor and MCP clients sharing one scene-first project model.",
+      'Bootstrap visual design fast with a local desktop editor and MCP clients sharing one scene-first project model.',
     siteName: siteConfig.brandName,
     title: siteConfig.brandName,
-    url: siteConfig.siteUrl
+    url: siteConfig.siteUrl,
   },
   title: {
-    default: "Strapping AI Canvas | Bootstrap Visual Design Fast",
-    template: `%s | ${siteConfig.brandName}`
-  }
+    default: 'Strapping AI Canvas | Bootstrap Visual Design Fast',
+    template: `%s | ${siteConfig.brandName}`,
+  },
 };
 
 type RootLayoutProps = Readonly<{

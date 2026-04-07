@@ -2,8 +2,8 @@ import {
   collectSubtreeIds,
   resolveComputedLayoutRootIds,
   type ComputedLayout,
-  type RendererDocument
-} from "@ai-canvas/document-core";
+  type RendererDocument,
+} from '@ai-canvas/document-core';
 
 type MeasureRenderedSubtreesInput = {
   document: RendererDocument;
@@ -15,13 +15,13 @@ type MeasureRenderedSubtreesInput = {
 
 export function resolveMeasurementRootIds(
   document: RendererDocument,
-  changedNodeIds: string[]
+  changedNodeIds: string[],
 ): string[] {
   return resolveComputedLayoutRootIds(document, changedNodeIds);
 }
 
 export function measureRenderedSubtrees(
-  input: MeasureRenderedSubtreesInput
+  input: MeasureRenderedSubtreesInput,
 ): Record<string, ComputedLayout> {
   if (!input.rootElement) {
     return {};
@@ -45,7 +45,7 @@ export function measureRenderedSubtrees(
         height: rect.height / zoom,
         width: rect.width / zoom,
         x: (rect.left - rootRect.left) / zoom,
-        y: (rect.top - rootRect.top) / zoom
+        y: (rect.top - rootRect.top) / zoom,
       };
     }
   }

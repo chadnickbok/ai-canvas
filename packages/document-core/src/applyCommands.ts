@@ -7,17 +7,17 @@ import {
   type Command,
   type RenderStylePatch,
   commandSchemaByType,
-  isCommandType
-} from "./commandTypes.js";
-import { normalizeDocument } from "./normalizeDocument.js";
-import { collectSubtreeIds } from "./queries.js";
+  isCommandType,
+} from './commandTypes.js';
+import { normalizeDocument } from './normalizeDocument.js';
+import { collectSubtreeIds } from './queries.js';
 import {
   NODE_SEMANTIC_SLOT_TO_STYLE_FAMILY,
   getNodeSemanticSlotForRenderKey,
   materializeSemanticRenderState,
   resolveCanvasSemanticSlot,
-  resolveNodeSemanticSlot
-} from "./semanticResolution.js";
+  resolveNodeSemanticSlot,
+} from './semanticResolution.js';
 import {
   type CanvasSemanticSlot,
   type EmptyNodeAuthoring,
@@ -37,14 +37,14 @@ import {
   type RendererVariableCollection,
   type RenderStyleValue,
   type StyleFamily,
-  type TypographyTokenValue
-} from "./types.js";
+  type TypographyTokenValue,
+} from './types.js';
 
 type VariableModeValue =
-  | { kind: "alias"; variable_id: string }
-  | { kind: "value"; value: string }
-  | { kind: "value"; value: RenderStyleValue }
-  | { kind: "value"; value: TypographyTokenValue };
+  | { kind: 'alias'; variable_id: string }
+  | { kind: 'value'; value: string }
+  | { kind: 'value'; value: RenderStyleValue }
+  | { kind: 'value'; value: TypographyTokenValue };
 
 type VariableRawValue = RenderStyleValue | TypographyTokenValue;
 
@@ -62,7 +62,7 @@ type ApplyCommandOptions = {
   currentRevision: number;
   measurementSurfaceAvailable: boolean;
   refreshComputedLayout?: (
-    input: RefreshComputedLayoutInput
+    input: RefreshComputedLayoutInput,
   ) => RendererDocument | Promise<RendererDocument>;
 };
 
@@ -97,7 +97,7 @@ class CommandApplicationError extends Error {
     options: {
       commandIndex?: number;
       details?: Record<string, OpaqueValue>;
-    } = {}
+    } = {},
   ) {
     super(message);
     this.code = code;
@@ -106,49 +106,53 @@ class CommandApplicationError extends Error {
   }
 }
 
-const GEOMETRY_RENDER_KEYS = ["left", "top", "width", "height"] as const;
+const GEOMETRY_RENDER_KEYS = ['left', 'top', 'width', 'height'] as const;
 
 const VARIABLE_KIND_ALLOWED_SLOTS = {
   color: [
-    "canvas.background_color",
-    "node.paint.background_color",
-    "node.text.color"
+    'canvas.background_color',
+    'node.paint.background_color',
+    'node.text.color',
   ],
-  radius: ["node.shape.border_radius"],
+  radius: ['node.shape.border_radius'],
   spacing: [
-    "node.layout.gap",
-    "node.layout.padding_top",
-    "node.layout.padding_right",
-    "node.layout.padding_bottom",
-    "node.layout.padding_left"
+    'node.layout.gap',
+    'node.layout.padding_top',
+    'node.layout.padding_right',
+    'node.layout.padding_bottom',
+    'node.layout.padding_left',
   ],
   typography: [
-    "node.typography.font_family",
-    "node.typography.font_size",
-    "node.typography.font_weight",
-    "node.typography.line_height",
-    "node.typography.letter_spacing"
-  ]
-} as const satisfies Record<RendererVariable["kind"], readonly RendererSemanticSlot[]>;
+    'node.typography.font_family',
+    'node.typography.font_size',
+    'node.typography.font_weight',
+    'node.typography.line_height',
+    'node.typography.letter_spacing',
+  ],
+} as const satisfies Record<
+  RendererVariable['kind'],
+  readonly RendererSemanticSlot[]
+>;
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isTypographyTokenValue(value: unknown): value is TypographyTokenValue {
   return (
     isObject(value) &&
-    typeof value.font_family === "string" &&
-    (typeof value.font_size === "number" || typeof value.font_size === "string") &&
+    typeof value.font_family === 'string' &&
+    (typeof value.font_size === 'number' ||
+      typeof value.font_size === 'string') &&
     (value.font_weight === undefined ||
-      typeof value.font_weight === "number" ||
-      typeof value.font_weight === "string") &&
+      typeof value.font_weight === 'number' ||
+      typeof value.font_weight === 'string') &&
     (value.line_height === undefined ||
-      typeof value.line_height === "number" ||
-      typeof value.line_height === "string") &&
+      typeof value.line_height === 'number' ||
+      typeof value.line_height === 'string') &&
     (value.letter_spacing === undefined ||
-      typeof value.letter_spacing === "number" ||
-      typeof value.letter_spacing === "string")
+      typeof value.letter_spacing === 'number' ||
+      typeof value.letter_spacing === 'string')
   );
 }
 
@@ -162,17 +166,17 @@ function sortStrings(values: Iterable<string>): string[] {
 
 function cloneNormalizedDocument(document: unknown): RendererDocument {
   const fallbackDocumentId =
-    isObject(document) && typeof document.document_id === "string"
+    isObject(document) && typeof document.document_id === 'string'
       ? document.document_id
-      : "doc_unknown";
+      : 'doc_unknown';
   const fallbackName =
-    isObject(document) && typeof document.name === "string"
+    isObject(document) && typeof document.name === 'string'
       ? document.name
-      : "Untitled Project";
+      : 'Untitled Project';
 
   return normalizeDocument(document, {
     fallbackDocumentId,
-    fallbackName
+    fallbackName,
   });
 }
 
@@ -184,7 +188,7 @@ function createCommandError(
     commandIndex?: number;
     details?: Record<string, OpaqueValue>;
     revision?: number;
-  } = {}
+  } = {},
 ): ApplyCommandsError {
   return {
     ok: false,
@@ -193,9 +197,11 @@ function createCommandError(
     error: {
       code,
       message,
-      ...(options.commandIndex === undefined ? {} : { command_index: options.commandIndex }),
-      ...(options.details === undefined ? {} : { details: options.details })
-    }
+      ...(options.commandIndex === undefined
+        ? {}
+        : { command_index: options.commandIndex }),
+      ...(options.details === undefined ? {} : { details: options.details }),
+    },
   };
 }
 
@@ -204,9 +210,9 @@ function throwValidation(
   options: {
     commandIndex?: number;
     details?: Record<string, OpaqueValue>;
-  } = {}
+  } = {},
 ): never {
-  throw new CommandApplicationError("validation_failed", message, options);
+  throw new CommandApplicationError('validation_failed', message, options);
 }
 
 function throwTargetNotFound(
@@ -214,9 +220,9 @@ function throwTargetNotFound(
   options: {
     commandIndex?: number;
     details?: Record<string, OpaqueValue>;
-  } = {}
+  } = {},
 ): never {
-  throw new CommandApplicationError("target_not_found", message, options);
+  throw new CommandApplicationError('target_not_found', message, options);
 }
 
 function throwUnrecoverable(
@@ -224,75 +230,94 @@ function throwUnrecoverable(
   options: {
     commandIndex?: number;
     details?: Record<string, OpaqueValue>;
-  } = {}
+  } = {},
 ): never {
-  throw new CommandApplicationError("unrecoverable_command", message, options);
+  throw new CommandApplicationError('unrecoverable_command', message, options);
 }
 
 function parseCommandList(
   input: unknown,
-  fallbackDocumentId: string
-): { ok: true; data: ApplyCommandsInput } | { ok: false; error: ApplyCommandsError } {
+  fallbackDocumentId: string,
+):
+  | { ok: true; data: ApplyCommandsInput }
+  | { ok: false; error: ApplyCommandsError } {
   if (!isObject(input)) {
     return {
       ok: false,
       error: createCommandError(
         fallbackDocumentId,
-        "validation_failed",
-        "applyCommands input must be an object"
-      )
+        'validation_failed',
+        'applyCommands input must be an object',
+      ),
     };
   }
 
-  if (typeof input.document_id !== "string") {
+  if (typeof input.document_id !== 'string') {
     return {
       ok: false,
       error: createCommandError(
         fallbackDocumentId,
-        "validation_failed",
-        "applyCommands input must include document_id"
-      )
+        'validation_failed',
+        'applyCommands input must include document_id',
+      ),
     };
   }
 
-  if (input.base_revision !== undefined && !Number.isInteger(input.base_revision)) {
+  if (
+    input.base_revision !== undefined &&
+    !Number.isInteger(input.base_revision)
+  ) {
     return {
       ok: false,
-      error: createCommandError(input.document_id, "validation_failed", "base_revision must be an integer")
+      error: createCommandError(
+        input.document_id,
+        'validation_failed',
+        'base_revision must be an integer',
+      ),
     };
   }
 
   if (!Array.isArray(input.commands)) {
     return {
       ok: false,
-      error: createCommandError(input.document_id, "validation_failed", "commands must be an array")
+      error: createCommandError(
+        input.document_id,
+        'validation_failed',
+        'commands must be an array',
+      ),
     };
   }
 
   const commands: Command[] = [];
-  const baseRevision = typeof input.base_revision === "number" ? input.base_revision : undefined;
+  const baseRevision =
+    typeof input.base_revision === 'number' ? input.base_revision : undefined;
 
   for (const [index, rawCommand] of input.commands.entries()) {
-    if (!isObject(rawCommand) || typeof rawCommand.type !== "string") {
+    if (!isObject(rawCommand) || typeof rawCommand.type !== 'string') {
       return {
         ok: false,
         error: createCommandError(
           input.document_id,
-          "validation_failed",
-          "command must be an object with a string type",
+          'validation_failed',
+          'command must be an object with a string type',
           {
-            commandIndex: index
-          }
-        )
+            commandIndex: index,
+          },
+        ),
       };
     }
 
     if (!isCommandType(rawCommand.type)) {
       return {
         ok: false,
-        error: createCommandError(input.document_id, "unknown_command", `Unknown command type: ${rawCommand.type}`, {
-          commandIndex: index
-        })
+        error: createCommandError(
+          input.document_id,
+          'unknown_command',
+          `Unknown command type: ${rawCommand.type}`,
+          {
+            commandIndex: index,
+          },
+        ),
       };
     }
 
@@ -303,15 +328,15 @@ function parseCommandList(
         ok: false,
         error: createCommandError(
           input.document_id,
-          "validation_failed",
+          'validation_failed',
           `Invalid payload for command type: ${rawCommand.type}`,
           {
             commandIndex: index,
             details: {
-              issues: parsed.error.issues.map((issue) => issue.message)
-            }
-          }
-        )
+              issues: parsed.error.issues.map((issue) => issue.message),
+            },
+          },
+        ),
       };
     }
 
@@ -323,12 +348,14 @@ function parseCommandList(
     data: {
       document_id: input.document_id,
       commands,
-      ...(baseRevision === undefined ? {} : { base_revision: baseRevision })
-    }
+      ...(baseRevision === undefined ? {} : { base_revision: baseRevision }),
+    },
   };
 }
 
-function buildEffects(context: CommandContext): ApplyCommandsEffects | undefined {
+function buildEffects(
+  context: CommandContext,
+): ApplyCommandsEffects | undefined {
   const effects: ApplyCommandsEffects = {
     ...(context.changedNodeIds.size === 0
       ? {}
@@ -344,45 +371,78 @@ function buildEffects(context: CommandContext): ApplyCommandsEffects | undefined
       : { changed_variable_ids: sortStrings(context.changedVariableIds) }),
     ...(context.changedStyleIds.size === 0
       ? {}
-      : { changed_style_ids: sortStrings(context.changedStyleIds) })
+      : { changed_style_ids: sortStrings(context.changedStyleIds) }),
   };
 
   return Object.keys(effects).length === 0 ? undefined : effects;
 }
 
-function getNodeLocalValues(node: RendererNode): Partial<Record<NodeSemanticSlot, RenderStyleValue>> {
-  return node.authoring.local_values as Partial<Record<NodeSemanticSlot, RenderStyleValue>>;
+function getNodeLocalValues(
+  node: RendererNode,
+): Partial<Record<NodeSemanticSlot, RenderStyleValue>> {
+  return node.authoring.local_values as Partial<
+    Record<NodeSemanticSlot, RenderStyleValue>
+  >;
 }
 
-function getNodeVariableBindings(node: RendererNode): Partial<Record<NodeSemanticSlot, string>> {
-  return node.authoring.variable_bindings as Partial<Record<NodeSemanticSlot, string>>;
+function getNodeVariableBindings(
+  node: RendererNode,
+): Partial<Record<NodeSemanticSlot, string>> {
+  return node.authoring.variable_bindings as Partial<
+    Record<NodeSemanticSlot, string>
+  >;
 }
 
-function getNodeStyleBindings(node: RendererNode): Partial<Record<StyleFamily, string>> {
+function getNodeStyleBindings(
+  node: RendererNode,
+): Partial<Record<StyleFamily, string>> {
   return node.authoring.style_bindings as Partial<Record<StyleFamily, string>>;
 }
 
-function getFamilySlots(node: RendererNode, family: StyleFamily): NodeSemanticSlot[] {
+function getFamilySlots(
+  node: RendererNode,
+  family: StyleFamily,
+): NodeSemanticSlot[] {
   return getAllowedNodeSemanticSlots(node.kind).filter(
     (slot) =>
-      NODE_SEMANTIC_SLOT_TO_STYLE_FAMILY[slot as keyof typeof NODE_SEMANTIC_SLOT_TO_STYLE_FAMILY] ===
-      family
+      NODE_SEMANTIC_SLOT_TO_STYLE_FAMILY[
+        slot as keyof typeof NODE_SEMANTIC_SLOT_TO_STYLE_FAMILY
+      ] === family,
   ) as NodeSemanticSlot[];
 }
 
-function ensureNodeSlotAllowed(node: RendererNode, slot: NodeSemanticSlot): void {
-  if (!getAllowedNodeSemanticSlots(node.kind).some((allowedSlot) => allowedSlot === slot)) {
+function ensureNodeSlotAllowed(
+  node: RendererNode,
+  slot: NodeSemanticSlot,
+): void {
+  if (
+    !getAllowedNodeSemanticSlots(node.kind).some(
+      (allowedSlot) => allowedSlot === slot,
+    )
+  ) {
     throwValidation(`Slot ${slot} is not valid for node kind ${node.kind}`);
   }
 }
 
-function ensureNodeFamilyAllowed(node: RendererNode, family: StyleFamily): void {
-  if (!getAllowedStyleFamilies(node.kind).some((allowedFamily) => allowedFamily === family)) {
-    throwValidation(`Style family ${family} is not valid for node kind ${node.kind}`);
+function ensureNodeFamilyAllowed(
+  node: RendererNode,
+  family: StyleFamily,
+): void {
+  if (
+    !getAllowedStyleFamilies(node.kind).some(
+      (allowedFamily) => allowedFamily === family,
+    )
+  ) {
+    throwValidation(
+      `Style family ${family} is not valid for node kind ${node.kind}`,
+    );
   }
 }
 
-function getNodeOrThrow(document: RendererDocument, nodeId: string): RendererNode {
+function getNodeOrThrow(
+  document: RendererDocument,
+  nodeId: string,
+): RendererNode {
   const node = document.nodes[nodeId];
 
   if (!node) {
@@ -402,7 +462,10 @@ function getSceneOrThrow(document: RendererDocument, sceneId: string) {
   return scene;
 }
 
-function getParentContainerOrThrow(document: RendererDocument, parentId: string | null): RendererNode | null {
+function getParentContainerOrThrow(
+  document: RendererDocument,
+  parentId: string | null,
+): RendererNode | null {
   if (parentId === null) {
     return null;
   }
@@ -420,8 +483,13 @@ function getParentContainerOrThrow(document: RendererDocument, parentId: string 
   return parent;
 }
 
-function getContainerChildren(document: RendererDocument, parentId: string | null): string[] {
-  return parentId === null ? document.root.child_ids : getNodeOrThrow(document, parentId).child_ids;
+function getContainerChildren(
+  document: RendererDocument,
+  parentId: string | null,
+): string[] {
+  return parentId === null
+    ? document.root.child_ids
+    : getNodeOrThrow(document, parentId).child_ids;
 }
 
 function removeChildReference(items: string[], childId: string): void {
@@ -432,7 +500,11 @@ function removeChildReference(items: string[], childId: string): void {
   }
 }
 
-function insertChildReference(items: string[], childId: string, index?: number): void {
+function insertChildReference(
+  items: string[],
+  childId: string,
+  index?: number,
+): void {
   if (items.includes(childId)) {
     throwValidation(`Container already includes child ${childId}`);
   }
@@ -449,7 +521,10 @@ function insertChildReference(items: string[], childId: string, index?: number):
   items.splice(index, 0, childId);
 }
 
-function isSceneBackingFrame(document: RendererDocument, nodeId: string): boolean {
+function isSceneBackingFrame(
+  document: RendererDocument,
+  nodeId: string,
+): boolean {
   return document.scenes[nodeId] !== undefined;
 }
 
@@ -491,11 +566,14 @@ function buildVariableLookup(document: RendererDocument): VariableLookup {
 
   return {
     collectionsByVariableId,
-    variablesById
+    variablesById,
   };
 }
 
-function findVariableLocation(document: RendererDocument, variableId: string): VariableLocation {
+function findVariableLocation(
+  document: RendererDocument,
+  variableId: string,
+): VariableLocation {
   const matches: VariableLocation[] = [];
 
   for (const collection of Object.values(document.variables.collections)) {
@@ -504,7 +582,7 @@ function findVariableLocation(document: RendererDocument, variableId: string): V
     if (variable) {
       matches.push({
         collection,
-        variable
+        variable,
       });
     }
   }
@@ -514,50 +592,63 @@ function findVariableLocation(document: RendererDocument, variableId: string): V
   }
 
   if (matches.length > 1) {
-    throwUnrecoverable(`Variable id ${variableId} is ambiguous in the current document`);
+    throwUnrecoverable(
+      `Variable id ${variableId} is ambiguous in the current document`,
+    );
   }
 
   return matches[0];
 }
 
 function isVariableKindSlotCompatible(
-  kind: RendererVariable["kind"],
-  slot: RendererSemanticSlot
+  kind: RendererVariable['kind'],
+  slot: RendererSemanticSlot,
 ): boolean {
-  return (VARIABLE_KIND_ALLOWED_SLOTS[kind] as readonly RendererSemanticSlot[]).some(
-    (allowedSlot) => allowedSlot === slot
-  );
+  return (
+    VARIABLE_KIND_ALLOWED_SLOTS[kind] as readonly RendererSemanticSlot[]
+  ).some((allowedSlot) => allowedSlot === slot);
 }
 
-function ensureVariableSupportsSlot(variable: RendererVariable, slot: RendererSemanticSlot): void {
-  if (!variable.scopes.includes(slot) || !isVariableKindSlotCompatible(variable.kind, slot)) {
+function ensureVariableSupportsSlot(
+  variable: RendererVariable,
+  slot: RendererSemanticSlot,
+): void {
+  if (
+    !variable.scopes.includes(slot) ||
+    !isVariableKindSlotCompatible(variable.kind, slot)
+  ) {
     throwValidation(`Variable ${variable.id} cannot be used for slot ${slot}`);
   }
 }
 
 function validateVariableModeValueKind(
-  kind: RendererVariable["kind"],
-  modeValue: VariableModeValue
+  kind: RendererVariable['kind'],
+  modeValue: VariableModeValue,
 ): void {
-  if (modeValue.kind === "alias") {
+  if (modeValue.kind === 'alias') {
     return;
   }
 
   switch (kind) {
-    case "color":
-      if (typeof modeValue.value !== "string") {
-        throwValidation("Color variables require string mode values");
+    case 'color':
+      if (typeof modeValue.value !== 'string') {
+        throwValidation('Color variables require string mode values');
       }
       return;
-    case "radius":
-    case "spacing":
-      if (typeof modeValue.value !== "string" && typeof modeValue.value !== "number") {
-        throwValidation(`${kind} variables require string or number mode values`);
+    case 'radius':
+    case 'spacing':
+      if (
+        typeof modeValue.value !== 'string' &&
+        typeof modeValue.value !== 'number'
+      ) {
+        throwValidation(
+          `${kind} variables require string or number mode values`,
+        );
       }
       return;
-    case "typography":
+    case 'typography':
       if (!isTypographyTokenValue(modeValue.value)) {
-        throwValidation("Typography variables require typography token values");
+        throwValidation('Typography variables require typography token values');
       }
       return;
   }
@@ -566,34 +657,51 @@ function validateVariableModeValueKind(
 function ensureVariableScopesValid(variable: RendererVariable): void {
   for (const slot of variable.scopes) {
     if (!isVariableKindSlotCompatible(variable.kind, slot)) {
-      throwValidation(`Variable ${variable.id} has an invalid scope ${slot} for kind ${variable.kind}`);
+      throwValidation(
+        `Variable ${variable.id} has an invalid scope ${slot} for kind ${variable.kind}`,
+      );
     }
   }
 }
 
 function ensureVariableModeKeysValid(
   collection: RendererVariableCollection,
-  variable: RendererVariable
+  variable: RendererVariable,
 ): void {
   for (const [modeId, modeValue] of Object.entries(variable.values_by_mode)) {
     if (!collection.modes[modeId]) {
-      throwValidation(`Variable ${variable.id} references unknown mode ${modeId}`);
+      throwValidation(
+        `Variable ${variable.id} references unknown mode ${modeId}`,
+      );
     }
 
-    validateVariableModeValueKind(variable.kind, modeValue as VariableModeValue);
+    validateVariableModeValueKind(
+      variable.kind,
+      modeValue as VariableModeValue,
+    );
   }
 }
 
-function ensureVariableAliasTargetsValid(document: RendererDocument, variable: RendererVariable): void {
-  for (const modeValue of Object.values(variable.values_by_mode) as VariableModeValue[]) {
-    if (modeValue.kind !== "alias") {
+function ensureVariableAliasTargetsValid(
+  document: RendererDocument,
+  variable: RendererVariable,
+): void {
+  for (const modeValue of Object.values(
+    variable.values_by_mode,
+  ) as VariableModeValue[]) {
+    if (modeValue.kind !== 'alias') {
       continue;
     }
 
-    const target = findVariableLocation(document, modeValue.variable_id).variable;
+    const target = findVariableLocation(
+      document,
+      modeValue.variable_id,
+    ).variable;
 
     if (target.kind !== variable.kind) {
-      throwValidation(`Variable ${variable.id} cannot alias variable ${target.id} of kind ${target.kind}`);
+      throwValidation(
+        `Variable ${variable.id} cannot alias variable ${target.id} of kind ${target.kind}`,
+      );
     }
   }
 }
@@ -601,7 +709,7 @@ function ensureVariableAliasTargetsValid(document: RendererDocument, variable: R
 function hasAliasCycle(
   variableId: string,
   modeId: string,
-  lookup: VariableLookup
+  lookup: VariableLookup,
 ): boolean {
   let currentVariableId = variableId;
   let currentModeId = modeId;
@@ -627,10 +735,14 @@ function hasAliasCycle(
       return false;
     }
 
-    const effectiveModeId = collection.modes[currentModeId] ? currentModeId : collection.default_mode_id;
-    const modeValue = variable.values_by_mode[effectiveModeId] as VariableModeValue | undefined;
+    const effectiveModeId = collection.modes[currentModeId]
+      ? currentModeId
+      : collection.default_mode_id;
+    const modeValue = variable.values_by_mode[effectiveModeId] as
+      | VariableModeValue
+      | undefined;
 
-    if (!modeValue || modeValue.kind !== "alias") {
+    if (!modeValue || modeValue.kind !== 'alias') {
       return false;
     }
 
@@ -640,7 +752,9 @@ function hasAliasCycle(
       return false;
     }
 
-    const targetCollection = lookup.collectionsByVariableId.get(targetVariable.id);
+    const targetCollection = lookup.collectionsByVariableId.get(
+      targetVariable.id,
+    );
 
     if (!targetCollection) {
       return false;
@@ -658,15 +772,17 @@ function ensureNoVariableAliasCycles(document: RendererDocument): void {
 
   for (const collection of Object.values(document.variables.collections)) {
     for (const variable of Object.values(collection.variables)) {
-      for (const [modeId, modeValue] of Object.entries(variable.values_by_mode) as Array<
-        [string, VariableModeValue]
-      >) {
-        if (modeValue.kind !== "alias") {
+      for (const [modeId, modeValue] of Object.entries(
+        variable.values_by_mode,
+      ) as Array<[string, VariableModeValue]>) {
+        if (modeValue.kind !== 'alias') {
           continue;
         }
 
         if (hasAliasCycle(variable.id, modeId, lookup)) {
-          throwUnrecoverable(`Variable alias cycle detected for ${variable.id} in mode ${modeId}`);
+          throwUnrecoverable(
+            `Variable alias cycle detected for ${variable.id} in mode ${modeId}`,
+          );
         }
       }
     }
@@ -676,7 +792,7 @@ function ensureNoVariableAliasCycles(document: RendererDocument): void {
 function getRequestedModeId(
   collection: RendererVariableCollection,
   requestedModeId: string | undefined,
-  modeOverridesByCollectionId: Record<string, string>
+  modeOverridesByCollectionId: Record<string, string>,
 ): string {
   const overrideModeId = modeOverridesByCollectionId[collection.id];
 
@@ -696,7 +812,7 @@ function resolveVariableModeRawValue(
   variableId: string,
   requestedModeId: string | undefined,
   modeOverridesByCollectionId: Record<string, string>,
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
 ): VariableRawValue | undefined {
   const variable = lookup.variablesById.get(variableId);
 
@@ -710,20 +826,26 @@ function resolveVariableModeRawValue(
     return undefined;
   }
 
-  const modeId = getRequestedModeId(collection, requestedModeId, modeOverridesByCollectionId);
+  const modeId = getRequestedModeId(
+    collection,
+    requestedModeId,
+    modeOverridesByCollectionId,
+  );
   const visitKey = `${variable.id}:${modeId}`;
 
   if (visited.has(visitKey)) {
     return undefined;
   }
 
-  const modeValue = variable.values_by_mode[modeId] as VariableModeValue | undefined;
+  const modeValue = variable.values_by_mode[modeId] as
+    | VariableModeValue
+    | undefined;
 
   if (!modeValue) {
     return undefined;
   }
 
-  if (modeValue.kind === "value") {
+  if (modeValue.kind === 'value') {
     return modeValue.value as VariableRawValue;
   }
 
@@ -733,7 +855,7 @@ function resolveVariableModeRawValue(
     modeValue.variable_id,
     modeId,
     modeOverridesByCollectionId,
-    visited
+    visited,
   );
   visited.delete(visitKey);
   return resolved;
@@ -741,16 +863,16 @@ function resolveVariableModeRawValue(
 
 function slotExpectsString(slot: RendererSemanticSlot): boolean {
   return (
-    slot === "canvas.background_color" ||
-    slot === "node.paint.background_color" ||
-    slot === "node.text.color" ||
-    slot === "node.typography.font_family"
+    slot === 'canvas.background_color' ||
+    slot === 'node.paint.background_color' ||
+    slot === 'node.text.color' ||
+    slot === 'node.typography.font_family'
   );
 }
 
 function rawValueToSlotValue(
   slot: RendererSemanticSlot,
-  rawValue: VariableRawValue | undefined
+  rawValue: VariableRawValue | undefined,
 ): RenderStyleValue | undefined {
   if (rawValue === undefined) {
     return undefined;
@@ -758,22 +880,22 @@ function rawValueToSlotValue(
 
   if (isTypographyTokenValue(rawValue)) {
     switch (slot) {
-      case "node.typography.font_family":
+      case 'node.typography.font_family':
         return rawValue.font_family;
-      case "node.typography.font_size":
+      case 'node.typography.font_size':
         return rawValue.font_size;
-      case "node.typography.font_weight":
+      case 'node.typography.font_weight':
         return rawValue.font_weight;
-      case "node.typography.line_height":
+      case 'node.typography.line_height':
         return rawValue.line_height;
-      case "node.typography.letter_spacing":
+      case 'node.typography.letter_spacing':
         return rawValue.letter_spacing;
       default:
         return undefined;
     }
   }
 
-  if (slotExpectsString(slot) && typeof rawValue !== "string") {
+  if (slotExpectsString(slot) && typeof rawValue !== 'string') {
     return undefined;
   }
 
@@ -784,7 +906,7 @@ function resolveVariableSlotValue(
   document: RendererDocument,
   variableId: string,
   slot: RendererSemanticSlot,
-  modeOverridesByCollectionId: Record<string, string> = {}
+  modeOverridesByCollectionId: Record<string, string> = {},
 ): RenderStyleValue | undefined {
   const location = findVariableLocation(document, variableId);
 
@@ -794,7 +916,7 @@ function resolveVariableSlotValue(
     buildVariableLookup(document),
     variableId,
     undefined,
-    modeOverridesByCollectionId
+    modeOverridesByCollectionId,
   );
 
   return rawValueToSlotValue(slot, rawValue);
@@ -806,7 +928,7 @@ function aliasChainDependsOnDeletedVariables(
   requestedModeId: string,
   deletedVariableIds: Set<string>,
   modeOverridesByCollectionId: Record<string, string>,
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
 ): boolean {
   const variable = lookup.variablesById.get(variableId);
 
@@ -820,16 +942,22 @@ function aliasChainDependsOnDeletedVariables(
     return false;
   }
 
-  const modeId = getRequestedModeId(collection, requestedModeId, modeOverridesByCollectionId);
+  const modeId = getRequestedModeId(
+    collection,
+    requestedModeId,
+    modeOverridesByCollectionId,
+  );
   const visitKey = `${variable.id}:${modeId}`;
 
   if (visited.has(visitKey)) {
     return false;
   }
 
-  const modeValue = variable.values_by_mode[modeId] as VariableModeValue | undefined;
+  const modeValue = variable.values_by_mode[modeId] as
+    | VariableModeValue
+    | undefined;
 
-  if (!modeValue || modeValue.kind !== "alias") {
+  if (!modeValue || modeValue.kind !== 'alias') {
     return false;
   }
 
@@ -844,7 +972,7 @@ function aliasChainDependsOnDeletedVariables(
     modeId,
     deletedVariableIds,
     modeOverridesByCollectionId,
-    visited
+    visited,
   );
   visited.delete(visitKey);
   return dependsOnDeleted;
@@ -853,7 +981,7 @@ function aliasChainDependsOnDeletedVariables(
 function applyNodeRenderStyleValue(
   node: RendererNode,
   renderKey: string,
-  value: RenderStyleValue | null
+  value: RenderStyleValue | null,
 ): void {
   const semanticSlot = getNodeSemanticSlotForRenderKey(renderKey);
 
@@ -882,18 +1010,23 @@ function applyNodeRenderStyleValue(
   delete variableBindings[semanticSlot];
 }
 
-function applyNodeRenderStylePatch(node: RendererNode, patch: RenderStylePatch): void {
+function applyNodeRenderStylePatch(
+  node: RendererNode,
+  patch: RenderStylePatch,
+): void {
   for (const [renderKey, value] of Object.entries(patch)) {
     applyNodeRenderStyleValue(node, renderKey, value);
   }
 }
 
 function translateGeometryCreateInput(
-  convenienceFields: Partial<Record<(typeof GEOMETRY_RENDER_KEYS)[number], RenderStyleValue>>,
+  convenienceFields: Partial<
+    Record<(typeof GEOMETRY_RENDER_KEYS)[number], RenderStyleValue>
+  >,
   renderStyle: Record<string, RenderStyleValue> | undefined,
   options: {
     requireAllGeometry?: boolean;
-  } = {}
+  } = {},
 ): Record<string, RenderStyleValue> {
   const patch: Record<string, RenderStyleValue> = { ...(renderStyle ?? {}) };
 
@@ -901,7 +1034,9 @@ function translateGeometryCreateInput(
     const convenienceValue = convenienceFields[key];
 
     if (convenienceValue !== undefined && key in patch) {
-      throwValidation(`Geometry key ${key} was provided both as a convenience field and in render_style`);
+      throwValidation(
+        `Geometry key ${key} was provided both as a convenience field and in render_style`,
+      );
     }
 
     if (convenienceValue !== undefined) {
@@ -921,8 +1056,10 @@ function translateGeometryCreateInput(
 }
 
 function translateGeometryPatch(
-  convenienceFields: Partial<Record<(typeof GEOMETRY_RENDER_KEYS)[number], RenderStyleValue>>,
-  renderStylePatch: RenderStylePatch | undefined
+  convenienceFields: Partial<
+    Record<(typeof GEOMETRY_RENDER_KEYS)[number], RenderStyleValue>
+  >,
+  renderStylePatch: RenderStylePatch | undefined,
 ): RenderStylePatch {
   const patch: RenderStylePatch = { ...(renderStylePatch ?? {}) };
 
@@ -930,7 +1067,9 @@ function translateGeometryPatch(
     const convenienceValue = convenienceFields[key];
 
     if (convenienceValue !== undefined && key in patch) {
-      throwValidation(`Geometry key ${key} was provided both as a convenience field and in render_style`);
+      throwValidation(
+        `Geometry key ${key} was provided both as a convenience field and in render_style`,
+      );
     }
 
     if (convenienceValue !== undefined) {
@@ -945,13 +1084,13 @@ function createEmptyAuthoring(): EmptyNodeAuthoring {
   return {
     local_values: {},
     variable_bindings: {},
-    style_bindings: {}
+    style_bindings: {},
   };
 }
 
 function createNodeFromPayload(
-  payload: Extract<Command, { type: "create_node" }>["node"],
-  sceneId: string | null
+  payload: Extract<Command, { type: 'create_node' }>['node'],
+  sceneId: string | null,
 ): RendererNode {
   const base = {
     id: payload.id,
@@ -961,69 +1100,73 @@ function createNodeFromPayload(
     scene_id: sceneId,
     is_visible: payload.is_visible ?? true,
     is_locked: payload.is_locked ?? false,
-    render_style: {}
+    render_style: {},
   };
 
   switch (payload.kind) {
-    case "frame":
+    case 'frame':
       return {
         ...base,
-        kind: "frame",
+        kind: 'frame',
         authoring: {
           local_values: {},
           variable_bindings: {},
-          style_bindings: {}
-        }
+          style_bindings: {},
+        },
       };
-    case "rectangle":
+    case 'rectangle':
       return {
         ...base,
-        kind: "rectangle",
+        kind: 'rectangle',
         authoring: {
           local_values: {},
           variable_bindings: {},
-          style_bindings: {}
-        }
+          style_bindings: {},
+        },
       };
-    case "text":
+    case 'text':
       return {
         ...base,
-        kind: "text",
+        kind: 'text',
         authoring: {
           local_values: {},
           variable_bindings: {},
-          style_bindings: {}
+          style_bindings: {},
         },
         text: {
-          content: payload.text.content
-        }
+          content: payload.text.content,
+        },
       };
-    case "svg":
+    case 'svg':
       return {
         ...base,
-        kind: "svg",
+        kind: 'svg',
         authoring: createEmptyAuthoring(),
         svg: {
-          ...(payload.svg.definitions === undefined ? {} : { definitions: payload.svg.definitions }),
+          ...(payload.svg.definitions === undefined
+            ? {}
+            : { definitions: payload.svg.definitions }),
           ...(payload.svg.preserve_aspect_ratio === undefined
             ? {}
             : { preserve_aspect_ratio: payload.svg.preserve_aspect_ratio }),
           ...(payload.svg.raw_root_attributes === undefined
             ? {}
             : { raw_root_attributes: payload.svg.raw_root_attributes }),
-          ...(payload.svg.view_box === undefined ? {} : { view_box: payload.svg.view_box })
-        }
+          ...(payload.svg.view_box === undefined
+            ? {}
+            : { view_box: payload.svg.view_box }),
+        },
       };
-    case "svg-visual-element":
+    case 'svg-visual-element':
       return {
         ...base,
-        kind: "svg-visual-element",
+        kind: 'svg-visual-element',
         authoring: createEmptyAuthoring(),
         svg_primitive: {
           element_name: payload.svg_primitive.element_name,
           order: payload.svg_primitive.order,
-          attributes: payload.svg_primitive.attributes
-        }
+          attributes: payload.svg_primitive.attributes,
+        },
       };
   }
 }
@@ -1034,13 +1177,19 @@ function ensureUniqueNodeId(document: RendererDocument, nodeId: string): void {
   }
 }
 
-function ensureUniqueSceneId(document: RendererDocument, sceneId: string): void {
+function ensureUniqueSceneId(
+  document: RendererDocument,
+  sceneId: string,
+): void {
   if (document.scenes[sceneId] || document.nodes[sceneId]) {
     throwValidation(`Scene id already exists: ${sceneId}`);
   }
 }
 
-function ensureUniqueAssetId(document: RendererDocument, assetId: string): void {
+function ensureUniqueAssetId(
+  document: RendererDocument,
+  assetId: string,
+): void {
   if (document.assets[assetId]) {
     throwValidation(`Asset id already exists: ${assetId}`);
   }
@@ -1049,22 +1198,31 @@ function ensureUniqueAssetId(document: RendererDocument, assetId: string): void 
 function ensureUniqueStyleId(
   document: RendererDocument,
   family: StyleFamily,
-  styleId: string
+  styleId: string,
 ): void {
-  const existingStyle = family === "paint" ? document.styles.paint[styleId] : document.styles.text[styleId];
+  const existingStyle =
+    family === 'paint'
+      ? document.styles.paint[styleId]
+      : document.styles.text[styleId];
 
   if (existingStyle) {
     throwValidation(`Style id already exists in family ${family}: ${styleId}`);
   }
 }
 
-function ensureUniqueVariableCollectionId(document: RendererDocument, collectionId: string): void {
+function ensureUniqueVariableCollectionId(
+  document: RendererDocument,
+  collectionId: string,
+): void {
   if (document.variables.collections[collectionId]) {
     throwValidation(`Variable collection id already exists: ${collectionId}`);
   }
 }
 
-function ensureUniqueVariableId(document: RendererDocument, variableId: string): void {
+function ensureUniqueVariableId(
+  document: RendererDocument,
+  variableId: string,
+): void {
   let count = 0;
 
   for (const collection of Object.values(document.variables.collections)) {
@@ -1079,40 +1237,45 @@ function ensureUniqueVariableId(document: RendererDocument, variableId: string):
 }
 
 function canonicalizeModeMap(
-  modes: Record<string, { id: string; name: string }>
-): RendererVariableCollection["modes"] {
+  modes: Record<string, { id: string; name: string }>,
+): RendererVariableCollection['modes'] {
   return Object.fromEntries(
     Object.entries(modes).map(([modeId, mode]) => [
       modeId,
       {
         id: modeId,
-        name: mode.name
-      }
-    ])
+        name: mode.name,
+      },
+    ]),
   );
 }
 
 function ensureCollectionDefinitionValid(
   modes: Record<string, { id: string; name: string }>,
-  defaultModeId: string
+  defaultModeId: string,
 ): void {
   const modeIds = Object.keys(modes);
 
   if (modeIds.length === 0) {
-    throwValidation("Variable collections must declare at least one mode");
+    throwValidation('Variable collections must declare at least one mode');
   }
 
   if (!modes[defaultModeId]) {
-    throwValidation(`Default mode ${defaultModeId} does not exist in collection`);
+    throwValidation(
+      `Default mode ${defaultModeId} does not exist in collection`,
+    );
   }
 }
 
 function getStyleOrThrow(
   document: RendererDocument,
   family: StyleFamily,
-  styleId: string
+  styleId: string,
 ): RendererPaintStyle | RendererTextStyle {
-  const style = family === "paint" ? document.styles.paint[styleId] : document.styles.text[styleId];
+  const style =
+    family === 'paint'
+      ? document.styles.paint[styleId]
+      : document.styles.text[styleId];
 
   if (!style) {
     throwTargetNotFound(`Style not found in family ${family}: ${styleId}`);
@@ -1124,13 +1287,16 @@ function getStyleOrThrow(
 function ensureStyleVariableReferenceValid(
   document: RendererDocument,
   variableId: string,
-  slot: RendererSemanticSlot
+  slot: RendererSemanticSlot,
 ): void {
   const variable = findVariableLocation(document, variableId).variable;
   ensureVariableSupportsSlot(variable, slot);
 }
 
-function clearLocalValuesForFamily(node: RendererNode, family: StyleFamily): void {
+function clearLocalValuesForFamily(
+  node: RendererNode,
+  family: StyleFamily,
+): void {
   const localValues = getNodeLocalValues(node);
 
   for (const slot of getFamilySlots(node, family)) {
@@ -1142,7 +1308,7 @@ function detachNodeVariableBindingToLocal(
   currentDocument: RendererDocument,
   snapshotDocument: RendererDocument,
   nodeId: string,
-  slot: NodeSemanticSlot
+  slot: NodeSemanticSlot,
 ): void {
   const currentNode = getNodeOrThrow(currentDocument, nodeId);
   ensureNodeSlotAllowed(currentNode, slot);
@@ -1162,7 +1328,7 @@ function detachNodeVariableBindingToLocal(
 function detachCanvasVariableBindingToLocal(
   currentDocument: RendererDocument,
   snapshotDocument: RendererDocument,
-  slot: CanvasSemanticSlot
+  slot: CanvasSemanticSlot,
 ): void {
   const resolved = resolveCanvasSemanticSlot(snapshotDocument, slot);
 
@@ -1179,7 +1345,7 @@ function detachNodeStyleBindingToLocal(
   currentDocument: RendererDocument,
   snapshotDocument: RendererDocument,
   nodeId: string,
-  family: StyleFamily
+  family: StyleFamily,
 ): void {
   const currentNode = getNodeOrThrow(currentDocument, nodeId);
   ensureNodeFamilyAllowed(currentNode, family);
@@ -1195,7 +1361,8 @@ function detachNodeStyleBindingToLocal(
     const resolved = resolveNodeSemanticSlot(snapshotDocument, nodeId, slot);
 
     if (
-      (resolved.source_kind === "style" || resolved.source_kind === "style-variable") &&
+      (resolved.source_kind === 'style' ||
+        resolved.source_kind === 'style-variable') &&
       resolved.value !== undefined
     ) {
       localValues[slot] = resolved.value;
@@ -1206,7 +1373,7 @@ function detachNodeStyleBindingToLocal(
 }
 
 function extractAssetReference(renderValue: unknown): string | null {
-  if (typeof renderValue !== "string") {
+  if (typeof renderValue !== 'string') {
     return null;
   }
 
@@ -1214,13 +1381,22 @@ function extractAssetReference(renderValue: unknown): string | null {
   return match?.[1] ?? null;
 }
 
-function collectNodesReferencingAsset(document: RendererDocument, assetId: string): string[] {
+function collectNodesReferencingAsset(
+  document: RendererDocument,
+  assetId: string,
+): string[] {
   return Object.values(document.nodes)
-    .filter((node) => extractAssetReference(node.render_style.backgroundImage) === assetId)
+    .filter(
+      (node) =>
+        extractAssetReference(node.render_style.backgroundImage) === assetId,
+    )
     .map((node) => node.id);
 }
 
-function detachDeletedVariables(document: RendererDocument, deletedVariableIds: Set<string>): void {
+function detachDeletedVariables(
+  document: RendererDocument,
+  deletedVariableIds: Set<string>,
+): void {
   if (deletedVariableIds.size === 0) {
     return;
   }
@@ -1228,7 +1404,9 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
   const snapshotDocument = structuredClone(document);
   const lookup = buildVariableLookup(snapshotDocument);
 
-  for (const [slot, variableId] of Object.entries(snapshotDocument.canvas.authoring.variable_bindings)) {
+  for (const [slot, variableId] of Object.entries(
+    snapshotDocument.canvas.authoring.variable_bindings,
+  )) {
     if (!variableId || !deletedVariableIds.has(variableId)) {
       continue;
     }
@@ -1236,14 +1414,16 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
     detachCanvasVariableBindingToLocal(
       document,
       snapshotDocument,
-      slot as CanvasSemanticSlot
+      slot as CanvasSemanticSlot,
     );
   }
 
   for (const node of Object.values(snapshotDocument.nodes)) {
     const currentNode = getNodeOrThrow(document, node.id);
 
-    for (const [slot, variableId] of Object.entries(getNodeVariableBindings(node))) {
+    for (const [slot, variableId] of Object.entries(
+      getNodeVariableBindings(node),
+    )) {
       if (!variableId || !deletedVariableIds.has(variableId)) {
         continue;
       }
@@ -1252,7 +1432,7 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
         document,
         snapshotDocument,
         currentNode.id,
-        slot as NodeSemanticSlot
+        slot as NodeSemanticSlot,
       );
     }
   }
@@ -1260,29 +1440,40 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
   for (const style of Object.values(document.styles.paint)) {
     const snapshotStyle = snapshotDocument.styles.paint[style.id];
     const slots = style.slots as Partial<
-      Record<NodeSemanticSlot, { kind: "value"; value: RenderStyleValue } | { kind: "variable"; variable_id: string }>
+      Record<
+        NodeSemanticSlot,
+        | { kind: 'value'; value: RenderStyleValue }
+        | { kind: 'variable'; variable_id: string }
+      >
     >;
     const snapshotSlots = snapshotStyle?.slots as Partial<
-      Record<NodeSemanticSlot, { kind: "value"; value: RenderStyleValue } | { kind: "variable"; variable_id: string }>
+      Record<
+        NodeSemanticSlot,
+        | { kind: 'value'; value: RenderStyleValue }
+        | { kind: 'variable'; variable_id: string }
+      >
     >;
 
     for (const [slot, slotValue] of Object.entries(snapshotSlots ?? {})) {
-      if (slotValue?.kind !== "variable" || !deletedVariableIds.has(slotValue.variable_id)) {
+      if (
+        slotValue?.kind !== 'variable' ||
+        !deletedVariableIds.has(slotValue.variable_id)
+      ) {
         continue;
       }
 
       const resolvedValue = resolveVariableSlotValue(
         snapshotDocument,
         slotValue.variable_id,
-        slot as RendererSemanticSlot
+        slot as RendererSemanticSlot,
       );
 
       if (resolvedValue === undefined) {
         delete slots[slot as NodeSemanticSlot];
       } else {
         slots[slot as NodeSemanticSlot] = {
-          kind: "value",
-          value: resolvedValue
+          kind: 'value',
+          value: resolvedValue,
         };
       }
     }
@@ -1291,29 +1482,40 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
   for (const style of Object.values(document.styles.text)) {
     const snapshotStyle = snapshotDocument.styles.text[style.id];
     const slots = style.slots as Partial<
-      Record<NodeSemanticSlot, { kind: "value"; value: RenderStyleValue } | { kind: "variable"; variable_id: string }>
+      Record<
+        NodeSemanticSlot,
+        | { kind: 'value'; value: RenderStyleValue }
+        | { kind: 'variable'; variable_id: string }
+      >
     >;
     const snapshotSlots = snapshotStyle?.slots as Partial<
-      Record<NodeSemanticSlot, { kind: "value"; value: RenderStyleValue } | { kind: "variable"; variable_id: string }>
+      Record<
+        NodeSemanticSlot,
+        | { kind: 'value'; value: RenderStyleValue }
+        | { kind: 'variable'; variable_id: string }
+      >
     >;
 
     for (const [slot, slotValue] of Object.entries(snapshotSlots ?? {})) {
-      if (slotValue?.kind !== "variable" || !deletedVariableIds.has(slotValue.variable_id)) {
+      if (
+        slotValue?.kind !== 'variable' ||
+        !deletedVariableIds.has(slotValue.variable_id)
+      ) {
         continue;
       }
 
       const resolvedValue = resolveVariableSlotValue(
         snapshotDocument,
         slotValue.variable_id,
-        slot as RendererSemanticSlot
+        slot as RendererSemanticSlot,
       );
 
       if (resolvedValue === undefined) {
         delete slots[slot as NodeSemanticSlot];
       } else {
         slots[slot as NodeSemanticSlot] = {
-          kind: "value",
-          value: resolvedValue
+          kind: 'value',
+          value: resolvedValue,
         };
       }
     }
@@ -1325,10 +1527,10 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
         continue;
       }
 
-      for (const [modeId, modeValue] of Object.entries(variable.values_by_mode) as Array<
-        [string, VariableModeValue]
-      >) {
-        if (modeValue.kind !== "alias") {
+      for (const [modeId, modeValue] of Object.entries(
+        variable.values_by_mode,
+      ) as Array<[string, VariableModeValue]>) {
+        if (modeValue.kind !== 'alias') {
           continue;
         }
 
@@ -1340,7 +1542,7 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
             variable.id,
             modeId,
             deletedVariableIds,
-            overrides
+            overrides,
           )
         ) {
           continue;
@@ -1350,7 +1552,7 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
           lookup,
           variable.id,
           modeId,
-          overrides
+          overrides,
         );
 
         if (rawValue === undefined) {
@@ -1359,32 +1561,35 @@ function detachDeletedVariables(document: RendererDocument, deletedVariableIds: 
         }
 
         variable.values_by_mode[modeId] = {
-          kind: "value",
-          value: rawValue as never
+          kind: 'value',
+          value: rawValue as never,
         };
       }
     }
   }
 
   for (const deletedVariableId of deletedVariableIds) {
-    const collection = findVariableLocation(document, deletedVariableId).collection;
+    const collection = findVariableLocation(
+      document,
+      deletedVariableId,
+    ).collection;
     delete collection.variables[deletedVariableId];
   }
 }
 
 function normalizeSceneMetadataTags(tags: string[] | undefined): string[] {
-  return dedupe((tags ?? []).filter((tag) => typeof tag === "string"));
+  return dedupe((tags ?? []).filter((tag) => typeof tag === 'string'));
 }
 
 function applyCreateSceneCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "create_scene" }>
+  command: Extract<Command, { type: 'create_scene' }>,
 ): void {
   ensureUniqueSceneId(context.document, command.scene.id);
 
   const frameNode: FrameNode = {
     id: command.scene.id,
-    kind: "frame",
+    kind: 'frame',
     name: command.scene.name,
     parent_id: null,
     child_ids: [],
@@ -1395,8 +1600,8 @@ function applyCreateSceneCommand(
     authoring: {
       local_values: {},
       variable_bindings: {},
-      style_bindings: {}
-    }
+      style_bindings: {},
+    },
   };
 
   const renderStyle = translateGeometryCreateInput(
@@ -1404,10 +1609,10 @@ function applyCreateSceneCommand(
       left: command.scene.left,
       top: command.scene.top,
       width: command.scene.width,
-      height: command.scene.height
+      height: command.scene.height,
     },
     command.scene.render_style,
-    { requireAllGeometry: true }
+    { requireAllGeometry: true },
   );
 
   applyNodeRenderStylePatch(frameNode, renderStyle);
@@ -1430,8 +1635,8 @@ function applyCreateSceneCommand(
       ...(command.scene.scene_metadata?.summary === undefined
         ? {}
         : { summary: command.scene.scene_metadata.summary }),
-      tags: normalizeSceneMetadataTags(command.scene.scene_metadata?.tags)
-    }
+      tags: normalizeSceneMetadataTags(command.scene.scene_metadata?.tags),
+    },
   };
   context.document.root.child_ids.push(command.scene.id);
   context.changedSceneIds.add(command.scene.id);
@@ -1440,13 +1645,15 @@ function applyCreateSceneCommand(
 
 function applyUpdateSceneCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_scene" }>
+  command: Extract<Command, { type: 'update_scene' }>,
 ): void {
   const scene = getSceneOrThrow(context.document, command.scene_id);
   const frameNode = getNodeOrThrow(context.document, command.scene_id);
 
-  if (frameNode.kind !== "frame") {
-    throwUnrecoverable(`Scene ${command.scene_id} does not point to a frame node`);
+  if (frameNode.kind !== 'frame') {
+    throwUnrecoverable(
+      `Scene ${command.scene_id} does not point to a frame node`,
+    );
   }
 
   if (command.patch.name !== undefined) {
@@ -1459,9 +1666,9 @@ function applyUpdateSceneCommand(
       left: command.patch.left,
       top: command.patch.top,
       width: command.patch.width,
-      height: command.patch.height
+      height: command.patch.height,
     },
-    command.patch.render_style
+    command.patch.render_style,
   );
 
   applyNodeRenderStylePatch(frameNode, renderStylePatch);
@@ -1471,7 +1678,7 @@ function applyUpdateSceneCommand(
 
 function applyDeleteSceneCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "delete_scene" }>
+  command: Extract<Command, { type: 'delete_scene' }>,
 ): void {
   getSceneOrThrow(context.document, command.scene_id);
   const subtreeIds = collectSubtreeIds(context.document, command.scene_id);
@@ -1489,7 +1696,7 @@ function applyDeleteSceneCommand(
 
 function applyUpdateSceneMetadataCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_scene_metadata" }>
+  command: Extract<Command, { type: 'update_scene_metadata' }>,
 ): void {
   const scene = getSceneOrThrow(context.document, command.scene_id);
 
@@ -1532,21 +1739,24 @@ function applyUpdateSceneMetadataCommand(
   context.changedSceneIds.add(command.scene_id);
 }
 
-function ensureParentAcceptsNode(parent: RendererNode | null, nodeKind: RendererNode["kind"]): void {
+function ensureParentAcceptsNode(
+  parent: RendererNode | null,
+  nodeKind: RendererNode['kind'],
+): void {
   if (parent === null) {
-    if (nodeKind === "svg-visual-element") {
-      throwValidation("svg-visual-element nodes must live under an svg node");
+    if (nodeKind === 'svg-visual-element') {
+      throwValidation('svg-visual-element nodes must live under an svg node');
     }
 
     return;
   }
 
-  if (parent.kind === "svg" && nodeKind !== "svg-visual-element") {
-    throwValidation("svg nodes may contain only svg-visual-element children");
+  if (parent.kind === 'svg' && nodeKind !== 'svg-visual-element') {
+    throwValidation('svg nodes may contain only svg-visual-element children');
   }
 
-  if (parent.kind !== "svg" && nodeKind === "svg-visual-element") {
-    throwValidation("svg-visual-element nodes must live under an svg node");
+  if (parent.kind !== 'svg' && nodeKind === 'svg-visual-element') {
+    throwValidation('svg-visual-element nodes must live under an svg node');
   }
 }
 
@@ -1554,7 +1764,7 @@ function insertNodeIntoParent(
   context: CommandContext,
   nodeId: string,
   parentId: string | null,
-  index?: number
+  index?: number,
 ): void {
   const children = getContainerChildren(context.document, parentId);
   insertChildReference(children, nodeId, index);
@@ -1562,10 +1772,13 @@ function insertNodeIntoParent(
 
 function applyCreateNodeCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "create_node" }>
+  command: Extract<Command, { type: 'create_node' }>,
 ): void {
   ensureUniqueNodeId(context.document, command.node.id);
-  const parent = getParentContainerOrThrow(context.document, command.parent.parent_id);
+  const parent = getParentContainerOrThrow(
+    context.document,
+    command.parent.parent_id,
+  );
   ensureParentAcceptsNode(parent, command.node.kind);
   const sceneId = parent?.scene_id ?? null;
   const node = createNodeFromPayload(command.node, sceneId);
@@ -1574,15 +1787,20 @@ function applyCreateNodeCommand(
       left: command.node.left,
       top: command.node.top,
       width: command.node.width,
-      height: command.node.height
+      height: command.node.height,
     },
-    command.node.render_style
+    command.node.render_style,
   );
 
   applyNodeRenderStylePatch(node, renderStyle);
   node.parent_id = command.parent.parent_id;
   context.document.nodes[node.id] = node;
-  insertNodeIntoParent(context, node.id, command.parent.parent_id, command.parent.index);
+  insertNodeIntoParent(
+    context,
+    node.id,
+    command.parent.parent_id,
+    command.parent.index,
+  );
 
   if (parent) {
     markNodeAndAncestors(context, parent.id);
@@ -1593,7 +1811,7 @@ function applyCreateNodeCommand(
 
 function applyUpdateNodeCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_node" }>
+  command: Extract<Command, { type: 'update_node' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
 
@@ -1619,16 +1837,20 @@ function applyUpdateNodeCommand(
       left: command.patch.left,
       top: command.patch.top,
       width: command.patch.width,
-      height: command.patch.height
+      height: command.patch.height,
     },
-    command.patch.render_style
+    command.patch.render_style,
   );
 
   applyNodeRenderStylePatch(node, renderStylePatch);
   markNodeAndAncestors(context, node.id);
 }
 
-function isDescendant(document: RendererDocument, candidateId: string, ancestorId: string): boolean {
+function isDescendant(
+  document: RendererDocument,
+  candidateId: string,
+  ancestorId: string,
+): boolean {
   let currentNodeId: string | null = candidateId;
 
   while (currentNodeId) {
@@ -1645,7 +1867,7 @@ function isDescendant(document: RendererDocument, candidateId: string, ancestorI
 function rewriteSceneMembership(
   document: RendererDocument,
   nodeId: string,
-  sceneId: string | null
+  sceneId: string | null,
 ): void {
   const node = document.nodes[nodeId];
 
@@ -1662,21 +1884,30 @@ function rewriteSceneMembership(
 
 function applyReparentNodeCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "reparent_node" }>
+  command: Extract<Command, { type: 'reparent_node' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
-  const destinationParent = getParentContainerOrThrow(context.document, command.destination.parent_id);
+  const destinationParent = getParentContainerOrThrow(
+    context.document,
+    command.destination.parent_id,
+  );
 
   if (command.destination.parent_id === node.id) {
-    throwValidation("A node cannot be reparented into itself");
+    throwValidation('A node cannot be reparented into itself');
   }
 
-  if (command.destination.parent_id && isDescendant(context.document, command.destination.parent_id, node.id)) {
-    throwValidation("A node cannot be reparented into one of its descendants");
+  if (
+    command.destination.parent_id &&
+    isDescendant(context.document, command.destination.parent_id, node.id)
+  ) {
+    throwValidation('A node cannot be reparented into one of its descendants');
   }
 
-  if (isSceneBackingFrame(context.document, node.id) && command.destination.parent_id !== null) {
-    throwValidation("Scene backing frames must remain top-level");
+  if (
+    isSceneBackingFrame(context.document, node.id) &&
+    command.destination.parent_id !== null
+  ) {
+    throwValidation('Scene backing frames must remain top-level');
   }
 
   ensureParentAcceptsNode(destinationParent, node.kind);
@@ -1685,7 +1916,10 @@ function applyReparentNodeCommand(
   const oldChildren = getContainerChildren(context.document, oldParentId);
   removeChildReference(oldChildren, node.id);
 
-  const destinationChildren = getContainerChildren(context.document, command.destination.parent_id);
+  const destinationChildren = getContainerChildren(
+    context.document,
+    command.destination.parent_id,
+  );
   insertChildReference(destinationChildren, node.id, command.destination.index);
   node.parent_id = command.destination.parent_id;
 
@@ -1694,7 +1928,7 @@ function applyReparentNodeCommand(
       ? isSceneBackingFrame(context.document, node.id)
         ? node.id
         : null
-      : destinationParent?.scene_id ?? null;
+      : (destinationParent?.scene_id ?? null);
 
   rewriteSceneMembership(context.document, node.id, nextSceneId);
 
@@ -1711,23 +1945,28 @@ function applyReparentNodeCommand(
 
 function applyReorderChildrenCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "reorder_children" }>
+  command: Extract<Command, { type: 'reorder_children' }>,
 ): void {
-  const existingChildren = getContainerChildren(context.document, command.container.parent_id);
+  const existingChildren = getContainerChildren(
+    context.document,
+    command.container.parent_id,
+  );
   const dedupedChildIds = dedupe(command.child_ids);
 
   if (
     existingChildren.length !== dedupedChildIds.length ||
     existingChildren.length !== command.child_ids.length
   ) {
-    throwValidation("reorder_children must list each existing child exactly once");
+    throwValidation(
+      'reorder_children must list each existing child exactly once',
+    );
   }
 
   const existingSet = new Set(existingChildren);
 
   for (const childId of command.child_ids) {
     if (!existingSet.has(childId)) {
-      throwValidation("reorder_children must not introduce new children");
+      throwValidation('reorder_children must not introduce new children');
     }
   }
 
@@ -1750,12 +1989,14 @@ function applyReorderChildrenCommand(
 
 function applyDeleteNodeCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "delete_node" }>
+  command: Extract<Command, { type: 'delete_node' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
 
   if (isSceneBackingFrame(context.document, node.id)) {
-    throwValidation("Scene backing frames must be deleted through delete_scene");
+    throwValidation(
+      'Scene backing frames must be deleted through delete_scene',
+    );
   }
 
   const subtreeIds = collectSubtreeIds(context.document, node.id);
@@ -1774,11 +2015,11 @@ function applyDeleteNodeCommand(
 
 function applyUpdateTextContentCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_text_content" }>
+  command: Extract<Command, { type: 'update_text_content' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
 
-  if (node.kind !== "text") {
+  if (node.kind !== 'text') {
     throwValidation(`Node ${command.node_id} is not a text node`);
   }
 
@@ -1788,7 +2029,7 @@ function applyUpdateTextContentCommand(
 
 function applySetCanvasLocalValueCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "set_canvas_local_value" }>
+  command: Extract<Command, { type: 'set_canvas_local_value' }>,
 ): void {
   context.document.canvas.authoring.local_values[command.slot] = command.value;
   delete context.document.canvas.authoring.variable_bindings[command.slot];
@@ -1796,24 +2037,28 @@ function applySetCanvasLocalValueCommand(
 
 function applyClearCanvasLocalValueCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "clear_canvas_local_value" }>
+  command: Extract<Command, { type: 'clear_canvas_local_value' }>,
 ): void {
   delete context.document.canvas.authoring.local_values[command.slot];
 }
 
 function applyBindCanvasVariableCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "bind_canvas_variable" }>
+  command: Extract<Command, { type: 'bind_canvas_variable' }>,
 ): void {
-  const variable = findVariableLocation(context.document, command.variable_id).variable;
+  const variable = findVariableLocation(
+    context.document,
+    command.variable_id,
+  ).variable;
   ensureVariableSupportsSlot(variable, command.slot);
-  context.document.canvas.authoring.variable_bindings[command.slot] = command.variable_id;
+  context.document.canvas.authoring.variable_bindings[command.slot] =
+    command.variable_id;
   delete context.document.canvas.authoring.local_values[command.slot];
 }
 
 function applyClearCanvasVariableBindingCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "clear_canvas_variable_binding" }>
+  command: Extract<Command, { type: 'clear_canvas_variable_binding' }>,
 ): void {
   const snapshot = structuredClone(context.document);
   detachCanvasVariableBindingToLocal(context.document, snapshot, command.slot);
@@ -1821,7 +2066,7 @@ function applyClearCanvasVariableBindingCommand(
 
 function applySetNodeLocalValueCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "set_node_local_value" }>
+  command: Extract<Command, { type: 'set_node_local_value' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
   ensureNodeSlotAllowed(node, command.slot);
@@ -1832,7 +2077,7 @@ function applySetNodeLocalValueCommand(
 
 function applyClearNodeLocalValueCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "clear_node_local_value" }>
+  command: Extract<Command, { type: 'clear_node_local_value' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
   ensureNodeSlotAllowed(node, command.slot);
@@ -1842,10 +2087,13 @@ function applyClearNodeLocalValueCommand(
 
 function applyBindNodeVariableCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "bind_node_variable" }>
+  command: Extract<Command, { type: 'bind_node_variable' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
-  const variable = findVariableLocation(context.document, command.variable_id).variable;
+  const variable = findVariableLocation(
+    context.document,
+    command.variable_id,
+  ).variable;
   ensureNodeSlotAllowed(node, command.slot);
   ensureVariableSupportsSlot(variable, command.slot);
   getNodeVariableBindings(node)[command.slot] = command.variable_id;
@@ -1855,18 +2103,23 @@ function applyBindNodeVariableCommand(
 
 function applyClearNodeVariableBindingCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "clear_node_variable_binding" }>
+  command: Extract<Command, { type: 'clear_node_variable_binding' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
   ensureNodeSlotAllowed(node, command.slot);
   const snapshot = structuredClone(context.document);
-  detachNodeVariableBindingToLocal(context.document, snapshot, node.id, command.slot);
+  detachNodeVariableBindingToLocal(
+    context.document,
+    snapshot,
+    node.id,
+    command.slot,
+  );
   markNodeAndAncestors(context, node.id);
 }
 
 function applyBindNodeStyleCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "bind_node_style" }>
+  command: Extract<Command, { type: 'bind_node_style' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
   ensureNodeFamilyAllowed(node, command.family);
@@ -1878,21 +2131,29 @@ function applyBindNodeStyleCommand(
 
 function applyClearNodeStyleBindingCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "clear_node_style_binding" }>
+  command: Extract<Command, { type: 'clear_node_style_binding' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
   ensureNodeFamilyAllowed(node, command.family);
   const snapshot = structuredClone(context.document);
-  detachNodeStyleBindingToLocal(context.document, snapshot, node.id, command.family);
+  detachNodeStyleBindingToLocal(
+    context.document,
+    snapshot,
+    node.id,
+    command.family,
+  );
   markNodeAndAncestors(context, node.id);
 }
 
 function applyCreateVariableCollectionCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "create_variable_collection" }>
+  command: Extract<Command, { type: 'create_variable_collection' }>,
 ): void {
   ensureUniqueVariableCollectionId(context.document, command.collection.id);
-  ensureCollectionDefinitionValid(command.collection.modes, command.collection.default_mode_id);
+  ensureCollectionDefinitionValid(
+    command.collection.modes,
+    command.collection.default_mode_id,
+  );
 
   context.document.variables.collections[command.collection.id] = {
     id: command.collection.id,
@@ -1902,18 +2163,21 @@ function applyCreateVariableCollectionCommand(
     variables: {},
     ...(command.collection.description === undefined
       ? {}
-      : { description: command.collection.description })
+      : { description: command.collection.description }),
   };
 }
 
 function applyUpdateVariableCollectionCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_variable_collection" }>
+  command: Extract<Command, { type: 'update_variable_collection' }>,
 ): void {
-  const collection = context.document.variables.collections[command.collection_id];
+  const collection =
+    context.document.variables.collections[command.collection_id];
 
   if (!collection) {
-    throwTargetNotFound(`Variable collection not found: ${command.collection_id}`);
+    throwTargetNotFound(
+      `Variable collection not found: ${command.collection_id}`,
+    );
   }
 
   if (command.patch.name !== undefined) {
@@ -1922,7 +2186,9 @@ function applyUpdateVariableCollectionCommand(
 
   if (command.patch.default_mode_id !== undefined) {
     if (!collection.modes[command.patch.default_mode_id]) {
-      throwValidation(`Default mode ${command.patch.default_mode_id} does not exist in collection`);
+      throwValidation(
+        `Default mode ${command.patch.default_mode_id} does not exist in collection`,
+      );
     }
 
     collection.default_mode_id = command.patch.default_mode_id;
@@ -1940,12 +2206,15 @@ function applyUpdateVariableCollectionCommand(
 
 function applyDeleteVariableCollectionCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "delete_variable_collection" }>
+  command: Extract<Command, { type: 'delete_variable_collection' }>,
 ): void {
-  const collection = context.document.variables.collections[command.collection_id];
+  const collection =
+    context.document.variables.collections[command.collection_id];
 
   if (!collection) {
-    throwTargetNotFound(`Variable collection not found: ${command.collection_id}`);
+    throwTargetNotFound(
+      `Variable collection not found: ${command.collection_id}`,
+    );
   }
 
   const deletedVariableIds = new Set(Object.keys(collection.variables));
@@ -1961,12 +2230,15 @@ function applyDeleteVariableCollectionCommand(
 
 function applyCreateVariableCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "create_variable" }>
+  command: Extract<Command, { type: 'create_variable' }>,
 ): void {
-  const collection = context.document.variables.collections[command.variable.collection_id];
+  const collection =
+    context.document.variables.collections[command.variable.collection_id];
 
   if (!collection) {
-    throwTargetNotFound(`Variable collection not found: ${command.variable.collection_id}`);
+    throwTargetNotFound(
+      `Variable collection not found: ${command.variable.collection_id}`,
+    );
   }
 
   ensureUniqueVariableId(context.document, command.variable.id);
@@ -1974,16 +2246,22 @@ function applyCreateVariableCommand(
   ensureVariableModeKeysValid(collection, command.variable);
 
   collection.variables[command.variable.id] = structuredClone(command.variable);
-  ensureVariableAliasTargetsValid(context.document, collection.variables[command.variable.id]);
+  ensureVariableAliasTargetsValid(
+    context.document,
+    collection.variables[command.variable.id],
+  );
   ensureNoVariableAliasCycles(context.document);
   context.changedVariableIds.add(command.variable.id);
 }
 
 function applyUpdateVariableCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_variable" }>
+  command: Extract<Command, { type: 'update_variable' }>,
 ): void {
-  const { collection, variable } = findVariableLocation(context.document, command.variable_id);
+  const { collection, variable } = findVariableLocation(
+    context.document,
+    command.variable_id,
+  );
 
   if (command.patch.group_path !== undefined) {
     variable.group_path = command.patch.group_path;
@@ -2002,13 +2280,19 @@ function applyUpdateVariableCommand(
 
     for (const [modeId, modeValue] of Object.entries(nextValuesByMode)) {
       if (!collection.modes[modeId]) {
-        throwValidation(`Variable ${variable.id} references unknown mode ${modeId}`);
+        throwValidation(
+          `Variable ${variable.id} references unknown mode ${modeId}`,
+        );
       }
 
-      validateVariableModeValueKind(variable.kind, modeValue as VariableModeValue);
+      validateVariableModeValueKind(
+        variable.kind,
+        modeValue as VariableModeValue,
+      );
     }
 
-    variable.values_by_mode = nextValuesByMode as RendererVariable["values_by_mode"];
+    variable.values_by_mode =
+      nextValuesByMode as RendererVariable['values_by_mode'];
   }
 
   if (command.patch.description !== undefined) {
@@ -2029,7 +2313,7 @@ function applyUpdateVariableCommand(
 
 function applyDeleteVariableCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "delete_variable" }>
+  command: Extract<Command, { type: 'delete_variable' }>,
 ): void {
   findVariableLocation(context.document, command.variable_id);
   detachDeletedVariables(context.document, new Set([command.variable_id]));
@@ -2039,50 +2323,74 @@ function applyDeleteVariableCommand(
 
 function validateStyleSlotPayload(
   document: RendererDocument,
-  slots: Partial<Record<NodeSemanticSlot, { kind: "value"; value: RenderStyleValue } | { kind: "variable"; variable_id: string }>>
+  slots: Partial<
+    Record<
+      NodeSemanticSlot,
+      | { kind: 'value'; value: RenderStyleValue }
+      | { kind: 'variable'; variable_id: string }
+    >
+  >,
 ): void {
   for (const [slot, slotValue] of Object.entries(slots)) {
-    if (!slotValue || slotValue.kind !== "variable") {
+    if (!slotValue || slotValue.kind !== 'variable') {
       continue;
     }
 
-    ensureStyleVariableReferenceValid(document, slotValue.variable_id, slot as RendererSemanticSlot);
+    ensureStyleVariableReferenceValid(
+      document,
+      slotValue.variable_id,
+      slot as RendererSemanticSlot,
+    );
   }
 }
 
 function applyCreateStyleCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "create_style" }>
+  command: Extract<Command, { type: 'create_style' }>,
 ): void {
   ensureUniqueStyleId(context.document, command.style.family, command.style.id);
 
-  if (command.style.family === "paint") {
+  if (command.style.family === 'paint') {
     validateStyleSlotPayload(
       context.document,
       command.style.slots as Partial<
-        Record<NodeSemanticSlot, { kind: "value"; value: RenderStyleValue } | { kind: "variable"; variable_id: string }>
-      >
+        Record<
+          NodeSemanticSlot,
+          | { kind: 'value'; value: RenderStyleValue }
+          | { kind: 'variable'; variable_id: string }
+        >
+      >,
     );
 
     context.document.styles.paint[command.style.id] = {
       id: command.style.id,
       name: command.style.name,
-      ...(command.style.description === undefined ? {} : { description: command.style.description }),
-      slots: structuredClone(command.style.slots) as RendererPaintStyle["slots"]
+      ...(command.style.description === undefined
+        ? {}
+        : { description: command.style.description }),
+      slots: structuredClone(
+        command.style.slots,
+      ) as RendererPaintStyle['slots'],
     };
   } else {
     validateStyleSlotPayload(
       context.document,
       command.style.slots as Partial<
-        Record<NodeSemanticSlot, { kind: "value"; value: RenderStyleValue } | { kind: "variable"; variable_id: string }>
-      >
+        Record<
+          NodeSemanticSlot,
+          | { kind: 'value'; value: RenderStyleValue }
+          | { kind: 'variable'; variable_id: string }
+        >
+      >,
     );
 
     context.document.styles.text[command.style.id] = {
       id: command.style.id,
       name: command.style.name,
-      ...(command.style.description === undefined ? {} : { description: command.style.description }),
-      slots: structuredClone(command.style.slots) as RendererTextStyle["slots"]
+      ...(command.style.description === undefined
+        ? {}
+        : { description: command.style.description }),
+      slots: structuredClone(command.style.slots) as RendererTextStyle['slots'],
     };
   }
 
@@ -2091,9 +2399,13 @@ function applyCreateStyleCommand(
 
 function applyUpdateStyleCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_style" }>
+  command: Extract<Command, { type: 'update_style' }>,
 ): void {
-  const style = getStyleOrThrow(context.document, command.family, command.style_id);
+  const style = getStyleOrThrow(
+    context.document,
+    command.family,
+    command.style_id,
+  );
 
   if (command.patch.name !== undefined) {
     style.name = command.patch.name;
@@ -2109,7 +2421,11 @@ function applyUpdateStyleCommand(
 
   if (command.patch.slots) {
     const mutableSlots = style.slots as Partial<
-      Record<NodeSemanticSlot, { kind: "value"; value: RenderStyleValue } | { kind: "variable"; variable_id: string }>
+      Record<
+        NodeSemanticSlot,
+        | { kind: 'value'; value: RenderStyleValue }
+        | { kind: 'variable'; variable_id: string }
+      >
     >;
 
     for (const [slot, slotValue] of Object.entries(command.patch.slots)) {
@@ -2118,11 +2434,11 @@ function applyUpdateStyleCommand(
         continue;
       }
 
-      if (slotValue.kind === "variable") {
+      if (slotValue.kind === 'variable') {
         ensureStyleVariableReferenceValid(
           context.document,
           slotValue.variable_id,
-          slot as RendererSemanticSlot
+          slot as RendererSemanticSlot,
         );
       }
 
@@ -2136,7 +2452,7 @@ function applyUpdateStyleCommand(
 
 function applyDeleteStyleCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "delete_style" }>
+  command: Extract<Command, { type: 'delete_style' }>,
 ): void {
   getStyleOrThrow(context.document, command.family, command.style_id);
   const snapshot = structuredClone(context.document);
@@ -2146,11 +2462,16 @@ function applyDeleteStyleCommand(
       continue;
     }
 
-    detachNodeStyleBindingToLocal(context.document, snapshot, node.id, command.family);
+    detachNodeStyleBindingToLocal(
+      context.document,
+      snapshot,
+      node.id,
+      command.family,
+    );
     markNodeAndAncestors(context, node.id);
   }
 
-  if (command.family === "paint") {
+  if (command.family === 'paint') {
     delete context.document.styles.paint[command.style_id];
   } else {
     delete context.document.styles.text[command.style_id];
@@ -2161,7 +2482,7 @@ function applyDeleteStyleCommand(
 
 function applyCreateAssetCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "create_asset" }>
+  command: Extract<Command, { type: 'create_asset' }>,
 ): void {
   ensureUniqueAssetId(context.document, command.asset.id);
   context.document.assets[command.asset.id] = structuredClone(command.asset);
@@ -2170,7 +2491,7 @@ function applyCreateAssetCommand(
 
 function applyUpdateAssetCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_asset" }>
+  command: Extract<Command, { type: 'update_asset' }>,
 ): void {
   const asset = context.document.assets[command.asset_id];
 
@@ -2208,14 +2529,17 @@ function applyUpdateAssetCommand(
 
   context.changedAssetIds.add(command.asset_id);
 
-  for (const nodeId of collectNodesReferencingAsset(context.document, command.asset_id)) {
+  for (const nodeId of collectNodesReferencingAsset(
+    context.document,
+    command.asset_id,
+  )) {
     markNodeAndAncestors(context, nodeId);
   }
 }
 
 function applyDeleteAssetCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "delete_asset" }>
+  command: Extract<Command, { type: 'delete_asset' }>,
 ): void {
   if (!context.document.assets[command.asset_id]) {
     throwTargetNotFound(`Asset not found: ${command.asset_id}`);
@@ -2224,7 +2548,10 @@ function applyDeleteAssetCommand(
   delete context.document.assets[command.asset_id];
   context.changedAssetIds.add(command.asset_id);
 
-  for (const nodeId of collectNodesReferencingAsset(context.document, command.asset_id)) {
+  for (const nodeId of collectNodesReferencingAsset(
+    context.document,
+    command.asset_id,
+  )) {
     delete context.document.nodes[nodeId].render_style.backgroundImage;
     markNodeAndAncestors(context, nodeId);
   }
@@ -2232,11 +2559,11 @@ function applyDeleteAssetCommand(
 
 function applyUpdateSvgRootCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_svg_root" }>
+  command: Extract<Command, { type: 'update_svg_root' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
 
-  if (node.kind !== "svg") {
+  if (node.kind !== 'svg') {
     throwValidation(`Node ${command.node_id} is not an svg node`);
   }
 
@@ -2260,7 +2587,9 @@ function applyUpdateSvgRootCommand(
     if (Object.keys(command.patch.raw_root_attributes).length === 0) {
       delete node.svg.raw_root_attributes;
     } else {
-      node.svg.raw_root_attributes = structuredClone(command.patch.raw_root_attributes);
+      node.svg.raw_root_attributes = structuredClone(
+        command.patch.raw_root_attributes,
+      );
     }
   }
 
@@ -2277,11 +2606,11 @@ function applyUpdateSvgRootCommand(
 
 function applyUpdateSvgPrimitiveCommand(
   context: CommandContext,
-  command: Extract<Command, { type: "update_svg_primitive" }>
+  command: Extract<Command, { type: 'update_svg_primitive' }>,
 ): void {
   const node = getNodeOrThrow(context.document, command.node_id);
 
-  if (node.kind !== "svg-visual-element") {
+  if (node.kind !== 'svg-visual-element') {
     throwValidation(`Node ${command.node_id} is not an svg primitive node`);
   }
 
@@ -2302,106 +2631,106 @@ function applyUpdateSvgPrimitiveCommand(
 
 function applySingleCommand(context: CommandContext, command: Command): void {
   switch (command.type) {
-    case "create_scene":
+    case 'create_scene':
       applyCreateSceneCommand(context, command);
       return;
-    case "update_scene":
+    case 'update_scene':
       applyUpdateSceneCommand(context, command);
       return;
-    case "delete_scene":
+    case 'delete_scene':
       applyDeleteSceneCommand(context, command);
       return;
-    case "update_scene_metadata":
+    case 'update_scene_metadata':
       applyUpdateSceneMetadataCommand(context, command);
       return;
-    case "create_node":
+    case 'create_node':
       applyCreateNodeCommand(context, command);
       return;
-    case "update_node":
+    case 'update_node':
       applyUpdateNodeCommand(context, command);
       return;
-    case "reparent_node":
+    case 'reparent_node':
       applyReparentNodeCommand(context, command);
       return;
-    case "reorder_children":
+    case 'reorder_children':
       applyReorderChildrenCommand(context, command);
       return;
-    case "delete_node":
+    case 'delete_node':
       applyDeleteNodeCommand(context, command);
       return;
-    case "update_text_content":
+    case 'update_text_content':
       applyUpdateTextContentCommand(context, command);
       return;
-    case "set_canvas_local_value":
+    case 'set_canvas_local_value':
       applySetCanvasLocalValueCommand(context, command);
       return;
-    case "clear_canvas_local_value":
+    case 'clear_canvas_local_value':
       applyClearCanvasLocalValueCommand(context, command);
       return;
-    case "bind_canvas_variable":
+    case 'bind_canvas_variable':
       applyBindCanvasVariableCommand(context, command);
       return;
-    case "clear_canvas_variable_binding":
+    case 'clear_canvas_variable_binding':
       applyClearCanvasVariableBindingCommand(context, command);
       return;
-    case "set_node_local_value":
+    case 'set_node_local_value':
       applySetNodeLocalValueCommand(context, command);
       return;
-    case "clear_node_local_value":
+    case 'clear_node_local_value':
       applyClearNodeLocalValueCommand(context, command);
       return;
-    case "bind_node_variable":
+    case 'bind_node_variable':
       applyBindNodeVariableCommand(context, command);
       return;
-    case "clear_node_variable_binding":
+    case 'clear_node_variable_binding':
       applyClearNodeVariableBindingCommand(context, command);
       return;
-    case "bind_node_style":
+    case 'bind_node_style':
       applyBindNodeStyleCommand(context, command);
       return;
-    case "clear_node_style_binding":
+    case 'clear_node_style_binding':
       applyClearNodeStyleBindingCommand(context, command);
       return;
-    case "create_variable_collection":
+    case 'create_variable_collection':
       applyCreateVariableCollectionCommand(context, command);
       return;
-    case "update_variable_collection":
+    case 'update_variable_collection':
       applyUpdateVariableCollectionCommand(context, command);
       return;
-    case "delete_variable_collection":
+    case 'delete_variable_collection':
       applyDeleteVariableCollectionCommand(context, command);
       return;
-    case "create_variable":
+    case 'create_variable':
       applyCreateVariableCommand(context, command);
       return;
-    case "update_variable":
+    case 'update_variable':
       applyUpdateVariableCommand(context, command);
       return;
-    case "delete_variable":
+    case 'delete_variable':
       applyDeleteVariableCommand(context, command);
       return;
-    case "create_style":
+    case 'create_style':
       applyCreateStyleCommand(context, command);
       return;
-    case "update_style":
+    case 'update_style':
       applyUpdateStyleCommand(context, command);
       return;
-    case "delete_style":
+    case 'delete_style':
       applyDeleteStyleCommand(context, command);
       return;
-    case "create_asset":
+    case 'create_asset':
       applyCreateAssetCommand(context, command);
       return;
-    case "update_asset":
+    case 'update_asset':
       applyUpdateAssetCommand(context, command);
       return;
-    case "delete_asset":
+    case 'delete_asset':
       applyDeleteAssetCommand(context, command);
       return;
-    case "update_svg_root":
+    case 'update_svg_root':
       applyUpdateSvgRootCommand(context, command);
       return;
-    case "update_svg_primitive":
+    case 'update_svg_primitive':
       applyUpdateSvgPrimitiveCommand(context, command);
       return;
   }
@@ -2410,10 +2739,13 @@ function applySingleCommand(context: CommandContext, command: Command): void {
 export async function applyCommands(
   currentDocument: unknown,
   input: unknown,
-  options: ApplyCommandsOptions
+  options: ApplyCommandsOptions,
 ): Promise<ApplyCommandsResult> {
   const normalizedCurrentDocument = cloneNormalizedDocument(currentDocument);
-  const parsedInput = parseCommandList(input, normalizedCurrentDocument.document_id);
+  const parsedInput = parseCommandList(
+    input,
+    normalizedCurrentDocument.document_id,
+  );
 
   if (!parsedInput.ok) {
     return parsedInput.error;
@@ -2422,11 +2754,11 @@ export async function applyCommands(
   if (parsedInput.data.document_id !== normalizedCurrentDocument.document_id) {
     return createCommandError(
       parsedInput.data.document_id,
-      "target_not_found",
+      'target_not_found',
       `Document ${parsedInput.data.document_id} is not the active document`,
       {
-        revision: options.currentRevision
-      }
+        revision: options.currentRevision,
+      },
     );
   }
 
@@ -2436,11 +2768,11 @@ export async function applyCommands(
   ) {
     return createCommandError(
       normalizedCurrentDocument.document_id,
-      "revision_conflict",
-      "The provided base_revision does not match the current revision",
+      'revision_conflict',
+      'The provided base_revision does not match the current revision',
       {
-        revision: options.currentRevision
-      }
+        revision: options.currentRevision,
+      },
     );
   }
 
@@ -2449,18 +2781,18 @@ export async function applyCommands(
       ok: true,
       document_id: normalizedCurrentDocument.document_id,
       revision: options.currentRevision,
-      document: normalizedCurrentDocument
+      document: normalizedCurrentDocument,
     };
   }
 
   if (!options.measurementSurfaceAvailable) {
     return createCommandError(
       normalizedCurrentDocument.document_id,
-      "measurement_surface_unavailable",
-      "A live measurement surface is required to apply commands",
+      'measurement_surface_unavailable',
+      'A live measurement surface is required to apply commands',
       {
-        revision: options.currentRevision
-      }
+        revision: options.currentRevision,
+      },
     );
   }
 
@@ -2471,7 +2803,7 @@ export async function applyCommands(
     changedSceneIds: new Set<string>(),
     changedStyleIds: new Set<string>(),
     changedVariableIds: new Set<string>(),
-    document: workingDocument
+    document: workingDocument,
   };
 
   try {
@@ -2482,7 +2814,7 @@ export async function applyCommands(
         if (error instanceof CommandApplicationError) {
           throw new CommandApplicationError(error.code, error.message, {
             commandIndex,
-            details: error.details
+            details: error.details,
           });
         }
 
@@ -2492,7 +2824,7 @@ export async function applyCommands(
 
     const normalizedAfterCommands = normalizeDocument(context.document, {
       fallbackDocumentId: normalizedCurrentDocument.document_id,
-      fallbackName: normalizedCurrentDocument.name
+      fallbackName: normalizedCurrentDocument.name,
     });
 
     const effects = buildEffects(context);
@@ -2505,12 +2837,16 @@ export async function applyCommands(
         changed_node_ids: effects.changed_node_ids,
         changed_scene_ids: effects.changed_scene_ids ?? [],
         changed_style_ids: effects.changed_style_ids ?? [],
-        changed_variable_ids: effects.changed_variable_ids ?? []
+        changed_variable_ids: effects.changed_variable_ids ?? [],
       });
 
-      finalDocument = parseDocument(materializeSemanticRenderState(parseDocument(refreshedDocument)));
+      finalDocument = parseDocument(
+        materializeSemanticRenderState(parseDocument(refreshedDocument)),
+      );
     } else {
-      finalDocument = parseDocument(materializeSemanticRenderState(normalizedAfterCommands));
+      finalDocument = parseDocument(
+        materializeSemanticRenderState(normalizedAfterCommands),
+      );
     }
 
     return {
@@ -2518,24 +2854,31 @@ export async function applyCommands(
       document_id: finalDocument.document_id,
       revision: options.currentRevision + 1,
       document: finalDocument,
-      ...(effects === undefined ? {} : { effects })
+      ...(effects === undefined ? {} : { effects }),
     };
   } catch (error) {
     if (error instanceof CommandApplicationError) {
-      return createCommandError(normalizedCurrentDocument.document_id, error.code, error.message, {
-        commandIndex: error.commandIndex,
-        details: error.details,
-        revision: options.currentRevision
-      });
+      return createCommandError(
+        normalizedCurrentDocument.document_id,
+        error.code,
+        error.message,
+        {
+          commandIndex: error.commandIndex,
+          details: error.details,
+          revision: options.currentRevision,
+        },
+      );
     }
 
     return createCommandError(
       normalizedCurrentDocument.document_id,
-      "unrecoverable_command",
-      error instanceof Error ? error.message : "Unknown command application failure",
+      'unrecoverable_command',
+      error instanceof Error
+        ? error.message
+        : 'Unknown command application failure',
       {
-        revision: options.currentRevision
-      }
+        revision: options.currentRevision,
+      },
     );
   }
 }

@@ -46,7 +46,7 @@ Every command must have a `type` field.
 type Command = {
   type: string;
 };
-````
+```
 
 Concrete commands are discriminated by `type`.
 
@@ -56,17 +56,17 @@ Create commands must use caller-provided ids.
 
 This applies to:
 
-* scenes
-* nodes
-* assets
-* variables
-* styles
+- scenes
+- nodes
+- assets
+- variables
+- styles
 
 ### 2.3 Omitted means unchanged
 
 For patch-style commands:
 
-* omitted field means “leave unchanged”
+- omitted field means “leave unchanged”
 
 ### 2.4 `null` means clear only where explicitly allowed
 
@@ -80,10 +80,10 @@ Commands must contain all information needed for deterministic application.
 
 They must not depend on:
 
-* current UI selection unless the caller resolves that into explicit ids
-* current hover state
-* DOM state
-* local renderer caches
+- current UI selection unless the caller resolves that into explicit ids
+- current hover state
+- DOM state
+- local renderer caches
 
 ## 3. Batch Envelope
 
@@ -107,9 +107,9 @@ type ApplyCommandsInput = {
 
 Notes:
 
-* `base_revision` is an optional optimistic concurrency token
-* conflict behavior is defined in `docs/command-semantics.md`
-* in v1, callers usually derive `document_id` from the targeted project's sole document
+- `base_revision` is an optional optimistic concurrency token
+- conflict behavior is defined in `docs/command-semantics.md`
+- in v1, callers usually derive `document_id` from the targeted project's sole document
 
 ## 4. Shared Primitive Types
 
@@ -123,14 +123,9 @@ type VariableId = string;
 type VariableCollectionId = string;
 type StyleId = string;
 
-type StyleFamily = "paint" | "text";
+type StyleFamily = 'paint' | 'text';
 
-type NodeKind =
-  | "frame"
-  | "rectangle"
-  | "text"
-  | "svg"
-  | "svg-visual-element";
+type NodeKind = 'frame' | 'rectangle' | 'text' | 'svg' | 'svg-visual-element';
 
 type RenderStyleValue = string | number;
 
@@ -145,22 +140,22 @@ type OpaqueValue =
   | { [key: string]: OpaqueValue };
 
 type NodeSemanticSlot =
-  | "node.layout.gap"
-  | "node.layout.padding_top"
-  | "node.layout.padding_right"
-  | "node.layout.padding_bottom"
-  | "node.layout.padding_left"
-  | "node.paint.background_color"
-  | "node.paint.opacity"
-  | "node.shape.border_radius"
-  | "node.text.color"
-  | "node.typography.font_family"
-  | "node.typography.font_size"
-  | "node.typography.font_weight"
-  | "node.typography.line_height"
-  | "node.typography.letter_spacing";
+  | 'node.layout.gap'
+  | 'node.layout.padding_top'
+  | 'node.layout.padding_right'
+  | 'node.layout.padding_bottom'
+  | 'node.layout.padding_left'
+  | 'node.paint.background_color'
+  | 'node.paint.opacity'
+  | 'node.shape.border_radius'
+  | 'node.text.color'
+  | 'node.typography.font_family'
+  | 'node.typography.font_size'
+  | 'node.typography.font_weight'
+  | 'node.typography.line_height'
+  | 'node.typography.letter_spacing';
 
-type CanvasSemanticSlot = "canvas.background_color";
+type CanvasSemanticSlot = 'canvas.background_color';
 
 type SceneMetadataPatch = {
   group?: string | null;
@@ -179,7 +174,7 @@ Creates a new scene and its backing frame node.
 
 ```ts
 type CreateSceneCommand = {
-  type: "create_scene";
+  type: 'create_scene';
   scene: {
     id: SceneId;
     name: string;
@@ -201,19 +196,19 @@ type CreateSceneCommand = {
 
 Notes:
 
-* `scene.id` is also the backing frame node id
-* omitted `scene_metadata.tags` defaults to `[]`
-* `create_scene` requires authored `left`, `top`, `width`, and `height` inputs for the backing frame
-* each of `left`, `top`, `width`, and `height` must be provided exactly once, either through its convenience field or the corresponding `render_style` property
-* convenience geometry fields are translated into backing-frame `render_style`
-* callers must not provide the same geometry property in both a convenience field and `render_style`
-* `create_scene` must not rely on implicit placement or size defaults
+- `scene.id` is also the backing frame node id
+- omitted `scene_metadata.tags` defaults to `[]`
+- `create_scene` requires authored `left`, `top`, `width`, and `height` inputs for the backing frame
+- each of `left`, `top`, `width`, and `height` must be provided exactly once, either through its convenience field or the corresponding `render_style` property
+- convenience geometry fields are translated into backing-frame `render_style`
+- callers must not provide the same geometry property in both a convenience field and `render_style`
+- `create_scene` must not rely on implicit placement or size defaults
 
 ## 5.2 `update_scene`
 
 ```ts
 type UpdateSceneCommand = {
-  type: "update_scene";
+  type: 'update_scene';
   scene_id: SceneId;
   patch: {
     name?: string;
@@ -228,18 +223,18 @@ type UpdateSceneCommand = {
 
 Rules:
 
-* this command updates scene name and backing-frame render inputs only
-* scene metadata is edited through `update_scene_metadata`
-* convenience geometry fields are translated into backing-frame `render_style`
-* callers must not provide the same geometry property in both a convenience field and `render_style`
-* `render_style[key] = null` means delete that backing-frame render-style property
-* this command does not directly edit `child_count`
+- this command updates scene name and backing-frame render inputs only
+- scene metadata is edited through `update_scene_metadata`
+- convenience geometry fields are translated into backing-frame `render_style`
+- callers must not provide the same geometry property in both a convenience field and `render_style`
+- `render_style[key] = null` means delete that backing-frame render-style property
+- this command does not directly edit `child_count`
 
 ## 5.3 `delete_scene`
 
 ```ts
 type DeleteSceneCommand = {
-  type: "delete_scene";
+  type: 'delete_scene';
   scene_id: SceneId;
 };
 ```
@@ -248,7 +243,7 @@ type DeleteSceneCommand = {
 
 ```ts
 type UpdateSceneMetadataCommand = {
-  type: "update_scene_metadata";
+  type: 'update_scene_metadata';
   scene_id: SceneId;
   patch: SceneMetadataPatch;
 };
@@ -256,14 +251,14 @@ type UpdateSceneMetadataCommand = {
 
 Rules:
 
-* `tags` replaces the full tags array
-* nullable string fields clear when `null`
+- `tags` replaces the full tags array
+- nullable string fields clear when `null`
 
 ## 5.5 `create_node`
 
 ```ts
 type CreateNodeCommand = {
-  type: "create_node";
+  type: 'create_node';
   node: CreateNodePayload;
   parent: {
     parent_id: NodeId | null;
@@ -289,22 +284,22 @@ type BaseCreateNodePayload = {
 };
 
 type CreateFrameNodePayload = BaseCreateNodePayload & {
-  kind: "frame";
+  kind: 'frame';
 };
 
 type CreateRectangleNodePayload = BaseCreateNodePayload & {
-  kind: "rectangle";
+  kind: 'rectangle';
 };
 
 type CreateTextNodePayload = BaseCreateNodePayload & {
-  kind: "text";
+  kind: 'text';
   text: {
     content: string;
   };
 };
 
 type CreateSvgNodePayload = BaseCreateNodePayload & {
-  kind: "svg";
+  kind: 'svg';
   svg: {
     definitions?: Array<{
       id?: string;
@@ -318,7 +313,7 @@ type CreateSvgNodePayload = BaseCreateNodePayload & {
 };
 
 type CreateSvgVisualElementNodePayload = BaseCreateNodePayload & {
-  kind: "svg-visual-element";
+  kind: 'svg-visual-element';
   svg_primitive: {
     element_name: string;
     order: number;
@@ -336,20 +331,20 @@ type CreateNodePayload =
 
 Rules:
 
-* `parent.parent_id = null` creates a loose top-level node
-* callers should use `create_scene` rather than creating a scene backing frame directly
-* omitted `is_visible` defaults to `true`
-* omitted `is_locked` defaults to `false`
-* omitted `render_style` defaults to `{}`
-* convenience geometry fields are translated into `render_style`
-* callers must not provide the same geometry property in both a convenience field and `render_style`
-* omitted width/height remain omitted authored inputs
+- `parent.parent_id = null` creates a loose top-level node
+- callers should use `create_scene` rather than creating a scene backing frame directly
+- omitted `is_visible` defaults to `true`
+- omitted `is_locked` defaults to `false`
+- omitted `render_style` defaults to `{}`
+- convenience geometry fields are translated into `render_style`
+- callers must not provide the same geometry property in both a convenience field and `render_style`
+- omitted width/height remain omitted authored inputs
 
 ## 5.6 `update_node`
 
 ```ts
 type UpdateNodeCommand = {
-  type: "update_node";
+  type: 'update_node';
   node_id: NodeId;
   patch: {
     name?: string;
@@ -366,18 +361,18 @@ type UpdateNodeCommand = {
 
 Patch rules:
 
-* omitted field means unchanged
-* convenience geometry fields are translated into `render_style`
-* callers must not provide the same geometry property in both a convenience field and `render_style`
-* `render_style[key] = null` means delete that style property
-* typed payload fields are updated through dedicated commands rather than `update_node`
-* use `update_text_content`, `update_svg_root`, and `update_svg_primitive` for text and SVG payload mutation
+- omitted field means unchanged
+- convenience geometry fields are translated into `render_style`
+- callers must not provide the same geometry property in both a convenience field and `render_style`
+- `render_style[key] = null` means delete that style property
+- typed payload fields are updated through dedicated commands rather than `update_node`
+- use `update_text_content`, `update_svg_root`, and `update_svg_primitive` for text and SVG payload mutation
 
 ## 5.7 `reparent_node`
 
 ```ts
 type ReparentNodeCommand = {
-  type: "reparent_node";
+  type: 'reparent_node';
   node_id: NodeId;
   destination: {
     parent_id: NodeId | null;
@@ -390,7 +385,7 @@ type ReparentNodeCommand = {
 
 ```ts
 type ReorderChildrenCommand = {
-  type: "reorder_children";
+  type: 'reorder_children';
   container: {
     parent_id: NodeId | null;
   };
@@ -400,17 +395,17 @@ type ReorderChildrenCommand = {
 
 Rules:
 
-* `parent_id: null` means reorder `root.child_ids`
-* `child_ids` must be a full replacement ordering for that container
-* `child_ids` must contain exactly the existing children of that container
-* `child_ids` must not contain duplicates
-* reorder does not insert, delete, or reparent children
+- `parent_id: null` means reorder `root.child_ids`
+- `child_ids` must be a full replacement ordering for that container
+- `child_ids` must contain exactly the existing children of that container
+- `child_ids` must not contain duplicates
+- reorder does not insert, delete, or reparent children
 
 ## 5.9 `delete_node`
 
 ```ts
 type DeleteNodeCommand = {
-  type: "delete_node";
+  type: 'delete_node';
   node_id: NodeId;
 };
 ```
@@ -421,7 +416,7 @@ type DeleteNodeCommand = {
 
 ```ts
 type UpdateTextContentCommand = {
-  type: "update_text_content";
+  type: 'update_text_content';
   node_id: NodeId;
   content: string;
 };
@@ -435,7 +430,7 @@ type UpdateTextContentCommand = {
 
 ```ts
 type SetCanvasLocalValueCommand = {
-  type: "set_canvas_local_value";
+  type: 'set_canvas_local_value';
   slot: CanvasSemanticSlot;
   value: string | number;
 };
@@ -445,7 +440,7 @@ type SetCanvasLocalValueCommand = {
 
 ```ts
 type ClearCanvasLocalValueCommand = {
-  type: "clear_canvas_local_value";
+  type: 'clear_canvas_local_value';
   slot: CanvasSemanticSlot;
 };
 ```
@@ -454,7 +449,7 @@ type ClearCanvasLocalValueCommand = {
 
 ```ts
 type BindCanvasVariableCommand = {
-  type: "bind_canvas_variable";
+  type: 'bind_canvas_variable';
   slot: CanvasSemanticSlot;
   variable_id: VariableId;
 };
@@ -464,7 +459,7 @@ type BindCanvasVariableCommand = {
 
 ```ts
 type ClearCanvasVariableBindingCommand = {
-  type: "clear_canvas_variable_binding";
+  type: 'clear_canvas_variable_binding';
   slot: CanvasSemanticSlot;
 };
 ```
@@ -473,7 +468,7 @@ type ClearCanvasVariableBindingCommand = {
 
 ```ts
 type SetNodeLocalValueCommand = {
-  type: "set_node_local_value";
+  type: 'set_node_local_value';
   node_id: NodeId;
   slot: NodeSemanticSlot;
   value: string | number;
@@ -484,7 +479,7 @@ type SetNodeLocalValueCommand = {
 
 ```ts
 type ClearNodeLocalValueCommand = {
-  type: "clear_node_local_value";
+  type: 'clear_node_local_value';
   node_id: NodeId;
   slot: NodeSemanticSlot;
 };
@@ -494,7 +489,7 @@ type ClearNodeLocalValueCommand = {
 
 ```ts
 type BindNodeVariableCommand = {
-  type: "bind_node_variable";
+  type: 'bind_node_variable';
   node_id: NodeId;
   slot: NodeSemanticSlot;
   variable_id: VariableId;
@@ -505,7 +500,7 @@ type BindNodeVariableCommand = {
 
 ```ts
 type ClearNodeVariableBindingCommand = {
-  type: "clear_node_variable_binding";
+  type: 'clear_node_variable_binding';
   node_id: NodeId;
   slot: NodeSemanticSlot;
 };
@@ -515,7 +510,7 @@ type ClearNodeVariableBindingCommand = {
 
 ```ts
 type BindNodeStyleCommand = {
-  type: "bind_node_style";
+  type: 'bind_node_style';
   node_id: NodeId;
   family: StyleFamily;
   style_id: StyleId;
@@ -526,7 +521,7 @@ type BindNodeStyleCommand = {
 
 ```ts
 type ClearNodeStyleBindingCommand = {
-  type: "clear_node_style_binding";
+  type: 'clear_node_style_binding';
   node_id: NodeId;
   family: StyleFamily;
 };
@@ -556,10 +551,10 @@ In v1:
 
 Rules:
 
-* `set_node_local_value`, `clear_node_local_value`, `bind_node_variable`, and `clear_node_variable_binding` require `slot` to be valid for the target node kind
-* `bind_node_style` and `clear_node_style_binding` require `family` to be valid for the target node kind
-* invalid node-kind and slot or node-kind and family combinations must fail with `validation_failed`
-* v1 does not partially apply an invalid style family to a node
+- `set_node_local_value`, `clear_node_local_value`, `bind_node_variable`, and `clear_node_variable_binding` require `slot` to be valid for the target node kind
+- `bind_node_style` and `clear_node_style_binding` require `family` to be valid for the target node kind
+- invalid node-kind and slot or node-kind and family combinations must fail with `validation_failed`
+- v1 does not partially apply an invalid style family to a node
 
 ## 8. Variable Commands
 
@@ -567,7 +562,7 @@ Rules:
 
 ```ts
 type CreateVariableCollectionCommand = {
-  type: "create_variable_collection";
+  type: 'create_variable_collection';
   collection: {
     id: VariableCollectionId;
     name: string;
@@ -582,7 +577,7 @@ type CreateVariableCollectionCommand = {
 
 ```ts
 type UpdateVariableCollectionCommand = {
-  type: "update_variable_collection";
+  type: 'update_variable_collection';
   collection_id: VariableCollectionId;
   patch: {
     name?: string;
@@ -596,7 +591,7 @@ type UpdateVariableCollectionCommand = {
 
 ```ts
 type DeleteVariableCollectionCommand = {
-  type: "delete_variable_collection";
+  type: 'delete_variable_collection';
   collection_id: VariableCollectionId;
 };
 ```
@@ -605,8 +600,8 @@ type DeleteVariableCollectionCommand = {
 
 ```ts
 type VariableValueByMode =
-  | { kind: "value"; value: string | number | TypographyTokenValue }
-  | { kind: "alias"; variable_id: VariableId };
+  | { kind: 'value'; value: string | number | TypographyTokenValue }
+  | { kind: 'alias'; variable_id: VariableId };
 
 type TypographyTokenValue = {
   font_family: string;
@@ -617,11 +612,11 @@ type TypographyTokenValue = {
 };
 
 type CreateVariableCommand = {
-  type: "create_variable";
+  type: 'create_variable';
   variable: {
     id: VariableId;
     collection_id: VariableCollectionId;
-    kind: "color" | "radius" | "spacing" | "typography";
+    kind: 'color' | 'radius' | 'spacing' | 'typography';
     group_path: string[];
     name: string;
     scopes: Array<CanvasSemanticSlot | NodeSemanticSlot>;
@@ -635,7 +630,7 @@ type CreateVariableCommand = {
 
 ```ts
 type UpdateVariableCommand = {
-  type: "update_variable";
+  type: 'update_variable';
   variable_id: VariableId;
   patch: {
     group_path?: string[];
@@ -651,7 +646,7 @@ type UpdateVariableCommand = {
 
 ```ts
 type DeleteVariableCommand = {
-  type: "delete_variable";
+  type: 'delete_variable';
   variable_id: VariableId;
 };
 ```
@@ -662,105 +657,101 @@ type DeleteVariableCommand = {
 
 ```ts
 type StyleSlotValue =
-  | { kind: "value"; value: string | number }
-  | { kind: "variable"; variable_id: VariableId };
+  | { kind: 'value'; value: string | number }
+  | { kind: 'variable'; variable_id: VariableId };
 
 type CreatePaintStyleCommand = {
-  type: "create_style";
+  type: 'create_style';
   style: {
     id: StyleId;
-    family: "paint";
+    family: 'paint';
     name: string;
     description?: string;
     slots: Partial<{
-      "node.paint.background_color": StyleSlotValue;
-      "node.shape.border_radius": StyleSlotValue;
-      "node.paint.opacity": StyleSlotValue;
+      'node.paint.background_color': StyleSlotValue;
+      'node.shape.border_radius': StyleSlotValue;
+      'node.paint.opacity': StyleSlotValue;
     }>;
   };
 };
 
 type CreateTextStyleCommand = {
-  type: "create_style";
+  type: 'create_style';
   style: {
     id: StyleId;
-    family: "text";
+    family: 'text';
     name: string;
     description?: string;
     slots: Partial<{
-      "node.text.color": StyleSlotValue;
-      "node.typography.font_family": StyleSlotValue;
-      "node.typography.font_size": StyleSlotValue;
-      "node.typography.font_weight": StyleSlotValue;
-      "node.typography.line_height": StyleSlotValue;
-      "node.typography.letter_spacing": StyleSlotValue;
+      'node.text.color': StyleSlotValue;
+      'node.typography.font_family': StyleSlotValue;
+      'node.typography.font_size': StyleSlotValue;
+      'node.typography.font_weight': StyleSlotValue;
+      'node.typography.line_height': StyleSlotValue;
+      'node.typography.letter_spacing': StyleSlotValue;
     }>;
   };
 };
 
-type CreateStyleCommand =
-  | CreatePaintStyleCommand
-  | CreateTextStyleCommand;
+type CreateStyleCommand = CreatePaintStyleCommand | CreateTextStyleCommand;
 ```
 
 Rules:
 
-* `type` discriminates the command family
-* `style.family` discriminates the create payload variant
-* family validity for a target node is checked when the style is bound, not when the style is defined
+- `type` discriminates the command family
+- `style.family` discriminates the create payload variant
+- family validity for a target node is checked when the style is bound, not when the style is defined
 
 ## 9.2 `update_style`
 
 ```ts
 type UpdatePaintStyleCommand = {
-  type: "update_style";
-  family: "paint";
+  type: 'update_style';
+  family: 'paint';
   style_id: StyleId;
   patch: {
     name?: string;
     description?: string | null;
     slots?: Partial<{
-      "node.paint.background_color": StyleSlotValue | null;
-      "node.shape.border_radius": StyleSlotValue | null;
-      "node.paint.opacity": StyleSlotValue | null;
+      'node.paint.background_color': StyleSlotValue | null;
+      'node.shape.border_radius': StyleSlotValue | null;
+      'node.paint.opacity': StyleSlotValue | null;
     }>;
   };
 };
 
 type UpdateTextStyleCommand = {
-  type: "update_style";
-  family: "text";
+  type: 'update_style';
+  family: 'text';
   style_id: StyleId;
   patch: {
     name?: string;
     description?: string | null;
     slots?: Partial<{
-      "node.text.color": StyleSlotValue | null;
-      "node.typography.font_family": StyleSlotValue | null;
-      "node.typography.font_size": StyleSlotValue | null;
-      "node.typography.font_weight": StyleSlotValue | null;
-      "node.typography.line_height": StyleSlotValue | null;
-      "node.typography.letter_spacing": StyleSlotValue | null;
+      'node.text.color': StyleSlotValue | null;
+      'node.typography.font_family': StyleSlotValue | null;
+      'node.typography.font_size': StyleSlotValue | null;
+      'node.typography.font_weight': StyleSlotValue | null;
+      'node.typography.line_height': StyleSlotValue | null;
+      'node.typography.letter_spacing': StyleSlotValue | null;
     }>;
   };
 };
 
-type UpdateStyleCommand =
-  | UpdatePaintStyleCommand
-  | UpdateTextStyleCommand;
+type UpdateStyleCommand = UpdatePaintStyleCommand | UpdateTextStyleCommand;
 ```
 
 Rule:
 
-* `family` discriminates the update payload variant
-* `slots[slot] = null` means remove that slot from the style definition
-* family validity for a target node is checked when the style is bound, not when the style is defined
+- `family` discriminates the update payload variant
+- `slots[slot] = null` means remove that slot from the style definition
+- family validity for a target node is checked when the style is bound, not when the style is defined
 
 ## 9.3 `delete_style`
 
 ```ts
 type DeleteStyleCommand = {
-  type: "delete_style";
+  type: 'delete_style';
   family: StyleFamily;
   style_id: StyleId;
 };
@@ -773,19 +764,19 @@ type DeleteStyleCommand = {
 ```ts
 type AssetRecord = {
   id: AssetId;
-  kind: "image" | "svg" | "unknown";
+  kind: 'image' | 'svg' | 'unknown';
   mime_type: string;
   width?: number;
   height?: number;
   metadata?: Record<string, OpaqueValue>;
   source:
-    | { kind: "data_uri"; data_uri: string }
-    | { kind: "base64"; base64: string }
-    | { kind: "asset_store"; content_hash: string; original_filename?: string };
+    | { kind: 'data_uri'; data_uri: string }
+    | { kind: 'base64'; base64: string }
+    | { kind: 'asset_store'; content_hash: string; original_filename?: string };
 };
 
 type CreateAssetCommand = {
-  type: "create_asset";
+  type: 'create_asset';
   asset: AssetRecord;
 };
 ```
@@ -794,31 +785,35 @@ type CreateAssetCommand = {
 
 ```ts
 type UpdateAssetCommand = {
-  type: "update_asset";
+  type: 'update_asset';
   asset_id: AssetId;
   patch: {
     width?: number | null;
     height?: number | null;
     metadata?: Record<string, OpaqueValue> | null;
     source?:
-      | { kind: "data_uri"; data_uri: string }
-      | { kind: "base64"; base64: string }
-      | { kind: "asset_store"; content_hash: string; original_filename?: string };
+      | { kind: 'data_uri'; data_uri: string }
+      | { kind: 'base64'; base64: string }
+      | {
+          kind: 'asset_store';
+          content_hash: string;
+          original_filename?: string;
+        };
   };
 };
 ```
 
 Rules:
 
-* `width: null` or `height: null` clears that dimension
-* `metadata: null` clears metadata
-* asset `id`, `kind`, and `mime_type` are immutable through `update_asset`
+- `width: null` or `height: null` clears that dimension
+- `metadata: null` clears metadata
+- asset `id`, `kind`, and `mime_type` are immutable through `update_asset`
 
 ## 10.3 `delete_asset`
 
 ```ts
 type DeleteAssetCommand = {
-  type: "delete_asset";
+  type: 'delete_asset';
   asset_id: AssetId;
 };
 ```
@@ -829,7 +824,7 @@ type DeleteAssetCommand = {
 
 ```ts
 type UpdateSvgRootCommand = {
-  type: "update_svg_root";
+  type: 'update_svg_root';
   node_id: NodeId;
   patch: {
     definitions?: Array<{
@@ -846,14 +841,14 @@ type UpdateSvgRootCommand = {
 
 Rules:
 
-* nullable scalar-like fields clear when `null`
-* array/object fields replace when provided
+- nullable scalar-like fields clear when `null`
+- array/object fields replace when provided
 
 ## 11.2 `update_svg_primitive`
 
 ```ts
 type UpdateSvgPrimitiveCommand = {
-  type: "update_svg_primitive";
+  type: 'update_svg_primitive';
   node_id: NodeId;
   patch: {
     element_name?: string;
@@ -929,12 +924,12 @@ The canonical error shape is:
 
 ```ts
 type ApplyCommandsErrorCode =
-  | "revision_conflict"
-  | "validation_failed"
-  | "unrecoverable_command"
-  | "unknown_command"
-  | "target_not_found"
-  | "measurement_surface_unavailable";
+  | 'revision_conflict'
+  | 'validation_failed'
+  | 'unrecoverable_command'
+  | 'unknown_command'
+  | 'target_not_found'
+  | 'measurement_surface_unavailable';
 
 type ApplyCommandsError = {
   ok: false;
@@ -948,17 +943,15 @@ type ApplyCommandsError = {
   };
 };
 
-type ApplyCommandsResult =
-  | ApplyCommandsSuccess
-  | ApplyCommandsError;
+type ApplyCommandsResult = ApplyCommandsSuccess | ApplyCommandsError;
 ```
 
 Rules:
 
-* failures reject the whole batch and leave the document unchanged
-* `revision`, when present on an error, is the current persisted revision known to the command system
-* `command_index` identifies the first failing command when the failure is attributable to one command
-* `effects` are optional convenience data and are not part of command meaning
+- failures reject the whole batch and leave the document unchanged
+- `revision`, when present on an error, is the current persisted revision known to the command system
+- `command_index` identifies the first failing command when the failure is attributable to one command
+- `effects` are optional convenience data and are not part of command meaning
 
 ## 14. Examples
 
@@ -1043,9 +1036,9 @@ This payload is valid. Its semantic meaning is defined in `docs/command-semantic
 
 This document does not define:
 
-* command atomicity rules in detail
-* semantic precedence rules
-* normalization behavior
-* rendering behavior
-* undo/redo storage implementation
-* transport protocol details outside the payload schema itself
+- command atomicity rules in detail
+- semantic precedence rules
+- normalization behavior
+- rendering behavior
+- undo/redo storage implementation
+- transport protocol details outside the payload schema itself

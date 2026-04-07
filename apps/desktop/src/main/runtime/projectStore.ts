@@ -1,11 +1,15 @@
-import { mkdirSync } from "node:fs";
-import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
-import { createEmptyDocument, normalizeDocument, type RendererDocument } from "@ai-canvas/document-core";
-import type { ProjectSummary } from "@ai-canvas/ipc-contract";
+import {
+  createEmptyDocument,
+  normalizeDocument,
+  type RendererDocument,
+} from '@ai-canvas/document-core';
+import type { ProjectSummary } from '@ai-canvas/ipc-contract';
 
-import { createDocumentId, createProjectId } from "./ids.js";
+import { createDocumentId, createProjectId } from './ids.js';
 
 type ProjectRow = {
   id: string;
@@ -30,7 +34,7 @@ export type StoredProject = {
   revision: number;
 };
 
-export type HistoryMutationSource = "mcp" | "ui";
+export type HistoryMutationSource = 'mcp' | 'ui';
 
 export type ProjectHistoryEntry = {
   committed_at: string;
@@ -52,18 +56,18 @@ export type PersistProjectDocumentResult =
     }
   | {
       ok: false;
-      code: "not_found";
+      code: 'not_found';
     }
   | {
       ok: false;
-      code: "revision_conflict";
+      code: 'revision_conflict';
       revision: number;
     };
 
 const INITIAL_PROJECT_REVISION = 1;
 const EMPTY_PROJECT_HISTORY: ProjectHistory = {
   redo: [],
-  undo: []
+  undo: [],
 };
 
 type TableInfoRow = {
@@ -76,8 +80,8 @@ export class ProjectStore {
   constructor(databasePath: string) {
     mkdirSync(path.dirname(databasePath), { recursive: true });
     this.database = new DatabaseSync(databasePath);
-    this.database.exec("PRAGMA journal_mode = WAL;");
-    this.database.exec("PRAGMA foreign_keys = ON;");
+    this.database.exec('PRAGMA journal_mode = WAL;');
+    this.database.exec('PRAGMA foreign_keys = ON;');
     this.initialize();
   }
 
@@ -89,7 +93,7 @@ export class ProjectStore {
           FROM projects
           WHERE archived_at IS NULL
           ORDER BY COALESCE(last_opened_at, updated_at) DESC, updated_at DESC
-        `
+        `,
       )
       .all() as ProjectRow[];
 
@@ -103,10 +107,10 @@ export class ProjectStore {
     const document = createEmptyDocument({
       documentId,
       name,
-      createdAt: now
+      createdAt: now,
     });
 
-    this.database.exec("BEGIN IMMEDIATE;");
+    this.database.exec('BEGIN IMMEDIATE;');
 
     try {
       this.database
@@ -140,7 +144,7 @@ export class ProjectStore {
               'new',
               NULL
             )
-          `
+          `,
         )
         .run({
           created_at: now,
@@ -150,26 +154,28 @@ export class ProjectStore {
           last_opened_at: now,
           name,
           revision: INITIAL_PROJECT_REVISION,
-          updated_at: now
+          updated_at: now,
         });
 
       this.saveHistoryRow(projectId, EMPTY_PROJECT_HISTORY, now);
-      this.database.exec("COMMIT;");
+      this.database.exec('COMMIT;');
     } catch (error) {
-      this.database.exec("ROLLBACK;");
+      this.database.exec('ROLLBACK;');
       throw error;
     }
 
     const row = this.getRow(projectId);
 
     if (!row) {
-      throw new Error(`Project ${projectId} was created but could not be reloaded`);
+      throw new Error(
+        `Project ${projectId} was created but could not be reloaded`,
+      );
     }
 
     return {
       document,
       project: this.toSummary(row),
-      revision: row.revision
+      revision: row.revision,
     };
   }
 
@@ -182,13 +188,13 @@ export class ProjectStore {
 
     const document = normalizeDocument(JSON.parse(row.current_document_json), {
       fallbackDocumentId: row.document_id,
-      fallbackName: row.name
+      fallbackName: row.name,
     });
 
     return {
       document,
       project: this.toSummary(row),
-      revision: row.revision
+      revision: row.revision,
     };
   }
 
@@ -196,10 +202,10 @@ export class ProjectStore {
     projectId: string,
     document: RendererDocument,
     expectedRevision: number,
-    history?: ProjectHistory
+    history?: ProjectHistory,
   ): PersistProjectDocumentResult {
     const now = new Date().toISOString();
-    this.database.exec("BEGIN IMMEDIATE;");
+    this.database.exec('BEGIN IMMEDIATE;');
 
     try {
       const updateResult = this.database
@@ -210,39 +216,39 @@ export class ProjectStore {
                 revision = revision + 1,
                 updated_at = @updated_at
             WHERE id = @project_id AND archived_at IS NULL AND revision = @expected_revision
-          `
+          `,
         )
         .run({
           current_document_json: JSON.stringify(document),
           expected_revision: expectedRevision,
           project_id: projectId,
-          updated_at: now
+          updated_at: now,
         });
 
       if (updateResult.changes === 0) {
-        this.database.exec("ROLLBACK;");
+        this.database.exec('ROLLBACK;');
         const currentRow = this.getRow(projectId);
 
         if (!currentRow) {
           return {
-            code: "not_found",
-            ok: false
+            code: 'not_found',
+            ok: false,
           };
         }
 
         return {
-          code: "revision_conflict",
+          code: 'revision_conflict',
           ok: false,
-          revision: currentRow.revision
+          revision: currentRow.revision,
         };
       }
 
       if (history) {
         this.saveHistoryRow(projectId, history, now);
       }
-      this.database.exec("COMMIT;");
+      this.database.exec('COMMIT;');
     } catch (error) {
-      this.database.exec("ROLLBACK;");
+      this.database.exec('ROLLBACK;');
       throw error;
     }
 
@@ -250,15 +256,15 @@ export class ProjectStore {
 
     if (!updatedRow) {
       return {
-        code: "not_found",
-        ok: false
+        code: 'not_found',
+        ok: false,
       };
     }
 
     return {
       ok: true,
       project: this.toSummary(updatedRow),
-      revision: updatedRow.revision
+      revision: updatedRow.revision,
     };
   }
 
@@ -270,11 +276,11 @@ export class ProjectStore {
           UPDATE projects
           SET last_opened_at = @now, updated_at = @now
           WHERE id = @project_id AND archived_at IS NULL
-        `
+        `,
       )
       .run({
         now,
-        project_id: projectId
+        project_id: projectId,
       });
 
     if (result.changes === 0) {
@@ -297,7 +303,7 @@ export class ProjectStore {
           SELECT project_id, undo_json, redo_json
           FROM project_history
           WHERE project_id = ?
-        `
+        `,
       )
       .get(projectId) as ProjectHistoryRow | undefined;
 
@@ -307,7 +313,7 @@ export class ProjectStore {
 
     return {
       redo: this.parseHistoryEntries(row.redo_json),
-      undo: this.parseHistoryEntries(row.undo_json)
+      undo: this.parseHistoryEntries(row.undo_json),
     };
   }
 
@@ -319,7 +325,7 @@ export class ProjectStore {
                , revision
           FROM projects
           WHERE id = ? AND archived_at IS NULL
-        `
+        `,
       )
       .get(projectId) as ProjectRow | undefined;
   }
@@ -352,12 +358,12 @@ export class ProjectStore {
     `);
 
     const tableInfo = this.database
-      .prepare("PRAGMA table_info(projects)")
+      .prepare('PRAGMA table_info(projects)')
       .all() as TableInfoRow[];
 
-    if (!tableInfo.some((column) => column.name === "revision")) {
+    if (!tableInfo.some((column) => column.name === 'revision')) {
       this.database.exec(
-        `ALTER TABLE projects ADD COLUMN revision INTEGER NOT NULL DEFAULT ${INITIAL_PROJECT_REVISION};`
+        `ALTER TABLE projects ADD COLUMN revision INTEGER NOT NULL DEFAULT ${INITIAL_PROJECT_REVISION};`,
       );
     }
   }
@@ -369,11 +375,13 @@ export class ProjectStore {
       id: row.id,
       lastOpenedAt: row.last_opened_at,
       name: row.name,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
     };
   }
 
-  private parseHistoryEntries(serializedEntries: string): ProjectHistoryEntry[] {
+  private parseHistoryEntries(
+    serializedEntries: string,
+  ): ProjectHistoryEntry[] {
     let parsedEntries: unknown;
 
     try {
@@ -388,30 +396,31 @@ export class ProjectStore {
 
     return parsedEntries.flatMap((entry) => {
       if (
-        typeof entry !== "object" ||
+        typeof entry !== 'object' ||
         entry === null ||
-        !("document" in entry) ||
-        !("committed_at" in entry) ||
-        !("source" in entry) ||
-        !("source_revision" in entry)
+        !('document' in entry) ||
+        !('committed_at' in entry) ||
+        !('source' in entry) ||
+        !('source_revision' in entry)
       ) {
         return [];
       }
 
       const source = (entry as { source?: unknown }).source;
 
-      if (source !== "ui" && source !== "mcp") {
+      if (source !== 'ui' && source !== 'mcp') {
         return [];
       }
 
       const committedAt = (entry as { committed_at?: unknown }).committed_at;
-      const sourceRevision = (entry as { source_revision?: unknown }).source_revision;
+      const sourceRevision = (entry as { source_revision?: unknown })
+        .source_revision;
       const rawDocument = (entry as { document?: unknown }).document;
 
       if (
-        typeof committedAt !== "string" ||
+        typeof committedAt !== 'string' ||
         !Number.isInteger(sourceRevision) ||
-        typeof rawDocument !== "object" ||
+        typeof rawDocument !== 'object' ||
         rawDocument === null
       ) {
         return [];
@@ -419,13 +428,14 @@ export class ProjectStore {
 
       const document = normalizeDocument(rawDocument, {
         fallbackDocumentId:
-          typeof (rawDocument as { document_id?: unknown }).document_id === "string"
+          typeof (rawDocument as { document_id?: unknown }).document_id ===
+          'string'
             ? (rawDocument as { document_id: string }).document_id
-            : "doc_unknown",
+            : 'doc_unknown',
         fallbackName:
-          typeof (rawDocument as { name?: unknown }).name === "string"
+          typeof (rawDocument as { name?: unknown }).name === 'string'
             ? (rawDocument as { name: string }).name
-            : "Untitled Project"
+            : 'Untitled Project',
       });
 
       return [
@@ -433,13 +443,17 @@ export class ProjectStore {
           committed_at: committedAt,
           document,
           source,
-          source_revision: sourceRevision as number
-        }
+          source_revision: sourceRevision as number,
+        },
       ];
     });
   }
 
-  private saveHistoryRow(projectId: string, history: ProjectHistory, updatedAt: string): void {
+  private saveHistoryRow(
+    projectId: string,
+    history: ProjectHistory,
+    updatedAt: string,
+  ): void {
     this.database
       .prepare(
         `
@@ -449,13 +463,13 @@ export class ProjectStore {
             undo_json = excluded.undo_json,
             redo_json = excluded.redo_json,
             updated_at = excluded.updated_at
-        `
+        `,
       )
       .run({
         project_id: projectId,
         redo_json: JSON.stringify(history.redo),
         undo_json: JSON.stringify(history.undo),
-        updated_at: updatedAt
+        updated_at: updatedAt,
       });
   }
 }
@@ -463,6 +477,6 @@ export class ProjectStore {
 function createEmptyProjectHistory(): ProjectHistory {
   return {
     redo: [...EMPTY_PROJECT_HISTORY.redo],
-    undo: [...EMPTY_PROJECT_HISTORY.undo]
+    undo: [...EMPTY_PROJECT_HISTORY.undo],
   };
 }

@@ -1,10 +1,10 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 import {
   applyCommandsEffectsSchema,
   applyCommandsInputSchema as documentCoreApplyCommandsInputSchema,
-  rendererDocumentSchema
-} from "@ai-canvas/document-core";
+  rendererDocumentSchema,
+} from '@ai-canvas/document-core';
 
 export const projectSummarySchema = z.object({
   id: z.string(),
@@ -12,26 +12,29 @@ export const projectSummarySchema = z.object({
   documentId: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
-  lastOpenedAt: z.string().nullable()
+  lastOpenedAt: z.string().nullable(),
 });
 
-export const runtimeModeSchema = z.enum(["read_write", "read_only"]);
+export const runtimeModeSchema = z.enum(['read_write', 'read_only']);
 
 export const runtimeCapabilitiesSchema = z.object({
   measurementSurfaceAvailable: z.boolean(),
   mode: runtimeModeSchema,
-  runtimeState: z.string()
+  runtimeState: z.string(),
 });
 
 export const historyStateSchema = z.object({
   canRedo: z.boolean(),
   canUndo: z.boolean(),
   redoDepth: z.number().int().nonnegative(),
-  undoDepth: z.number().int().nonnegative()
+  undoDepth: z.number().int().nonnegative(),
 });
 
-export const mcpStatusStateSchema = z.enum(["running", "error"]);
-export const mcpStatusErrorCodeSchema = z.enum(["port_in_use", "startup_failed"]);
+export const mcpStatusStateSchema = z.enum(['running', 'error']);
+export const mcpStatusErrorCodeSchema = z.enum([
+  'port_in_use',
+  'startup_failed',
+]);
 
 export const mcpStatusSchema = z.object({
   enabled: z.boolean(),
@@ -41,63 +44,63 @@ export const mcpStatusSchema = z.object({
   port: z.number().int().positive(),
   state: mcpStatusStateSchema,
   endpoint: z.string(),
-  connectedSessions: z.number().int().nonnegative()
+  connectedSessions: z.number().int().nonnegative(),
 });
 
 export const activeProjectSchema = z.object({
   project: projectSummarySchema,
   document: rendererDocumentSchema,
-  revision: z.number().int().positive()
+  revision: z.number().int().positive(),
 });
 
 export const projectsChangedEventSchema = z.object({
-  type: z.literal("projects_changed"),
-  projects: z.array(projectSummarySchema)
+  type: z.literal('projects_changed'),
+  projects: z.array(projectSummarySchema),
 });
 
 export const activeProjectChangedEventSchema = z.object({
-  type: z.literal("active_project_changed"),
-  activeProject: activeProjectSchema.nullable()
+  type: z.literal('active_project_changed'),
+  activeProject: activeProjectSchema.nullable(),
 });
 
 export const runtimeCapabilitiesChangedEventSchema = z.object({
-  type: z.literal("runtime_capabilities_changed"),
-  runtimeCapabilities: runtimeCapabilitiesSchema
+  type: z.literal('runtime_capabilities_changed'),
+  runtimeCapabilities: runtimeCapabilitiesSchema,
 });
 
 export const historyStateChangedEventSchema = z.object({
-  type: z.literal("history_state_changed"),
-  historyState: historyStateSchema
+  type: z.literal('history_state_changed'),
+  historyState: historyStateSchema,
 });
 
 export const mcpStatusChangedEventSchema = z.object({
-  type: z.literal("mcp_status_changed"),
-  mcpStatus: mcpStatusSchema
+  type: z.literal('mcp_status_changed'),
+  mcpStatus: mcpStatusSchema,
 });
 
 export const documentChangedEventSchema = z.object({
-  type: z.literal("document_changed"),
+  type: z.literal('document_changed'),
   document: rendererDocumentSchema,
   project: projectSummarySchema,
   revision: z.number().int().nonnegative(),
-  runtimeCapabilities: runtimeCapabilitiesSchema
+  runtimeCapabilities: runtimeCapabilitiesSchema,
 });
 
-export const runtimeEventSchema = z.discriminatedUnion("type", [
+export const runtimeEventSchema = z.discriminatedUnion('type', [
   projectsChangedEventSchema,
   activeProjectChangedEventSchema,
   runtimeCapabilitiesChangedEventSchema,
   historyStateChangedEventSchema,
   mcpStatusChangedEventSchema,
-  documentChangedEventSchema
+  documentChangedEventSchema,
 ]);
 
 export const createProjectInputSchema = z.object({
-  name: z.string().trim().min(1).max(120)
+  name: z.string().trim().min(1).max(120),
 });
 
 export const openProjectInputSchema = z.object({
-  projectId: z.string().min(1)
+  projectId: z.string().min(1),
 });
 
 export const openExternalUrlInputSchema = z.object({
@@ -107,11 +110,11 @@ export const openExternalUrlInputSchema = z.object({
     .refine((value) => {
       try {
         const protocol = new URL(value).protocol;
-        return protocol === "http:" || protocol === "https:";
+        return protocol === 'http:' || protocol === 'https:';
       } catch {
         return false;
       }
-    }, "External links must use http or https.")
+    }, 'External links must use http or https.'),
 });
 
 export const applyCommandsInputSchema = documentCoreApplyCommandsInputSchema;
@@ -121,76 +124,76 @@ export const computedLayoutSchema = z
     height: z.number(),
     width: z.number(),
     x: z.number(),
-    y: z.number()
+    y: z.number(),
   })
   .strict();
 
-export const commandLayoutRefreshSchema = z.discriminatedUnion("status", [
+export const commandLayoutRefreshSchema = z.discriminatedUnion('status', [
   z
     .object({
       measured_node_count: z.number().int().nonnegative(),
       measured_root_ids: z.array(z.string()),
-      status: z.literal("refreshed")
+      status: z.literal('refreshed'),
     })
     .strict(),
   z
     .object({
-      status: z.literal("not_required")
+      status: z.literal('not_required'),
     })
-    .strict()
+    .strict(),
 ]);
 
 export const appErrorCodeSchema = z.enum([
-  "internal_error",
-  "measurement_surface_unavailable",
-  "not_found",
-  "not_implemented",
-  "revision_conflict",
-  "target_not_found",
-  "unknown_command",
-  "unrecoverable_command",
-  "validation_failed"
+  'internal_error',
+  'measurement_surface_unavailable',
+  'not_found',
+  'not_implemented',
+  'revision_conflict',
+  'target_not_found',
+  'unknown_command',
+  'unrecoverable_command',
+  'validation_failed',
 ]);
 
 export const appErrorSchema = z.object({
   code: appErrorCodeSchema,
-  message: z.string()
+  message: z.string(),
 });
 
 export const layoutMeasurementRequestSchema = z
   .object({
     document: rendererDocumentSchema,
     request_id: z.string(),
-    root_ids: z.array(z.string())
+    root_ids: z.array(z.string()),
   })
   .strict();
 
-export const layoutMeasurementResultSchema = z.discriminatedUnion("ok", [
+export const layoutMeasurementResultSchema = z.discriminatedUnion('ok', [
   z
     .object({
       measured_layouts: z.record(z.string(), computedLayoutSchema),
       ok: z.literal(true),
-      request_id: z.string()
+      request_id: z.string(),
     })
     .strict(),
   z
     .object({
       error: appErrorSchema,
       ok: z.literal(false),
-      request_id: z.string()
+      request_id: z.string(),
     })
-    .strict()
+    .strict(),
 ]);
 
 export const okResultSchema = <T extends z.ZodTypeAny>(schema: T) =>
   z.object({
     ok: z.literal(true),
-    data: schema
+    data: schema,
   });
 
 export const errorResultSchema = z.object({
   ok: z.literal(false),
-  error: appErrorSchema
+  error: appErrorSchema,
 });
 
 export const resultSchema = <T extends z.ZodTypeAny>(schema: T) =>
@@ -201,24 +204,24 @@ export const commandResultSchema = z.object({
   document_id: z.string(),
   effects: applyCommandsEffectsSchema.optional(),
   layout_refresh: commandLayoutRefreshSchema,
-  revision: z.number().int().positive()
+  revision: z.number().int().positive(),
 });
 
 export const appChannelNames = {
-  applyCommands: "app:applyCommands",
-  createProject: "app:createProject",
-  getActiveProject: "app:getActiveProject",
-  getHistoryState: "app:getHistoryState",
-  getMcpStatus: "app:getMcpStatus",
-  getRuntimeCapabilities: "app:getRuntimeCapabilities",
-  layoutMeasurementRequest: "app:layoutMeasurementRequest",
-  listProjects: "app:listProjects",
-  openExternalUrl: "app:openExternalUrl",
-  openProject: "app:openProject",
-  redo: "app:redo",
-  submitLayoutMeasurementResult: "app:submitLayoutMeasurementResult",
-  undo: "app:undo",
-  runtimeEvent: "app:runtimeEvent"
+  applyCommands: 'app:applyCommands',
+  createProject: 'app:createProject',
+  getActiveProject: 'app:getActiveProject',
+  getHistoryState: 'app:getHistoryState',
+  getMcpStatus: 'app:getMcpStatus',
+  getRuntimeCapabilities: 'app:getRuntimeCapabilities',
+  layoutMeasurementRequest: 'app:layoutMeasurementRequest',
+  listProjects: 'app:listProjects',
+  openExternalUrl: 'app:openExternalUrl',
+  openProject: 'app:openProject',
+  redo: 'app:redo',
+  submitLayoutMeasurementResult: 'app:submitLayoutMeasurementResult',
+  undo: 'app:undo',
+  runtimeEvent: 'app:runtimeEvent',
 } as const;
 
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
@@ -229,9 +232,15 @@ export type McpStatusState = z.infer<typeof mcpStatusStateSchema>;
 export type McpStatusErrorCode = z.infer<typeof mcpStatusErrorCodeSchema>;
 export type ActiveProject = z.infer<typeof activeProjectSchema>;
 export type ProjectsChangedEvent = z.infer<typeof projectsChangedEventSchema>;
-export type ActiveProjectChangedEvent = z.infer<typeof activeProjectChangedEventSchema>;
-export type RuntimeCapabilitiesChangedEvent = z.infer<typeof runtimeCapabilitiesChangedEventSchema>;
-export type HistoryStateChangedEvent = z.infer<typeof historyStateChangedEventSchema>;
+export type ActiveProjectChangedEvent = z.infer<
+  typeof activeProjectChangedEventSchema
+>;
+export type RuntimeCapabilitiesChangedEvent = z.infer<
+  typeof runtimeCapabilitiesChangedEventSchema
+>;
+export type HistoryStateChangedEvent = z.infer<
+  typeof historyStateChangedEventSchema
+>;
 export type McpStatusChangedEvent = z.infer<typeof mcpStatusChangedEventSchema>;
 export type DocumentChangedEvent = z.infer<typeof documentChangedEventSchema>;
 export type RuntimeEvent = z.infer<typeof runtimeEventSchema>;
@@ -241,8 +250,12 @@ export type OpenExternalUrlInput = z.infer<typeof openExternalUrlInputSchema>;
 export type ApplyCommandsInput = z.infer<typeof applyCommandsInputSchema>;
 export type AppErrorCode = z.infer<typeof appErrorCodeSchema>;
 export type AppError = z.infer<typeof appErrorSchema>;
-export type LayoutMeasurementRequest = z.infer<typeof layoutMeasurementRequestSchema>;
-export type LayoutMeasurementResult = z.infer<typeof layoutMeasurementResultSchema>;
+export type LayoutMeasurementRequest = z.infer<
+  typeof layoutMeasurementRequestSchema
+>;
+export type LayoutMeasurementResult = z.infer<
+  typeof layoutMeasurementResultSchema
+>;
 export type CommandResult = z.infer<typeof commandResultSchema>;
 export type EmptyPayload = Record<string, never>;
 
@@ -264,12 +277,16 @@ export interface DesktopApi {
   getMcpStatus(): Promise<AppResult<McpStatus>>;
   getRuntimeCapabilities(): Promise<AppResult<RuntimeCapabilities>>;
   listProjects(): Promise<AppResult<ProjectSummary[]>>;
-  openExternalUrl(input: OpenExternalUrlInput): Promise<AppResult<EmptyPayload>>;
+  openExternalUrl(
+    input: OpenExternalUrlInput,
+  ): Promise<AppResult<EmptyPayload>>;
   openProject(input: OpenProjectInput): Promise<AppResult<ActiveProject>>;
   redo(): Promise<AppResult<CommandResult>>;
-  submitLayoutMeasurementResult(input: LayoutMeasurementResult): Promise<AppResult<EmptyPayload>>;
+  submitLayoutMeasurementResult(
+    input: LayoutMeasurementResult,
+  ): Promise<AppResult<EmptyPayload>>;
   subscribeToLayoutMeasurementRequests(
-    listener: (request: LayoutMeasurementRequest) => void
+    listener: (request: LayoutMeasurementRequest) => void,
   ): () => void;
   subscribeToRuntimeEvents(listener: (event: RuntimeEvent) => void): () => void;
   undo(): Promise<AppResult<CommandResult>>;
@@ -284,8 +301,8 @@ export function err(code: AppErrorCode, message: string): AppResult<never> {
     ok: false,
     error: {
       code,
-      message
-    }
+      message,
+    },
   };
 }
 

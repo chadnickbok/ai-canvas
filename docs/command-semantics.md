@@ -177,9 +177,9 @@ type ApplyCommandsInput = {
 
 If `base_revision` is provided and does not equal the document's current persisted revision, command application must:
 
-* reject the whole batch before applying any command
-* return `revision_conflict`
-* leave the document unchanged
+- reject the whole batch before applying any command
+- return `revision_conflict`
+- leave the document unchanged
 
 If `base_revision` is omitted, command application applies against the latest revision.
 
@@ -187,9 +187,9 @@ After a revision conflict, the caller is expected to reload or reconcile and the
 
 Additional caller metadata may still be wrapped around the batch, such as:
 
-* caller metadata
-* undo grouping hints
-* request correlation ids
+- caller metadata
+- undo grouping hints
+- request correlation ids
 
 Those wrappers do not change mutation semantics.
 
@@ -207,14 +207,14 @@ Start from the current targeted project session state for the targeted document.
 
 Normalize into canonical in-memory shape:
 
-* required containers exist
-* derived empty structures exist
-* scene metadata tags exist
-* authoring containers exist
-* dangling references are dropped where appropriate
-* semantic state is resolved
-* render-facing semantic values are materialized into render inputs
-* missing or stale `computed_layout` may still remain
+- required containers exist
+- derived empty structures exist
+- scene metadata tags exist
+- authoring containers exist
+- dangling references are dropped where appropriate
+- semantic state is resolved
+- render-facing semantic values are materialized into render inputs
+- missing or stale `computed_layout` may still remain
 
 ### 5.2.1 Verify write capability
 
@@ -232,13 +232,13 @@ Apply commands one at a time in order.
 
 After the full batch, normalize again so the document returns to canonical in-memory shape:
 
-* recompute scene child counts
-* remove broken asset-backed `backgroundImage` references
-* drop broken variable/style bindings
-* remove invalid root or child references
-* reattach orphaned nodes when repair policy requires it
-* resolve semantic state
-* materialize render-facing values into `render_style`
+- recompute scene child counts
+- remove broken asset-backed `backgroundImage` references
+- drop broken variable/style bindings
+- remove invalid root or child references
+- reattach orphaned nodes when repair policy requires it
+- resolve semantic state
+- materialize render-facing values into `render_style`
 
 This second normalization pass is generic canonicalization and damaged-state cleanup only. It may remove residual dangling references, but it must not be the primary implementation of command-specific detach or preserve-visible-appearance behavior.
 
@@ -246,7 +246,7 @@ This second normalization pass is generic canonicalization and damaged-state cle
 
 Let the browser-backed renderer resolve layout for affected nodes, then refresh computed outputs:
 
-* `node.computed_layout`
+- `node.computed_layout`
 
 This step requires the same live measurement surface verified earlier in the lifecycle.
 The live measurement surface itself is transient runtime state; the persisted output of this step is the refreshed `computed_layout` snapshot.
@@ -271,10 +271,10 @@ Command application should prefer repair over rejection when the repair is deter
 
 Examples:
 
-* dropping broken asset references
-* recomputing scene child count
-* removing style bindings to deleted styles
-* removing variable bindings to deleted variables
+- dropping broken asset references
+- recomputing scene child count
+- removing style bindings to deleted styles
+- removing variable bindings to deleted variables
 
 When a repair is part of the explicit meaning of a command, such as delete-style or delete-variable detach behavior, that repair belongs to command application rather than to normalization.
 
@@ -284,10 +284,10 @@ A batch must fail when it would leave the document in a state that cannot be rep
 
 Examples:
 
-* creating a node with an id collision
-* reparenting a node into a missing parent
-* creating a scene whose backing frame id is already in use
-* introducing a cycle in the node tree
+- creating a node with an id collision
+- reparenting a node into a missing parent
+- creating a scene whose backing frame id is already in use
+- introducing a cycle in the node tree
 
 ### 6.3 Fail whole batch, not partial tail
 
@@ -309,19 +309,19 @@ Failure results must be machine-readable.
 
 At minimum, failures should report:
 
-* an error code
-* a human-readable message
-* `command_index` when one command is the clear source of failure
-* the current persisted revision when that information is available and useful to the caller
+- an error code
+- a human-readable message
+- `command_index` when one command is the clear source of failure
+- the current persisted revision when that information is available and useful to the caller
 
 Common error codes include:
 
-* `revision_conflict`
-* `validation_failed`
-* `unrecoverable_command`
-* `unknown_command`
-* `target_not_found`
-* `measurement_surface_unavailable`
+- `revision_conflict`
+- `validation_failed`
+- `unrecoverable_command`
+- `unknown_command`
+- `target_not_found`
+- `measurement_surface_unavailable`
 
 ## 7. Identity and Addressing
 
@@ -331,11 +331,11 @@ Create commands should use explicit caller-provided ids for created entities.
 
 This applies to:
 
-* scenes
-* nodes
-* variables
-* styles
-* assets
+- scenes
+- nodes
+- variables
+- styles
+- assets
 
 This keeps command application deterministic and easy to coordinate across the UI, MCP, undo/redo, and automation.
 
@@ -343,11 +343,11 @@ This keeps command application deterministic and easy to coordinate across the U
 
 The following id spaces must be unique within a document:
 
-* scene ids
-* node ids
-* asset ids
-* variable ids within their document-wide namespace
-* style ids within their family namespace
+- scene ids
+- node ids
+- asset ids
+- variable ids within their document-wide namespace
+- style ids within their family namespace
 
 ### 7.3 Scene/frame identity
 
@@ -361,27 +361,27 @@ That identity coupling is mandatory.
 
 Creates:
 
-* a scene record in `scenes`
-* a backing top-level `frame` node in `nodes`
+- a scene record in `scenes`
+- a backing top-level `frame` node in `nodes`
 
 The created frame node must:
 
-* have the same id as the scene
-* have `parent_id: null`
-* have `scene_id` set to its own scene id
-* appear in `root.child_ids`
-* initialize `is_visible` to `true`
-* initialize `is_locked` to `false`
-* initialize `child_ids` to `[]`
-* initialize `render_style` to `{}` before applying caller-provided render inputs
-* initialize `authoring.local_values`, `authoring.variable_bindings`, and `authoring.style_bindings` to `{}`
+- have the same id as the scene
+- have `parent_id: null`
+- have `scene_id` set to its own scene id
+- appear in `root.child_ids`
+- initialize `is_visible` to `true`
+- initialize `is_locked` to `false`
+- initialize `child_ids` to `[]`
+- initialize `render_style` to `{}` before applying caller-provided render inputs
+- initialize `authoring.local_values`, `authoring.variable_bindings`, and `authoring.style_bindings` to `{}`
 
 The created scene record must:
 
-* use the same id
-* point to the same backing frame id
-* initialize `scene_metadata.tags` to `[]`
-* initialize `child_count` from the backing frame node, which is `0` on creation
+- use the same id
+- point to the same backing frame id
+- initialize `scene_metadata.tags` to `[]`
+- initialize `child_count` from the backing frame node, which is `0` on creation
 
 A created scene is a top-level content unit.
 
@@ -391,10 +391,10 @@ Creating a scene must provide backing-frame geometry inputs, either directly thr
 
 This includes:
 
-* `render_style.left`
-* `render_style.top`
-* `render_style.width`
-* `render_style.height`
+- `render_style.left`
+- `render_style.top`
+- `render_style.width`
+- `render_style.height`
 
 The scene record does not duplicate geometry.
 
@@ -414,8 +414,8 @@ Updates a scene record and, when geometry changes, updates the backing frame nod
 
 Updating a scene may affect:
 
-* `name`
-* backing-frame render inputs, including geometry fields such as `left`, `top`, `width`, and `height`
+- `name`
+- backing-frame render inputs, including geometry fields such as `left`, `top`, `width`, and `height`
 
 `update_scene` does not edit `scene_metadata` directly.
 
@@ -433,9 +433,9 @@ Updating a scene's geometry must write to the backing frame node's `render_style
 
 Deleting a scene deletes:
 
-* the scene record
-* the backing frame node
-* the entire node subtree inside that scene
+- the scene record
+- the backing frame node
+- the entire node subtree inside that scene
 
 The backing frame for a scene cannot survive as a detached frame when the scene is explicitly deleted.
 
@@ -447,11 +447,11 @@ Creates a new node in `nodes`.
 
 The created node must:
 
-* have a unique id
-* match one of the supported node kinds
-* have valid `parent_id`
-* be inserted into the parent's `child_ids` or `root.child_ids`
-* inherit the correct scene membership from its parent
+- have a unique id
+- match one of the supported node kinds
+- have valid `parent_id`
+- be inserted into the parent's `child_ids` or `root.child_ids`
+- inherit the correct scene membership from its parent
 
 If the created node is top-level and not a scene backing frame, it is a loose top-level node.
 
@@ -461,13 +461,13 @@ The editor should minimize creation of loose top-level nodes, but the model allo
 
 Every created node must initialize:
 
-* `is_visible = true` if omitted by the caller
-* `is_locked = false` if omitted by the caller
-* `child_ids = []`
-* `render_style = {}` if omitted by the caller
-* `authoring.local_values = {}`
-* `authoring.variable_bindings = {}`
-* `authoring.style_bindings = {}`
+- `is_visible = true` if omitted by the caller
+- `is_locked = false` if omitted by the caller
+- `child_ids = []`
+- `render_style = {}` if omitted by the caller
+- `authoring.local_values = {}`
+- `authoring.variable_bindings = {}`
+- `authoring.style_bindings = {}`
 
 For leaf kinds, `child_ids` must remain `[]`.
 
@@ -493,18 +493,18 @@ Updates an existing node.
 
 This command may update:
 
-* `name`
-* `is_visible`
-* `is_locked`
-* `render_style`
+- `name`
+- `is_visible`
+- `is_locked`
+- `render_style`
 
 Typed payload edits do not go through `update_node`.
 
 Use:
 
-* `update_text_content` for `text.content`
-* `update_svg_root` for `svg` root payload fields
-* `update_svg_primitive` for `svg-visual-element` primitive payload fields
+- `update_text_content` for `text.content`
+- `update_svg_root` for `svg` root payload fields
+- `update_svg_primitive` for `svg-visual-element` primitive payload fields
 
 Callers may expose convenience geometry fields such as `left`, `top`, `width`, or `height`, but command application must translate those into `render_style` edits before normalization.
 
@@ -512,10 +512,10 @@ If the same property is specified through both a convenience geometry field and 
 
 It must not directly edit:
 
-* `id`
-* structural parent/child relationships
-* scene membership except through structural commands
-* `computed_layout`
+- `id`
+- structural parent/child relationships
+- scene membership except through structural commands
+- `computed_layout`
 
 ### 8.5.1 Layout-affecting update semantics
 
@@ -534,18 +534,18 @@ Moves a node from one parent to another.
 
 This command must:
 
-* remove the node id from the old parent's `child_ids` or `root.child_ids`
-* add the node id to the new parent's `child_ids` or `root.child_ids`
-* update `parent_id`
-* recursively rewrite scene membership for the entire subtree
-* preserve subtree child order unless explicitly changed
+- remove the node id from the old parent's `child_ids` or `root.child_ids`
+- add the node id to the new parent's `child_ids` or `root.child_ids`
+- update `parent_id`
+- recursively rewrite scene membership for the entire subtree
+- preserve subtree child order unless explicitly changed
 
 A node must not be reparented into:
 
-* itself
-* one of its descendants
-* a missing parent
-* a parent whose node kind cannot contain children
+- itself
+- one of its descendants
+- a missing parent
+- a parent whose node kind cannot contain children
 
 If the new parent is top-level, the node becomes a loose top-level node unless it is a scene backing frame.
 
@@ -555,8 +555,8 @@ Reorders child ids within one container.
 
 A container is either:
 
-* `root.child_ids`
-* a parent node's `child_ids`
+- `root.child_ids`
+- a parent node's `child_ids`
 
 Reorder must not change parentage.
 
@@ -564,9 +564,9 @@ Reorder only changes sibling order.
 
 A valid reorder payload must:
 
-* list exactly the current children of that container
-* contain each child id exactly once
-* contain no ids that are not already children of that container
+- list exactly the current children of that container
+- contain each child id exactly once
+- contain no ids that are not already children of that container
 
 If those conditions are not met, the batch must fail.
 
@@ -582,9 +582,9 @@ Deletes a node and its entire subtree.
 
 This command must:
 
-* remove the node from its parent or `root.child_ids`
-* remove all descendants from `nodes`
-* remove or repair references from the rest of the document as needed
+- remove the node from its parent or `root.child_ids`
+- remove all descendants from `nodes`
+- remove or repair references from the rest of the document as needed
 
 A scene backing frame must not be deleted through `delete_node`.
 
@@ -598,9 +598,9 @@ Updates `text.content` for a text node.
 
 Rules:
 
-* the target node must be `kind: "text"`
-* `text.content` may be empty
-* no non-text node may receive this command
+- the target node must be `kind: "text"`
+- `text.content` may be empty
+- no non-text node may receive this command
 
 Text content updates do not change typography bindings automatically.
 
@@ -614,17 +614,17 @@ Updates `scene.scene_metadata`.
 
 This may update:
 
-* `group`
-* `notes`
-* `role`
-* `summary`
-* `tags`
+- `group`
+- `notes`
+- `role`
+- `summary`
+- `tags`
 
 Rules:
 
-* `tags` must always materialize as an array
-* clearing tags results in `[]`
-* scene metadata changes do not directly affect node structure or render state
+- `tags` must always materialize as an array
+- clearing tags results in `[]`
+- scene metadata changes do not directly affect node structure or render state
 
 They may, however, affect scene filtering workflows.
 
@@ -642,17 +642,17 @@ Semantic legality is strict and uses the node-kind applicability matrix defined 
 
 That means:
 
-* node semantic slot commands must reject slots that are invalid for the target node kind
-* node style-family commands must reject families that are invalid for the target node kind
-* invalid combinations fail with `validation_failed`
-* v1 does not partially apply an invalid style family to a node
+- node semantic slot commands must reject slots that are invalid for the target node kind
+- node style-family commands must reject families that are invalid for the target node kind
+- invalid combinations fail with `validation_failed`
+- v1 does not partially apply an invalid style family to a node
 
 ## 11.2 Direct local semantic edit
 
 A direct local semantic edit writes to:
 
-* `canvas.authoring.local_values[slot]`
-* or `node.authoring.local_values[slot]`
+- `canvas.authoring.local_values[slot]`
+- or `node.authoring.local_values[slot]`
 
 It also clears any direct variable binding for that same slot.
 
@@ -668,15 +668,15 @@ It reveals the next source in semantic precedence order.
 
 It does not modify:
 
-* variable bindings
-* style bindings
+- variable bindings
+- style bindings
 
 ## 11.4 Assign variable binding
 
 Assigning a variable binding to a slot:
 
-* sets `variable_bindings[slot] = variable_id`
-* removes any local value for that slot
+- sets `variable_bindings[slot] = variable_id`
+- removes any local value for that slot
 
 A variable binding overrides style-derived values for the same slot.
 
@@ -696,9 +696,9 @@ This snapshotting is part of command application itself, not post-command normal
 
 Assigning a style binding to a family:
 
-* sets `style_bindings[family] = style_id`
-* clears local values for slots in that family
-* does not clear direct variable bindings for slots in that family
+- sets `style_bindings[family] = style_id`
+- clears local values for slots in that family
+- does not clear direct variable bindings for slots in that family
 
 Direct variable bindings remain stronger than style-derived values.
 
@@ -708,9 +708,9 @@ Clearing a style binding:
 
 1. resolves the style-provided values currently contributing to that family
 2. writes them into local values only for slots not already overridden by:
+   - a local value
+   - a direct variable binding
 
-   * a local value
-   * a direct variable binding
 3. removes `style_bindings[family]`
 
 This acts as “detach style to local.”
@@ -723,10 +723,10 @@ If a caller updates `render_style` directly for a property that maps to a semant
 
 That means:
 
-* update the corresponding local semantic value
-* clear any direct variable binding for that slot
-* keep style bindings intact
-* materialize the final render-input property from semantic state before commit
+- update the corresponding local semantic value
+- clear any direct variable binding for that slot
+- keep style bindings intact
+- materialize the final render-input property from semantic state before commit
 
 If the mapped semantic slot is invalid for the target node kind, the command must fail with `validation_failed`.
 
@@ -748,10 +748,10 @@ Creates a variable collection in `variables.collections`.
 
 The collection must:
 
-* have a unique id
-* declare at least one mode
-* use a `default_mode_id` that exists in `modes`
-* initialize its variable container as empty
+- have a unique id
+- declare at least one mode
+- use a `default_mode_id` that exists in `modes`
+- initialize its variable container as empty
 
 ## 12.2 Update variable collection
 
@@ -759,15 +759,15 @@ Updates variable collection metadata.
 
 This command may update:
 
-* `name`
-* `default_mode_id`
-* `description`
+- `name`
+- `default_mode_id`
+- `description`
 
 Rules:
 
-* `default_mode_id` must continue to reference a mode that exists in the collection
-* collection `modes` are immutable in v1 because no mode-mutation commands exist
-* changing `default_mode_id` may change variable resolution for callers that omit an explicit mode, so affected bindings must re-resolve before commit
+- `default_mode_id` must continue to reference a mode that exists in the collection
+- collection `modes` are immutable in v1 because no mode-mutation commands exist
+- changing `default_mode_id` may change variable resolution for callers that omit an explicit mode, so affected bindings must re-resolve before commit
 
 ## 12.3 Delete variable collection
 
@@ -777,9 +777,9 @@ For each contained variable, command application must apply the same detach-and-
 
 This includes repairing:
 
-* direct variable bindings
-* alias chains
-* style slots that reference deleted variables
+- direct variable bindings
+- alias chains
+- style slots that reference deleted variables
 
 The collection and all contained variables must disappear together or not at all.
 
@@ -791,9 +791,9 @@ Creates a variable under a collection.
 
 The variable must:
 
-* have a unique id within the document
-* declare valid slot scopes
-* provide valid mode values
+- have a unique id within the document
+- declare valid slot scopes
+- provide valid mode values
 
 ## 12.5 Update variable
 
@@ -801,10 +801,10 @@ Updates variable metadata or mode values.
 
 After a variable update:
 
-* every direct binding to that variable must re-resolve
-* every alias chain depending on that variable must re-resolve
-* every style slot that references that variable must re-resolve
-* every affected render-input semantic slot must be materialized before commit
+- every direct binding to that variable must re-resolve
+- every alias chain depending on that variable must re-resolve
+- every style slot that references that variable must re-resolve
+- every affected render-input semantic slot must be materialized before commit
 
 ## 12.6 Delete variable
 
@@ -812,9 +812,9 @@ Deleting a variable must detach all usages safely.
 
 Effects:
 
-* direct bindings to the variable are cleared
-* alias-based variable users resolve to raw values where possible
-* style slots that referenced the variable detach to raw values where possible
+- direct bindings to the variable are cleared
+- alias-based variable users resolve to raw values where possible
+- style slots that referenced the variable detach to raw values where possible
 
 The goal is to preserve visible appearance as much as possible.
 
@@ -828,8 +828,8 @@ This is command-owned behavior. `delete_variable` must resolve the currently eff
 
 Creates a style in either family:
 
-* `paint`
-* `text`
+- `paint`
+- `text`
 
 The style must use only valid slots for that family.
 
@@ -841,9 +841,9 @@ Updating a style causes all bound targets in that family to re-resolve.
 
 Effects:
 
-* local overrides remain intact
-* direct variable bindings remain intact
-* style-derived slots update where they are still effective
+- local overrides remain intact
+- direct variable bindings remain intact
+- style-derived slots update where they are still effective
 
 ## 13.3 Delete style
 
@@ -851,9 +851,9 @@ Deleting a style must detach bound nodes safely.
 
 Effects:
 
-* node style bindings to that style are removed
-* effective style-contributed values are snapshotted into local values where needed
-* existing stronger overrides remain unchanged
+- node style bindings to that style are removed
+- effective style-contributed values are snapshotted into local values where needed
+- existing stronger overrides remain unchanged
 
 The goal is to preserve visible appearance as much as possible.
 
@@ -871,10 +871,10 @@ The asset id must be unique.
 
 Updates non-identity asset fields such as:
 
-* metadata
-* width
-* height
-* source details where allowed
+- metadata
+- width
+- height
+- source details where allowed
 
 Changing an asset may affect any node whose `render_style.backgroundImage` references it through `url(asset://...)`.
 
@@ -886,8 +886,8 @@ Deleting an asset must remove or repair all document references to it.
 
 Effects:
 
-* remove the asset from `assets`
-* remove or clear `backgroundImage` values that reference the deleted asset
+- remove the asset from `assets`
+- remove or clear `backgroundImage` values that reference the deleted asset
 
 The document should remain valid after asset deletion.
 
@@ -899,10 +899,10 @@ Updating an SVG root payload affects only `kind: "svg"` nodes.
 
 This may update:
 
-* definitions
-* root attributes
-* `view_box`
-* `preserve_aspect_ratio`
+- definitions
+- root attributes
+- `view_box`
+- `preserve_aspect_ratio`
 
 ## 15.2 Update SVG primitive payload
 
@@ -910,9 +910,9 @@ Updating an SVG primitive affects only `kind: "svg-visual-element"` nodes.
 
 This may update:
 
-* `element_name`
-* `order`
-* `attributes`
+- `element_name`
+- `order`
+- `attributes`
 
 Primitive render order inside an SVG is determined by:
 
@@ -925,11 +925,11 @@ Before commit, command application must ensure all derived state affected by the
 
 This includes at minimum:
 
-* scene `child_count`
-* semantic materialization into render-input properties
-* refreshed `computed_layout` for nodes whose layout changed
-* removal of broken style or variable bindings
-* removal of broken asset-backed `backgroundImage` references
+- scene `child_count`
+- semantic materialization into render-input properties
+- refreshed `computed_layout` for nodes whose layout changed
+- removal of broken style or variable bindings
+- removal of broken asset-backed `backgroundImage` references
 
 ## 17. Undo/Redo Semantics
 
@@ -937,9 +937,9 @@ Undo and redo operate by replaying or inverting command batches against the same
 
 That means:
 
-* undo/redo must not bypass command application rules
-* undo/redo must preserve normalization, repair, and materialization behavior
-* a restored state must be equivalent to a normal command-applied state
+- undo/redo must not bypass command application rules
+- undo/redo must preserve normalization, repair, and materialization behavior
+- a restored state must be equivalent to a normal command-applied state
 
 The storage shape used for undo/redo is an implementation detail.
 
@@ -949,10 +949,10 @@ The mutation semantics are not.
 
 This document does not define:
 
-* the persisted document schema in full
-* renderer implementation details
-* UI interaction design
-* selection behavior
-* autosave timing
-* batching heuristics in the editor
-* import compatibility behavior
+- the persisted document schema in full
+- renderer implementation details
+- UI interaction design
+- selection behavior
+- autosave timing
+- batching heuristics in the editor
+- import compatibility behavior

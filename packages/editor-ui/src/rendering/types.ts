@@ -1,10 +1,13 @@
-import type { ComputedLayout } from "@ai-canvas/document-core";
+import type { ComputedLayout } from '@ai-canvas/document-core';
 
 export type ResolvedAssetSource = {
   url: string;
 };
 
-export type ResolvedAssetsById = Record<string, ResolvedAssetSource | undefined>;
+export type ResolvedAssetsById = Record<
+  string,
+  ResolvedAssetSource | undefined
+>;
 
 export type ViewportState = {
   panX: number;
@@ -16,5 +19,7 @@ export type RendererMeasurementHandle = {
   getDocumentRevision: () => number | null;
   getNodeElement: (nodeId: string) => Element | null;
   getRootElement: () => HTMLDivElement | null;
-  measureSubtrees: (input: { rootIds: string[] }) => Record<string, ComputedLayout>;
+  measureSubtrees: (input: {
+    rootIds: string[];
+  }) => Record<string, ComputedLayout>;
 };
