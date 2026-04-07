@@ -18,6 +18,7 @@
     "dev:marketing": "pnpm --filter @ai-canvas/marketing dev",
     "build": "pnpm build:packages && pnpm --filter @ai-canvas/desktop build:app && pnpm build:marketing",
     "mcp:demo-slice": "pnpm --filter @ai-canvas/desktop mcp:demo-slice",
+    "hooks:install": "git config core.hooksPath .githooks",
     "typecheck": "pnpm build:packages && pnpm --filter @ai-canvas/desktop typecheck && pnpm --filter @ai-canvas/marketing typecheck",
     "lint": "pnpm --filter @ai-canvas/document-core lint && pnpm --filter @ai-canvas/editor-ui lint && pnpm --filter @ai-canvas/ipc-contract lint && pnpm --filter @ai-canvas/mcp-bridge lint && pnpm --filter @ai-canvas/desktop lint && pnpm --filter @ai-canvas/marketing lint",
     "format": "pnpm exec prettier . --write",

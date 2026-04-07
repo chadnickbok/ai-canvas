@@ -215,6 +215,12 @@ Check formatting without writing changes:
 pnpm format:check
 ```
 
+Enable the repository pre-commit hook (runs Prettier on staged files):
+
+```bash
+pnpm hooks:install
+```
+
 ### Build
 
 ```bash
