@@ -863,8 +863,8 @@ describe('applyCommands', () => {
             kind: 'image',
             mime_type: 'image/png',
             source: {
-              kind: 'base64',
-              base64: 'abcd',
+              kind: 'asset_store',
+              content_hash: 'hash_asset_1',
             },
           },
         },
@@ -1002,6 +1002,28 @@ describe('applyCommands', () => {
     expect(
       deleted.document.nodes.rect_1.render_style.backgroundImage,
     ).toBeUndefined();
+  });
+
+  it('rejects embedded asset sources for live asset creation', async () => {
+    const result = expectError(
+      await runCommands(createBaseDocument(), [
+        {
+          type: 'create_asset',
+          asset: {
+            id: 'asset_legacy',
+            kind: 'image',
+            mime_type: 'image/png',
+            source: {
+              kind: 'base64',
+              base64: 'abcd',
+            },
+          },
+        },
+      ]),
+      'validation_failed',
+    );
+
+    expect(result.error.message).toContain('create_asset');
   });
 
   it('fails before mutation when the measurement surface is unavailable', async () => {

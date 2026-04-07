@@ -1,4 +1,5 @@
 export * from './applyCommands.js';
+export * from './assets.js';
 export * from './commandTypes.js';
 export * from './constants.js';
 export * from './createEmptyDocument.js';

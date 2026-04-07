@@ -23,7 +23,7 @@
     "lint": "pnpm --filter @ai-canvas/document-core lint && pnpm --filter @ai-canvas/editor-ui lint && pnpm --filter @ai-canvas/ipc-contract lint && pnpm --filter @ai-canvas/mcp-bridge lint && pnpm --filter @ai-canvas/desktop lint && pnpm --filter @ai-canvas/marketing lint",
     "format": "pnpm exec prettier . --write",
     "format:check": "pnpm exec prettier . --check",
-    "test": "pnpm --filter @ai-canvas/document-core test && pnpm --filter @ai-canvas/editor-ui test && pnpm --filter @ai-canvas/mcp-bridge test && pnpm --filter @ai-canvas/desktop test",
+    "test": "pnpm build:packages && pnpm --filter @ai-canvas/document-core test && pnpm --filter @ai-canvas/editor-ui test && pnpm --filter @ai-canvas/mcp-bridge test && pnpm --filter @ai-canvas/desktop test",
     "test:document-core": "pnpm --filter @ai-canvas/document-core test"
   },
   "devDependencies": {

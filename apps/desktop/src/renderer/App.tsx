@@ -118,6 +118,7 @@ function applyRuntimeEvent(
         activeProject: {
           document: event.document,
           project: event.project,
+          resolved_assets: event.resolved_assets,
           revision: event.revision,
         },
         runtimeCapabilities: event.runtimeCapabilities,

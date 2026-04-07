@@ -130,10 +130,55 @@ export type ApplyCommandsToolInput = {
   project_id?: string;
 };
 
+export type CreateAssetFromBytesToolInput = {
+  asset_id?: string;
+  bytes_base64: string;
+  height?: number;
+  kind?: "image" | "svg" | "unknown";
+  metadata?: JsonObject;
+  mime_type: string;
+  original_filename?: string;
+  project_id?: string;
+  width?: number;
+};
+
+export type CreateAssetFromUrlToolInput = {
+  asset_id?: string;
+  project_id?: string;
+  url: string;
+};
+
+export type CreateAssetToolOutput = {
+  asset_id: string;
+  content_hash: string;
+  kind: "image" | "svg" | "unknown";
+  mime_type: string;
+  revision: number;
+  size_bytes: number;
+  source: {
+    content_hash: string;
+    kind: "asset_store";
+    original_filename?: string;
+  };
+};
+
+export type CreateAssetFromBytesOutput = CreateAssetToolOutput;
+export type CreateAssetFromUrlOutput = CreateAssetToolOutput;
+
 export type ProjectService = {
   applyCommands: (
     input: ApplyCommandsToolInput,
   ) => Promise<AppResult<CommandResult>> | AppResult<CommandResult>;
+  createAssetFromBytes: (
+    input: CreateAssetFromBytesToolInput,
+  ) =>
+    | Promise<AppResult<CreateAssetFromBytesOutput>>
+    | AppResult<CreateAssetFromBytesOutput>;
+  createAssetFromUrl: (
+    input: CreateAssetFromUrlToolInput,
+  ) =>
+    | Promise<AppResult<CreateAssetFromUrlOutput>>
+    | AppResult<CreateAssetFromUrlOutput>;
   createProject: (
     name: string,
   ) => Promise<AppResult<ProjectSummary>> | AppResult<ProjectSummary>;
@@ -283,6 +328,27 @@ const designSystemInspectionSchema = z
   .strict();
 
 const toolProjectIdSchema = z.string().min(1);
+const assetKindSchema = z.enum(["image", "svg", "unknown"]);
+const mimeTypeSchema = z.string().trim().min(1);
+const assetMetadataSchema = jsonObjectSchema;
+const httpUrlSchema = z
+  .string()
+  .url()
+  .refine((value) => {
+    try {
+      const protocol = new URL(value).protocol;
+      return protocol === "http:" || protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "Asset URLs must use http or https.");
+const assetStoreSourceSchema = z
+  .object({
+    content_hash: z.string(),
+    kind: z.literal("asset_store"),
+    original_filename: z.string().optional()
+  })
+  .strict();
 
 const openProjectInputSchema = z
   .object({
@@ -316,6 +382,28 @@ const applyCommandsToolInputSchema = applyCommandsInputSchema
   })
   .extend({
     project_id: toolProjectIdSchema.optional(),
+  })
+  .strict();
+
+const createAssetFromBytesInputSchema = z
+  .object({
+    asset_id: z.string().min(1).optional(),
+    bytes_base64: z.string().min(1),
+    height: z.number().nonnegative().optional(),
+    kind: assetKindSchema.optional(),
+    metadata: assetMetadataSchema.optional(),
+    mime_type: mimeTypeSchema,
+    original_filename: z.string().min(1).optional(),
+    project_id: toolProjectIdSchema.optional(),
+    width: z.number().nonnegative().optional()
+  })
+  .strict();
+
+const createAssetFromUrlInputSchema = z
+  .object({
+    asset_id: z.string().min(1).optional(),
+    project_id: toolProjectIdSchema.optional(),
+    url: httpUrlSchema
   })
   .strict();
 
@@ -397,6 +485,19 @@ const applyCommandsOutputSchema = z
     ok: z.literal(true),
   })
   .extend(commandResultSchema.shape)
+  .strict();
+
+const createAssetOutputSchema = z
+  .object({
+    asset_id: z.string(),
+    content_hash: z.string(),
+    kind: assetKindSchema,
+    mime_type: mimeTypeSchema,
+    ok: z.literal(true),
+    revision: z.number().int().positive(),
+    size_bytes: z.number().int().nonnegative(),
+    source: assetStoreSourceSchema
+  })
   .strict();
 
 function toJsonCompatibleValue(value: unknown): JsonValue {
@@ -917,6 +1018,62 @@ export class LocalMcpBridge {
           }),
         );
       },
+    );
+
+    server.registerTool(
+      "create_asset_from_bytes",
+      {
+        description:
+          "Create a new project-local asset from inline base64 bytes. This stores the blob in the desktop asset store, creates the asset record, and returns a usable asset_id. Attach it to nodes separately with apply_commands.",
+        inputSchema: createAssetFromBytesInputSchema,
+        outputSchema: createAssetOutputSchema
+      },
+      async (args) => {
+        const input = createAssetFromBytesInputSchema.parse(args);
+
+        return this.toToolResponse(
+          await this.projectService.createAssetFromBytes(input),
+          createAssetOutputSchema,
+          (data) => ({
+            asset_id: data.asset_id,
+            content_hash: data.content_hash,
+            kind: data.kind,
+            mime_type: data.mime_type,
+            ok: true as const,
+            revision: data.revision,
+            size_bytes: data.size_bytes,
+            source: data.source
+          })
+        );
+      }
+    );
+
+    server.registerTool(
+      "create_asset_from_url",
+      {
+        description:
+          "Create a new project-local asset from a public image URL. The desktop runtime downloads the image, validates it, stores it in the asset store, and returns a usable asset_id. Attach it to nodes separately with apply_commands.",
+        inputSchema: createAssetFromUrlInputSchema,
+        outputSchema: createAssetOutputSchema
+      },
+      async (args) => {
+        const input = createAssetFromUrlInputSchema.parse(args);
+
+        return this.toToolResponse(
+          await this.projectService.createAssetFromUrl(input),
+          createAssetOutputSchema,
+          (data) => ({
+            asset_id: data.asset_id,
+            content_hash: data.content_hash,
+            kind: data.kind,
+            mime_type: data.mime_type,
+            ok: true as const,
+            revision: data.revision,
+            size_bytes: data.size_bytes,
+            source: data.source
+          })
+        );
+      }
     );
 
     return server;

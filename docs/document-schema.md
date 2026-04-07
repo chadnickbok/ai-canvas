@@ -814,6 +814,10 @@ type RendererTextStyle = {
 
 The canonical desktop asset model is local-first and project-local.
 
+In the live desktop runtime, asset metadata is expected to live in a first-class project-local asset catalog, while asset bytes live in the disk-backed asset store.
+
+The canonical in-memory document still carries the document `assets` map, but the desktop app should treat embedded asset sources as legacy import or migration compatibility rather than the preferred live-write representation.
+
 ```ts
 type OpaqueValue =
   | null
@@ -855,6 +859,8 @@ type LocalAssetStoreSource = {
 - content is stored either:
   - embedded directly in the document, or
   - by reference to the local asset store using a content hash
+- for live desktop persistence, `asset_store` is the preferred source kind
+- embedded sources are readable for compatibility, but new live desktop writes should prefer `asset_store`
 
 ### Asset references
 

@@ -867,6 +867,17 @@ Creates or registers an asset record in `assets`.
 
 The asset id must be unique.
 
+`create_asset` is a document mutation. It does not carry raw binary bytes.
+
+For the live desktop runtime, asset bytes belong in the first-class asset store on disk. Higher-level runtime services, such as the local MCP `create_asset_from_bytes` and `create_asset_from_url` tools, are responsible for:
+
+* storing the bytes
+* computing the content hash
+* creating or returning the resulting `asset_store` source
+* creating the usable project-local asset record
+
+The command layer remains responsible for the asset record and its document-visible references.
+
 ## 14.2 Update asset metadata
 
 Updates non-identity asset fields such as:
@@ -890,6 +901,8 @@ Effects:
 - remove or clear `backgroundImage` values that reference the deleted asset
 
 The document should remain valid after asset deletion.
+
+Deleting an asset record does not imply immediate deletion of any deduplicated on-disk blob. Blob garbage collection, if implemented, is a storage-layer concern.
 
 ## 15. SVG Command Semantics
 

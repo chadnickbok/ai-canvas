@@ -769,10 +769,7 @@ type AssetRecord = {
   width?: number;
   height?: number;
   metadata?: Record<string, OpaqueValue>;
-  source:
-    | { kind: 'data_uri'; data_uri: string }
-    | { kind: 'base64'; base64: string }
-    | { kind: 'asset_store'; content_hash: string; original_filename?: string };
+  source: { kind: 'asset_store'; content_hash: string; original_filename?: string };
 };
 
 type CreateAssetCommand = {
@@ -780,6 +777,12 @@ type CreateAssetCommand = {
   asset: AssetRecord;
 };
 ```
+
+Notes:
+
+* live desktop command payloads create asset records only; they do not upload raw bytes
+* MCP callers that need to ingest bytes should use `create_asset_from_bytes`, and callers that only have a public image URL should use `create_asset_from_url`
+* both MCP asset-ingest tools return a usable `asset_id` that can be referenced in later commands
 
 ## 10.2 `update_asset`
 
@@ -791,14 +794,7 @@ type UpdateAssetCommand = {
     width?: number | null;
     height?: number | null;
     metadata?: Record<string, OpaqueValue> | null;
-    source?:
-      | { kind: 'data_uri'; data_uri: string }
-      | { kind: 'base64'; base64: string }
-      | {
-          kind: 'asset_store';
-          content_hash: string;
-          original_filename?: string;
-        };
+    source?: { kind: 'asset_store'; content_hash: string; original_filename?: string };
   };
 };
 ```
@@ -807,6 +803,7 @@ Rules:
 
 - `width: null` or `height: null` clears that dimension
 - `metadata: null` clears metadata
+- live desktop command payloads should create or switch assets only to `asset_store` sources
 - asset `id`, `kind`, and `mime_type` are immutable through `update_asset`
 
 ## 10.3 `delete_asset`

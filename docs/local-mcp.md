@@ -20,6 +20,8 @@ The local MCP bridge should let an agent:
 - open and inspect a project
 - inspect scenes
 - inspect the design system
+- create project-local assets from bytes
+- create project-local assets from a URL
 - apply document commands when a live browser measurement surface is available
 - run explicit semantic styling workflows when a live browser measurement surface is available
 - promote selections or targets into styles or variables when a live browser measurement surface is available
@@ -92,11 +94,13 @@ Recommended initial read tools:
 Recommended initial mutation tools:
 
 - `create_project`
+- `create_asset_from_bytes`
+- `create_asset_from_url`
 - `apply_commands`
 - `promote_selection_to_style`
 - `create_variables_from_selection`
 
-For the first implemented pass, ship `create_project` and `apply_commands`, and defer the selection-derived mutation helpers until the runtime exposes the additional selection and styling workflow state they need.
+For the first implemented pass, ship `create_project`, `create_asset_from_bytes`, `create_asset_from_url`, and `apply_commands`, and defer the selection-derived mutation helpers until the runtime exposes the additional selection and styling workflow state they need.
 
 These mutation tools are available only in `read_write` mode.
 
@@ -105,16 +109,41 @@ These mutation tools are available only in `read_write` mode.
 The first implemented MCP pass should:
 
 - expose the core project targeting and inspection tools
+- expose `create_asset_from_bytes` against the shared runtime session so agents can create first-class project assets with on-disk bytes
+- expose `create_asset_from_url` against the shared runtime session so agents can create first-class project assets from a public image URL
 - expose `apply_commands` against the shared runtime session while the editor measurement surface is available
 - persist normalized document state and returned revision/effects through the same runtime path the UI uses
-- explicitly defer browser-backed `computed_layout` refresh to a later stage
+- refresh `computed_layout` before persistence through the same browser-backed measurement path the editor uses
 
 That means:
 
+- `create_asset_from_bytes` succeeds only while the runtime is in `read_write`
+- `create_asset_from_url` succeeds only while the runtime is in `read_write`
 - `apply_commands` succeeds only while the runtime is in `read_write`
-- successful first-pass mutation responses should make it clear that computed-layout refresh was skipped because that stage is not implemented yet
-- callers should not treat first-pass mutation success as a guarantee that `computed_layout` is fresh
-- browser-capture and other layout-fresh workflows remain later-stage work
+- successful mutation responses reflect the same persisted revision the editor runtime sees
+
+## Asset workflow
+
+For first-class desktop assets, MCP callers should not send raw bytes through `apply_commands`.
+
+Recommended flow:
+
+- call `create_asset_from_bytes` with inline base64 bytes and asset metadata, or call `create_asset_from_url` with a public image URL
+- receive a usable project-local `asset_id` plus the stored `content_hash`
+- reference that `asset_id` from subsequent `apply_commands` mutations, for example through `url(asset://<asset_id>)`
+
+`create_asset_from_bytes` and `create_asset_from_url` are responsible for both:
+
+- writing bytes into the desktop asset store
+- creating the project-local asset record that the document can reference
+
+For v1:
+
+- both asset-ingest tools reject payloads larger than `50 MiB`
+- `create_asset_from_url` accepts only public `http` or `https` URLs
+- `create_asset_from_url` accepts raster image formats only: PNG, JPEG, GIF, and WebP
+
+This keeps asset bytes in the runtime-owned datastore while leaving node attachment and other document mutations in the command system.
 
 ## Security and UX rules
 

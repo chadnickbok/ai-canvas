@@ -34,6 +34,26 @@ export function createProjectService(runtime: ProjectRuntime): ProjectService {
         commands: input.commands,
         projectId: input.project_id,
       }),
+    createAssetFromBytes: async (input) =>
+      runtime.createAssetFromBytes({
+        assetId: input.asset_id,
+        bytesBase64: input.bytes_base64,
+        ...(input.height === undefined ? {} : { height: input.height }),
+        ...(input.kind === undefined ? {} : { kind: input.kind }),
+        ...(input.metadata === undefined ? {} : { metadata: input.metadata }),
+        mimeType: input.mime_type,
+        ...(input.original_filename === undefined
+          ? {}
+          : { originalFilename: input.original_filename }),
+        projectId: input.project_id,
+        ...(input.width === undefined ? {} : { width: input.width })
+      }),
+    createAssetFromUrl: async (input) =>
+      runtime.createAssetFromUrl({
+        assetId: input.asset_id,
+        projectId: input.project_id,
+        url: input.url
+      }),
     createProject: async (name) => runtime.createProject(name),
     inspectDesignSystem: async (projectId) =>
       toBridgeDesignSystemResult(runtime.inspectDesignSystem(projectId)),

@@ -7,3 +7,7 @@ export function createProjectId(): string {
 export function createDocumentId(): string {
   return `doc_${randomUUID()}`;
 }
+
+export function createAssetId(): string {
+  return `asset_${randomUUID()}`;
+}

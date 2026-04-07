@@ -12,6 +12,7 @@
     "build:app": "electron-vite build",
     "package:mac": "pnpm icon:build && pnpm build:app && node ./scripts/package-mac.mjs",
     "mcp:demo-slice": "node ./scripts/mcp-demo-vertical-slice.mjs",
+    "migrate:embedded-assets": "node ./scripts/migrate-embedded-assets.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src",
     "test": "pnpm --dir ../.. build:packages && vitest run"
