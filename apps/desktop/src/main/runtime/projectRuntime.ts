@@ -11,8 +11,8 @@ import {
   type DesignSystemInspection,
   type DocumentInspection,
   type SceneInspection,
-  type TreeNodeInspection
-} from "@ai-canvas/document-core";
+  type TreeNodeInspection,
+} from '@ai-canvas/document-core';
 import type {
   ActiveProject,
   ApplyCommandsInput,
@@ -23,16 +23,16 @@ import type {
   McpStatus,
   ProjectSummary,
   RuntimeCapabilities,
-  RuntimeEvent
-} from "@ai-canvas/ipc-contract";
-import { err, ok } from "@ai-canvas/ipc-contract";
+  RuntimeEvent,
+} from '@ai-canvas/ipc-contract';
+import { err, ok } from '@ai-canvas/ipc-contract';
 
 import type {
   HistoryMutationSource,
   ProjectHistory,
   ProjectHistoryEntry,
-  ProjectStore
-} from "./projectStore.js";
+  ProjectStore,
+} from './projectStore.js';
 
 type McpStatusProvider = {
   getStatus: () => McpStatus;
@@ -69,7 +69,7 @@ export type InspectNodeInput = {
 
 export type InspectNodeResult = {
   document_id: string;
-  node: ActiveProject["document"]["nodes"][string];
+  node: ActiveProject['document']['nodes'][string];
   project_id: string;
   revision: number;
 };
@@ -90,17 +90,17 @@ export type InspectDesignSystemResult = {
 
 export type ApplyProjectCommandsInput = {
   base_revision?: number;
-  commands: ApplyCommandsInput["commands"];
+  commands: ApplyCommandsInput['commands'];
   projectId?: string;
 };
 
 type ComputedLayoutRefreshResult = {
-  document: ActiveProject["document"];
-  layoutRefresh: CommandResult["layout_refresh"];
+  document: ActiveProject['document'];
+  layoutRefresh: CommandResult['layout_refresh'];
 };
 
 type ComputedLayoutRefresher = (
-  input: RefreshComputedLayoutInput
+  input: RefreshComputedLayoutInput,
 ) => Promise<ComputedLayoutRefreshResult>;
 
 const MAX_HISTORY_ENTRY_COUNT = 50;
@@ -108,7 +108,7 @@ const EMPTY_HISTORY_STATE: HistoryState = {
   canRedo: false,
   canUndo: false,
   redoDepth: 0,
-  undoDepth: 0
+  undoDepth: 0,
 };
 
 export class ProjectRuntime {
@@ -142,7 +142,9 @@ export class ProjectRuntime {
     try {
       const storedProject = this.store.createProject(name);
       this.activeSession = storedProject;
-      this.activeHistory = this.store.getProjectHistory(storedProject.project.id);
+      this.activeHistory = this.store.getProjectHistory(
+        storedProject.project.id,
+      );
       this.emitProjectsChanged();
       this.emitActiveProjectChanged();
       this.emitHistoryStateChanged();
@@ -150,8 +152,8 @@ export class ProjectRuntime {
       return ok(storedProject.project);
     } catch (error) {
       return err(
-        "internal_error",
-        error instanceof Error ? error.message : "Failed to create the project"
+        'internal_error',
+        error instanceof Error ? error.message : 'Failed to create the project',
       );
     }
   }
@@ -164,19 +166,19 @@ export class ProjectRuntime {
       const storedProject = this.store.getProject(projectId);
 
       if (!storedProject) {
-        return err("not_found", `Project ${projectId} does not exist`);
+        return err('not_found', `Project ${projectId} does not exist`);
       }
 
       const openedProject = this.store.markOpened(projectId);
 
       if (!openedProject) {
-        return err("not_found", `Project ${projectId} no longer exists`);
+        return err('not_found', `Project ${projectId} no longer exists`);
       }
 
       this.activeSession = {
         document: storedProject.document,
         project: openedProject,
-        revision: storedProject.revision
+        revision: storedProject.revision,
       };
       this.activeHistory = this.store.getProjectHistory(openedProject.id);
 
@@ -190,8 +192,8 @@ export class ProjectRuntime {
       this.activeSession = previousSession;
       this.activeHistory = previousHistory;
       return err(
-        "internal_error",
-        error instanceof Error ? error.message : "Failed to open the project"
+        'internal_error',
+        error instanceof Error ? error.message : 'Failed to open the project',
       );
     }
   }
@@ -210,7 +212,7 @@ export class ProjectRuntime {
 
   getMcpStatus(): AppResult<McpStatus> {
     if (!this.mcpStatusProvider) {
-      return err("internal_error", "MCP bridge has not been attached");
+      return err('internal_error', 'MCP bridge has not been attached');
     }
 
     return ok(this.mcpStatusProvider.getStatus());
@@ -227,7 +229,7 @@ export class ProjectRuntime {
       document: inspectDocument(resolvedProject.data.document),
       is_active: resolvedProject.data.isActive,
       project: resolvedProject.data.project,
-      revision: resolvedProject.data.revision
+      revision: resolvedProject.data.revision,
     });
   }
 
@@ -242,7 +244,10 @@ export class ProjectRuntime {
       input.rootNodeId === undefined
         ? inspectRootTree(resolvedProject.data.document)
         : (() => {
-            const subtree = inspectSubtree(resolvedProject.data.document, input.rootNodeId);
+            const subtree = inspectSubtree(
+              resolvedProject.data.document,
+              input.rootNodeId,
+            );
 
             if (!subtree) {
               return null;
@@ -252,7 +257,10 @@ export class ProjectRuntime {
           })();
 
     if (tree === null) {
-      return err("target_not_found", `Node ${input.rootNodeId} does not exist in the targeted project`);
+      return err(
+        'target_not_found',
+        `Node ${input.rootNodeId} does not exist in the targeted project`,
+      );
     }
 
     return ok({
@@ -260,7 +268,7 @@ export class ProjectRuntime {
       project_id: resolvedProject.data.project.id,
       revision: resolvedProject.data.revision,
       root_node_id: input.rootNodeId ?? null,
-      tree
+      tree,
     });
   }
 
@@ -271,17 +279,23 @@ export class ProjectRuntime {
       return resolvedProject;
     }
 
-    const node = inspectDocumentNode(resolvedProject.data.document, input.nodeId);
+    const node = inspectDocumentNode(
+      resolvedProject.data.document,
+      input.nodeId,
+    );
 
     if (!node) {
-      return err("target_not_found", `Node ${input.nodeId} does not exist in the targeted project`);
+      return err(
+        'target_not_found',
+        `Node ${input.nodeId} does not exist in the targeted project`,
+      );
     }
 
     return ok({
       document_id: resolvedProject.data.document.document_id,
       node,
       project_id: resolvedProject.data.project.id,
-      revision: resolvedProject.data.revision
+      revision: resolvedProject.data.revision,
     });
   }
 
@@ -296,11 +310,13 @@ export class ProjectRuntime {
       document_id: resolvedProject.data.document.document_id,
       project_id: resolvedProject.data.project.id,
       revision: resolvedProject.data.revision,
-      scenes: inspectDocumentScenes(resolvedProject.data.document)
+      scenes: inspectDocumentScenes(resolvedProject.data.document),
     });
   }
 
-  inspectDesignSystem(projectId?: string): AppResult<InspectDesignSystemResult> {
+  inspectDesignSystem(
+    projectId?: string,
+  ): AppResult<InspectDesignSystemResult> {
     const resolvedProject = this.resolveReadableProject(projectId);
 
     if (!resolvedProject.ok) {
@@ -311,15 +327,19 @@ export class ProjectRuntime {
       design_system: inspectDocumentDesignSystem(resolvedProject.data.document),
       document_id: resolvedProject.data.document.document_id,
       project_id: resolvedProject.data.project.id,
-      revision: resolvedProject.data.revision
+      revision: resolvedProject.data.revision,
     });
   }
 
-  async applyCommands(input: ApplyCommandsInput): Promise<AppResult<CommandResult>> {
-    return this.enqueueCommand(() => this.applyCommandsInternal(input, "ui"));
+  async applyCommands(
+    input: ApplyCommandsInput,
+  ): Promise<AppResult<CommandResult>> {
+    return this.enqueueCommand(() => this.applyCommandsInternal(input, 'ui'));
   }
 
-  async applyProjectCommands(input: ApplyProjectCommandsInput): Promise<AppResult<CommandResult>> {
+  async applyProjectCommands(
+    input: ApplyProjectCommandsInput,
+  ): Promise<AppResult<CommandResult>> {
     const writableSession = this.resolveWritableProject(input.projectId);
 
     if (!writableSession.ok) {
@@ -331,19 +351,23 @@ export class ProjectRuntime {
         {
           base_revision: input.base_revision,
           commands: input.commands,
-          document_id: writableSession.data.document.document_id
+          document_id: writableSession.data.document.document_id,
         },
-        "mcp"
-      )
+        'mcp',
+      ),
     );
   }
 
   async undo(): Promise<AppResult<CommandResult>> {
-    return this.enqueueCommand(() => this.applyHistoryTraversalInternal("undo"));
+    return this.enqueueCommand(() =>
+      this.applyHistoryTraversalInternal('undo'),
+    );
   }
 
   async redo(): Promise<AppResult<CommandResult>> {
-    return this.enqueueCommand(() => this.applyHistoryTraversalInternal("redo"));
+    return this.enqueueCommand(() =>
+      this.applyHistoryTraversalInternal('redo'),
+    );
   }
 
   setMeasurementSurfaceAvailable(value: boolean): void {
@@ -366,8 +390,8 @@ export class ProjectRuntime {
 
   publishMcpStatus(status: McpStatus): void {
     this.emitRuntimeEvent({
-      type: "mcp_status_changed",
-      mcpStatus: status
+      type: 'mcp_status_changed',
+      mcpStatus: status,
     });
   }
 
@@ -377,48 +401,59 @@ export class ProjectRuntime {
 
   private async applyCommandsInternal(
     input: ApplyCommandsInput,
-    source: HistoryMutationSource
+    source: HistoryMutationSource,
   ): Promise<AppResult<CommandResult>> {
     if (!this.activeSession) {
-      return err("not_found", "No active project session is open");
+      return err('not_found', 'No active project session is open');
     }
 
     if (input.document_id !== this.activeSession.document.document_id) {
-      return err("target_not_found", `Document ${input.document_id} is not the active document`);
+      return err(
+        'target_not_found',
+        `Document ${input.document_id} is not the active document`,
+      );
     }
 
     if (!this.hasMeasurementSurface()) {
       return err(
-        "measurement_surface_unavailable",
-        "Write-capable command execution requires an available renderer measurement surface"
+        'measurement_surface_unavailable',
+        'Write-capable command execution requires an available renderer measurement surface',
       );
     }
 
     const preEditSnapshot = this.createHistoryEntry(
       this.activeSession.document,
       source,
-      this.activeSession.revision
+      this.activeSession.revision,
     );
-    let layoutRefresh: CommandResult["layout_refresh"] = {
-      status: "not_required"
+    let layoutRefresh: CommandResult['layout_refresh'] = {
+      status: 'not_required',
     };
     let commandResult: Awaited<ReturnType<typeof applyDocumentCommands>>;
     const computedLayoutRefresher = this.computedLayoutRefresher;
 
     try {
-      commandResult = await applyDocumentCommands(this.activeSession.document, input, {
-        currentRevision: this.activeSession.revision,
-        measurementSurfaceAvailable: true,
-        refreshComputedLayout: computedLayoutRefresher
-          ? async (refreshInput) => {
-              const refreshedDocument = await computedLayoutRefresher(refreshInput);
-              layoutRefresh = refreshedDocument.layoutRefresh;
-              return refreshedDocument.document;
-            }
-          : undefined
-      });
+      commandResult = await applyDocumentCommands(
+        this.activeSession.document,
+        input,
+        {
+          currentRevision: this.activeSession.revision,
+          measurementSurfaceAvailable: true,
+          refreshComputedLayout: computedLayoutRefresher
+            ? async (refreshInput) => {
+                const refreshedDocument =
+                  await computedLayoutRefresher(refreshInput);
+                layoutRefresh = refreshedDocument.layoutRefresh;
+                return refreshedDocument.document;
+              }
+            : undefined,
+        },
+      );
     } catch (error) {
-      return err(resolveRuntimeErrorCode(error), resolveRuntimeErrorMessage(error));
+      return err(
+        resolveRuntimeErrorCode(error),
+        resolveRuntimeErrorMessage(error),
+      );
     }
 
     if (!commandResult.ok) {
@@ -428,38 +463,43 @@ export class ProjectRuntime {
     if (commandResult.revision === this.activeSession.revision) {
       return ok({
         document_id: commandResult.document_id,
-        ...(commandResult.effects === undefined ? {} : { effects: commandResult.effects }),
+        ...(commandResult.effects === undefined
+          ? {}
+          : { effects: commandResult.effects }),
         layout_refresh: layoutRefresh,
-        revision: this.activeSession.revision
+        revision: this.activeSession.revision,
       });
     }
 
     const nextHistory = trimHistory({
       redo: [],
-      undo: [...this.activeHistory.undo, preEditSnapshot]
+      undo: [...this.activeHistory.undo, preEditSnapshot],
     });
     const persistedProject = this.store.saveProjectDocument(
       this.activeSession.project.id,
       commandResult.document,
       this.activeSession.revision,
-      nextHistory
+      nextHistory,
     );
 
     if (!persistedProject.ok) {
-      if (persistedProject.code === "not_found") {
-        return err("not_found", `Project ${this.activeSession.project.id} no longer exists`);
+      if (persistedProject.code === 'not_found') {
+        return err(
+          'not_found',
+          `Project ${this.activeSession.project.id} no longer exists`,
+        );
       }
 
       return err(
-        "revision_conflict",
-        `Project ${this.activeSession.project.id} changed while applying commands`
+        'revision_conflict',
+        `Project ${this.activeSession.project.id} changed while applying commands`,
       );
     }
 
     this.activeSession = {
       document: commandResult.document,
       project: persistedProject.project,
-      revision: persistedProject.revision
+      revision: persistedProject.revision,
     };
     this.activeHistory = nextHistory;
 
@@ -470,44 +510,47 @@ export class ProjectRuntime {
 
     return ok({
       document_id: commandResult.document_id,
-      ...(commandResult.effects === undefined ? {} : { effects: commandResult.effects }),
+      ...(commandResult.effects === undefined
+        ? {}
+        : { effects: commandResult.effects }),
       layout_refresh: layoutRefresh,
-      revision: persistedProject.revision
+      revision: persistedProject.revision,
     });
   }
 
   private async applyHistoryTraversalInternal(
-    operation: "undo" | "redo"
+    operation: 'undo' | 'redo',
   ): Promise<AppResult<CommandResult>> {
     if (!this.activeSession) {
-      return err("not_found", "No active project session is open");
+      return err('not_found', 'No active project session is open');
     }
 
     if (!this.hasMeasurementSurface()) {
       return err(
-        "measurement_surface_unavailable",
-        "Write-capable command execution requires an available renderer measurement surface"
+        'measurement_surface_unavailable',
+        'Write-capable command execution requires an available renderer measurement surface',
       );
     }
 
-    const sourceStack = operation === "undo" ? this.activeHistory.undo : this.activeHistory.redo;
+    const sourceStack =
+      operation === 'undo' ? this.activeHistory.undo : this.activeHistory.redo;
 
     if (sourceStack.length === 0) {
-      return err("validation_failed", `No ${operation} history is available`);
+      return err('validation_failed', `No ${operation} history is available`);
     }
 
     const targetEntry = sourceStack[sourceStack.length - 1];
     const currentSnapshotEntry = this.createHistoryEntry(
       this.activeSession.document,
-      "ui",
-      this.activeSession.revision
+      'ui',
+      this.activeSession.revision,
     );
     const computedLayoutRefresher = this.computedLayoutRefresher;
-    let layoutRefresh: CommandResult["layout_refresh"] = {
-      status: "not_required"
+    let layoutRefresh: CommandResult['layout_refresh'] = {
+      status: 'not_required',
     };
 
-    let restoredDocument: ActiveProject["document"];
+    let restoredDocument: ActiveProject['document'];
 
     try {
       restoredDocument = await finalizeCommittedDocument(targetEntry.document, {
@@ -515,48 +558,55 @@ export class ProjectRuntime {
         measurementSurfaceAvailable: true,
         refreshComputedLayout: computedLayoutRefresher
           ? async (refreshInput) => {
-              const refreshedDocument = await computedLayoutRefresher(refreshInput);
+              const refreshedDocument =
+                await computedLayoutRefresher(refreshInput);
               layoutRefresh = refreshedDocument.layoutRefresh;
               return refreshedDocument.document;
             }
-          : undefined
+          : undefined,
       });
     } catch (error) {
-      return err(resolveRuntimeErrorCode(error), resolveRuntimeErrorMessage(error));
+      return err(
+        resolveRuntimeErrorCode(error),
+        resolveRuntimeErrorMessage(error),
+      );
     }
 
     const nextHistory =
-      operation === "undo"
+      operation === 'undo'
         ? {
             redo: [...this.activeHistory.redo, currentSnapshotEntry],
-            undo: this.activeHistory.undo.slice(0, -1)
+            undo: this.activeHistory.undo.slice(0, -1),
           }
         : {
             redo: this.activeHistory.redo.slice(0, -1),
-            undo: [...this.activeHistory.undo, currentSnapshotEntry]
+            undo: [...this.activeHistory.undo, currentSnapshotEntry],
           };
     const persistedProject = this.store.saveProjectDocument(
       this.activeSession.project.id,
       restoredDocument,
       this.activeSession.revision,
-      nextHistory
+      nextHistory,
     );
 
     if (!persistedProject.ok) {
-      if (persistedProject.code === "not_found") {
-        return err("not_found", `Project ${this.activeSession.project.id} no longer exists`);
+      if (persistedProject.code === 'not_found') {
+        return err(
+          'not_found',
+          `Project ${this.activeSession.project.id} no longer exists`,
+        );
       }
 
       return err(
-        "revision_conflict",
-        `Project ${this.activeSession.project.id} changed while applying ${operation}`
+        'revision_conflict',
+        `Project ${this.activeSession.project.id} changed while applying ${operation}`,
       );
     }
 
     this.activeSession = {
       document: restoredDocument,
       project: persistedProject.project,
-      revision: persistedProject.revision
+      revision: persistedProject.revision,
     };
     this.activeHistory = nextHistory;
 
@@ -568,20 +618,20 @@ export class ProjectRuntime {
     return ok({
       document_id: restoredDocument.document_id,
       layout_refresh: layoutRefresh,
-      revision: persistedProject.revision
+      revision: persistedProject.revision,
     });
   }
 
   private createHistoryEntry(
-    document: ActiveProject["document"],
+    document: ActiveProject['document'],
     source: HistoryMutationSource,
-    sourceRevision: number
+    sourceRevision: number,
   ): ProjectHistoryEntry {
     return {
       committed_at: new Date().toISOString(),
       document: structuredClone(document),
       source,
-      source_revision: sourceRevision
+      source_revision: sourceRevision,
     };
   }
 
@@ -594,36 +644,43 @@ export class ProjectRuntime {
       canRedo: this.activeHistory.redo.length > 0,
       canUndo: this.activeHistory.undo.length > 0,
       redoDepth: this.activeHistory.redo.length,
-      undoDepth: this.activeHistory.undo.length
+      undoDepth: this.activeHistory.undo.length,
     };
   }
 
   private buildRuntimeCapabilities(): RuntimeCapabilities {
-    const runtimeState = this.activeSession ? "editor_open_clean" : "no_project_open";
-    const mode = this.activeSession && this.hasMeasurementSurface() ? "read_write" : "read_only";
+    const runtimeState = this.activeSession
+      ? 'editor_open_clean'
+      : 'no_project_open';
+    const mode =
+      this.activeSession && this.hasMeasurementSurface()
+        ? 'read_write'
+        : 'read_only';
 
     return {
       measurementSurfaceAvailable: this.hasMeasurementSurface(),
       mode,
-      runtimeState
+      runtimeState,
     };
   }
 
   private hasMeasurementSurface(): boolean {
-    return this.measurementSurfaceAvailable && this.computedLayoutRefresher !== null;
+    return (
+      this.measurementSurfaceAvailable && this.computedLayoutRefresher !== null
+    );
   }
 
   private emitProjectsChanged(): void {
     this.emitRuntimeEvent({
-      type: "projects_changed",
-      projects: this.store.listProjects()
+      type: 'projects_changed',
+      projects: this.store.listProjects(),
     });
   }
 
   private emitActiveProjectChanged(): void {
     this.emitRuntimeEvent({
-      type: "active_project_changed",
-      activeProject: this.activeSession
+      type: 'active_project_changed',
+      activeProject: this.activeSession,
     });
   }
 
@@ -637,21 +694,21 @@ export class ProjectRuntime {
       project: this.activeSession.project,
       revision: this.activeSession.revision,
       runtimeCapabilities: this.buildRuntimeCapabilities(),
-      type: "document_changed"
+      type: 'document_changed',
     });
   }
 
   private emitHistoryStateChanged(): void {
     this.emitRuntimeEvent({
       historyState: this.buildHistoryState(),
-      type: "history_state_changed"
+      type: 'history_state_changed',
     });
   }
 
   private emitRuntimeCapabilitiesChanged(): void {
     this.emitRuntimeEvent({
-      type: "runtime_capabilities_changed",
-      runtimeCapabilities: this.buildRuntimeCapabilities()
+      type: 'runtime_capabilities_changed',
+      runtimeCapabilities: this.buildRuntimeCapabilities(),
     });
   }
 
@@ -666,52 +723,57 @@ export class ProjectRuntime {
 
     this.commandQueue = queuedOperation.then(
       () => undefined,
-      () => undefined
+      () => undefined,
     );
 
     return queuedOperation;
   }
 
-  private resolveReadableProject(projectId?: string): AppResult<ReadableProjectSession> {
+  private resolveReadableProject(
+    projectId?: string,
+  ): AppResult<ReadableProjectSession> {
     if (projectId === undefined) {
       if (!this.activeSession) {
-        return err("not_found", "No active project session is open");
+        return err('not_found', 'No active project session is open');
       }
 
       return ok({
         ...this.activeSession,
-        isActive: true
+        isActive: true,
       });
     }
 
     if (this.activeSession?.project.id === projectId) {
       return ok({
         ...this.activeSession,
-        isActive: true
+        isActive: true,
       });
     }
 
     const storedProject = this.store.getProject(projectId);
 
     if (!storedProject) {
-      return err("not_found", `Project ${projectId} does not exist`);
+      return err('not_found', `Project ${projectId} does not exist`);
     }
 
     return ok({
       ...storedProject,
-      isActive: false
+      isActive: false,
     });
   }
 
   private resolveWritableProject(projectId?: string): AppResult<ActiveProject> {
     if (!this.activeSession) {
-      return err("not_found", "No active project session is open");
+      return err('not_found', 'No active project session is open');
     }
 
-    if (projectId !== undefined && this.activeSession.project.id !== projectId) {
+    if (
+      projectId !== undefined &&
+      this.activeSession.project.id !== projectId
+    ) {
       return err(
-        "not_found",
-        `Project ${projectId} is not the active project session. Use open_project first.`
+        'not_found',
+        `Project ${projectId} is not the active project session. Use open_project first.`,
       );
     }
 
@@ -725,46 +787,51 @@ export function createProjectRuntime(store: ProjectStore): ProjectRuntime {
 
 function resolveRuntimeErrorCode(error: unknown): AppErrorCode {
   if (
-    typeof error === "object" &&
+    typeof error === 'object' &&
     error !== null &&
-    "code" in error &&
-    typeof (error as { code: unknown }).code === "string"
+    'code' in error &&
+    typeof (error as { code: unknown }).code === 'string'
   ) {
     switch ((error as { code: string }).code) {
-      case "internal_error":
-      case "measurement_surface_unavailable":
-      case "not_found":
-      case "not_implemented":
-      case "revision_conflict":
-      case "target_not_found":
-      case "unknown_command":
-      case "unrecoverable_command":
-      case "validation_failed":
+      case 'internal_error':
+      case 'measurement_surface_unavailable':
+      case 'not_found':
+      case 'not_implemented':
+      case 'revision_conflict':
+      case 'target_not_found':
+      case 'unknown_command':
+      case 'unrecoverable_command':
+      case 'validation_failed':
         return (error as { code: AppErrorCode }).code;
     }
   }
 
-  return "internal_error";
+  return 'internal_error';
 }
 
 function resolveRuntimeErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Failed to refresh computed layout";
+  return error instanceof Error
+    ? error.message
+    : 'Failed to refresh computed layout';
 }
 
 function createEmptyHistory(): ProjectHistory {
   return {
     redo: [],
-    undo: []
+    undo: [],
   };
 }
 
 function trimHistory(history: ProjectHistory): ProjectHistory {
   const trimmedHistory: ProjectHistory = {
     redo: [...history.redo],
-    undo: [...history.undo]
+    undo: [...history.undo],
   };
 
-  while (trimmedHistory.undo.length + trimmedHistory.redo.length > MAX_HISTORY_ENTRY_COUNT) {
+  while (
+    trimmedHistory.undo.length + trimmedHistory.redo.length >
+    MAX_HISTORY_ENTRY_COUNT
+  ) {
     if (trimmedHistory.undo.length > 0) {
       trimmedHistory.undo.shift();
       continue;

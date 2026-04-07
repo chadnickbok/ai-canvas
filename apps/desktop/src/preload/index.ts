@@ -1,26 +1,26 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer } from 'electron';
 
 import type {
   DesktopApi,
   LayoutMeasurementRequest,
-  RuntimeEvent
-} from "@ai-canvas/ipc-contract";
+  RuntimeEvent,
+} from '@ai-canvas/ipc-contract';
 
 const appChannelNames = {
-  applyCommands: "app:applyCommands",
-  createProject: "app:createProject",
-  getActiveProject: "app:getActiveProject",
-  getHistoryState: "app:getHistoryState",
-  getMcpStatus: "app:getMcpStatus",
-  getRuntimeCapabilities: "app:getRuntimeCapabilities",
-  layoutMeasurementRequest: "app:layoutMeasurementRequest",
-  listProjects: "app:listProjects",
-  openExternalUrl: "app:openExternalUrl",
-  openProject: "app:openProject",
-  redo: "app:redo",
-  submitLayoutMeasurementResult: "app:submitLayoutMeasurementResult",
-  undo: "app:undo",
-  runtimeEvent: "app:runtimeEvent"
+  applyCommands: 'app:applyCommands',
+  createProject: 'app:createProject',
+  getActiveProject: 'app:getActiveProject',
+  getHistoryState: 'app:getHistoryState',
+  getMcpStatus: 'app:getMcpStatus',
+  getRuntimeCapabilities: 'app:getRuntimeCapabilities',
+  layoutMeasurementRequest: 'app:layoutMeasurementRequest',
+  listProjects: 'app:listProjects',
+  openExternalUrl: 'app:openExternalUrl',
+  openProject: 'app:openProject',
+  redo: 'app:redo',
+  submitLayoutMeasurementResult: 'app:submitLayoutMeasurementResult',
+  undo: 'app:undo',
+  runtimeEvent: 'app:runtimeEvent',
 } as const;
 
 const api: DesktopApi = {
@@ -55,12 +55,15 @@ const api: DesktopApi = {
     return ipcRenderer.invoke(appChannelNames.redo, {});
   },
   async submitLayoutMeasurementResult(input) {
-    return ipcRenderer.invoke(appChannelNames.submitLayoutMeasurementResult, input);
+    return ipcRenderer.invoke(
+      appChannelNames.submitLayoutMeasurementResult,
+      input,
+    );
   },
   subscribeToLayoutMeasurementRequests(listener) {
     const wrappedListener = (
       _event: Electron.IpcRendererEvent,
-      request: LayoutMeasurementRequest
+      request: LayoutMeasurementRequest,
     ) => {
       listener(request);
     };
@@ -68,11 +71,17 @@ const api: DesktopApi = {
     ipcRenderer.on(appChannelNames.layoutMeasurementRequest, wrappedListener);
 
     return () => {
-      ipcRenderer.off(appChannelNames.layoutMeasurementRequest, wrappedListener);
+      ipcRenderer.off(
+        appChannelNames.layoutMeasurementRequest,
+        wrappedListener,
+      );
     };
   },
   subscribeToRuntimeEvents(listener) {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, runtimeEvent: RuntimeEvent) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      runtimeEvent: RuntimeEvent,
+    ) => {
       listener(runtimeEvent);
     };
 
@@ -84,7 +93,7 @@ const api: DesktopApi = {
   },
   async undo() {
     return ipcRenderer.invoke(appChannelNames.undo, {});
-  }
+  },
 };
 
-contextBridge.exposeInMainWorld("aiCanvasApi", api);
+contextBridge.exposeInMainWorld('aiCanvasApi', api);

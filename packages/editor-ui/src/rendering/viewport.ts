@@ -1,6 +1,10 @@
-import type { RenderStyleValue, RendererDocument, RendererNode } from "@ai-canvas/document-core";
+import type {
+  RenderStyleValue,
+  RendererDocument,
+  RendererNode,
+} from '@ai-canvas/document-core';
 
-import type { ViewportState } from "./types.js";
+import type { ViewportState } from './types.js';
 
 export type CanvasBounds = {
   height: number;
@@ -17,7 +21,7 @@ export type ViewportSize = {
 export const DEFAULT_VIEWPORT: ViewportState = {
   panX: 0,
   panY: 0,
-  zoom: 1
+  zoom: 1,
 };
 
 export const DEFAULT_VIEWPORT_FIT_PADDING = 64;
@@ -38,7 +42,7 @@ export function formatViewportZoomPercent(zoom: number): string {
 }
 
 export function parseViewportZoomPercent(input: string): number | null {
-  const normalized = input.trim().replace(/%$/, "");
+  const normalized = input.trim().replace(/%$/, '');
 
   if (!normalized) {
     return null;
@@ -53,7 +57,9 @@ export function parseViewportZoomPercent(input: string): number | null {
   return clampViewportZoom(parsed / 100);
 }
 
-export function resolveTopLevelContentBounds(document: RendererDocument): CanvasBounds | null {
+export function resolveTopLevelContentBounds(
+  document: RendererDocument,
+): CanvasBounds | null {
   let aggregatedBounds: CanvasBounds | null = null;
 
   for (const childId of document.root.child_ids) {
@@ -69,7 +75,9 @@ export function resolveTopLevelContentBounds(document: RendererDocument): Canvas
       continue;
     }
 
-    aggregatedBounds = aggregatedBounds ? unionCanvasBounds(aggregatedBounds, nodeBounds) : nodeBounds;
+    aggregatedBounds = aggregatedBounds
+      ? unionCanvasBounds(aggregatedBounds, nodeBounds)
+      : nodeBounds;
   }
 
   return aggregatedBounds;
@@ -82,7 +90,7 @@ export function createViewportForContentBounds(
     maxZoom?: number;
     padding?: number;
     zoom?: number;
-  }
+  },
 ): ViewportState {
   const padding = options?.padding ?? DEFAULT_VIEWPORT_FIT_PADDING;
   const maxZoom = clampViewportZoom(options?.maxZoom ?? DEFAULT_VIEWPORT.zoom);
@@ -94,7 +102,11 @@ export function createViewportForContentBounds(
   }
 
   if (!bounds) {
-    return centerViewportOnPoint(DEFAULT_DOCUMENT_CENTER, viewportSize, options?.zoom ?? DEFAULT_VIEWPORT.zoom);
+    return centerViewportOnPoint(
+      DEFAULT_DOCUMENT_CENTER,
+      viewportSize,
+      options?.zoom ?? DEFAULT_VIEWPORT.zoom,
+    );
   }
 
   const nextZoom =
@@ -103,31 +115,35 @@ export function createViewportForContentBounds(
       Math.min(
         viewportWidth / Math.max(bounds.width + padding * 2, 1),
         viewportHeight / Math.max(bounds.height + padding * 2, 1),
-        maxZoom
-      )
+        maxZoom,
+      ),
     );
 
-  return centerViewportOnPoint(getCanvasBoundsCenter(bounds), viewportSize, nextZoom);
+  return centerViewportOnPoint(
+    getCanvasBoundsCenter(bounds),
+    viewportSize,
+    nextZoom,
+  );
 }
 
 export function centerViewportOnPoint(
   point: { x: number; y: number },
   viewportSize: ViewportSize,
-  zoom: number
+  zoom: number,
 ): ViewportState {
   const normalizedZoom = clampViewportZoom(zoom);
 
   return {
     panX: viewportSize.width / 2 - point.x * normalizedZoom,
     panY: viewportSize.height / 2 - point.y * normalizedZoom,
-    zoom: normalizedZoom
+    zoom: normalizedZoom,
   };
 }
 
 export function zoomViewportAroundPoint(
   viewport: ViewportState,
   point: { x: number; y: number },
-  nextZoom: number
+  nextZoom: number,
 ): ViewportState {
   const normalizedZoom = clampViewportZoom(nextZoom);
 
@@ -141,7 +157,7 @@ export function zoomViewportAroundPoint(
   return {
     panX: point.x - documentX * normalizedZoom,
     panY: point.y - documentY * normalizedZoom,
-    zoom: normalizedZoom
+    zoom: normalizedZoom,
   };
 }
 
@@ -149,13 +165,15 @@ export function isCanvasBoundsFullyVisible(
   viewport: ViewportState,
   bounds: CanvasBounds,
   viewportSize: ViewportSize,
-  padding = 0
+  padding = 0,
 ): boolean {
   const normalizedZoom = clampViewportZoom(viewport.zoom);
   const visibleLeft = (-viewport.panX + padding) / normalizedZoom;
   const visibleTop = (-viewport.panY + padding) / normalizedZoom;
-  const visibleRight = (viewportSize.width - viewport.panX - padding) / normalizedZoom;
-  const visibleBottom = (viewportSize.height - viewport.panY - padding) / normalizedZoom;
+  const visibleRight =
+    (viewportSize.width - viewport.panX - padding) / normalizedZoom;
+  const visibleBottom =
+    (viewportSize.height - viewport.panY - padding) / normalizedZoom;
 
   return (
     bounds.x >= visibleLeft &&
@@ -171,38 +189,55 @@ export function revealCanvasBounds(
   viewportSize: ViewportSize,
   options?: {
     padding?: number;
-  }
+  },
 ): ViewportState {
   const normalizedZoom = clampViewportZoom(viewport.zoom);
   const padding = Math.max(0, options?.padding ?? 0);
   const horizontalPadding = padding / normalizedZoom;
   const verticalPadding = padding / normalizedZoom;
-  const paddedViewportWidth = Math.max(1 / normalizedZoom, viewportSize.width / normalizedZoom - horizontalPadding * 2);
+  const paddedViewportWidth = Math.max(
+    1 / normalizedZoom,
+    viewportSize.width / normalizedZoom - horizontalPadding * 2,
+  );
   const paddedViewportHeight = Math.max(
     1 / normalizedZoom,
-    viewportSize.height / normalizedZoom - verticalPadding * 2
+    viewportSize.height / normalizedZoom - verticalPadding * 2,
   );
   const currentVisibleLeft = -viewport.panX / normalizedZoom;
   const currentVisibleTop = -viewport.panY / normalizedZoom;
-  const currentVisibleRight = currentVisibleLeft + viewportSize.width / normalizedZoom;
-  const currentVisibleBottom = currentVisibleTop + viewportSize.height / normalizedZoom;
+  const currentVisibleRight =
+    currentVisibleLeft + viewportSize.width / normalizedZoom;
+  const currentVisibleBottom =
+    currentVisibleTop + viewportSize.height / normalizedZoom;
   let nextPanX = viewport.panX;
   let nextPanY = viewport.panY;
 
   if (bounds.width > paddedViewportWidth) {
-    nextPanX = viewportSize.width / 2 - (bounds.x + bounds.width / 2) * normalizedZoom;
+    nextPanX =
+      viewportSize.width / 2 - (bounds.x + bounds.width / 2) * normalizedZoom;
   } else if (bounds.x < currentVisibleLeft + horizontalPadding) {
     nextPanX = padding - bounds.x * normalizedZoom;
-  } else if (bounds.x + bounds.width > currentVisibleRight - horizontalPadding) {
-    nextPanX = viewportSize.width - padding - (bounds.x + bounds.width) * normalizedZoom;
+  } else if (
+    bounds.x + bounds.width >
+    currentVisibleRight - horizontalPadding
+  ) {
+    nextPanX =
+      viewportSize.width - padding - (bounds.x + bounds.width) * normalizedZoom;
   }
 
   if (bounds.height > paddedViewportHeight) {
-    nextPanY = viewportSize.height / 2 - (bounds.y + bounds.height / 2) * normalizedZoom;
+    nextPanY =
+      viewportSize.height / 2 - (bounds.y + bounds.height / 2) * normalizedZoom;
   } else if (bounds.y < currentVisibleTop + verticalPadding) {
     nextPanY = padding - bounds.y * normalizedZoom;
-  } else if (bounds.y + bounds.height > currentVisibleBottom - verticalPadding) {
-    nextPanY = viewportSize.height - padding - (bounds.y + bounds.height) * normalizedZoom;
+  } else if (
+    bounds.y + bounds.height >
+    currentVisibleBottom - verticalPadding
+  ) {
+    nextPanY =
+      viewportSize.height -
+      padding -
+      (bounds.y + bounds.height) * normalizedZoom;
   }
 
   if (nextPanX === viewport.panX && nextPanY === viewport.panY) {
@@ -212,20 +247,20 @@ export function revealCanvasBounds(
   return {
     ...viewport,
     panX: nextPanX,
-    panY: nextPanY
+    panY: nextPanY,
   };
 }
 
 function resolveTopLevelNode(
   document: RendererDocument,
-  childId: string
+  childId: string,
 ): RendererNode | null {
   const scene = document.scenes[childId];
 
   if (scene) {
     const frameNode = document.nodes[scene.id];
 
-    return frameNode && frameNode.kind === "frame" ? frameNode : null;
+    return frameNode && frameNode.kind === 'frame' ? frameNode : null;
   }
 
   const topLevelNode = document.nodes[childId];
@@ -234,10 +269,19 @@ function resolveTopLevelNode(
 }
 
 function resolveNodeCanvasBounds(node: RendererNode): CanvasBounds | null {
-  const x = resolveCanvasNumber(node.render_style.left, node.computed_layout?.x);
+  const x = resolveCanvasNumber(
+    node.render_style.left,
+    node.computed_layout?.x,
+  );
   const y = resolveCanvasNumber(node.render_style.top, node.computed_layout?.y);
-  const width = resolveCanvasNumber(node.render_style.width, node.computed_layout?.width);
-  const height = resolveCanvasNumber(node.render_style.height, node.computed_layout?.height);
+  const width = resolveCanvasNumber(
+    node.render_style.width,
+    node.computed_layout?.width,
+  );
+  const height = resolveCanvasNumber(
+    node.render_style.height,
+    node.computed_layout?.height,
+  );
 
   if (x === null || y === null || width === null || height === null) {
     return null;
@@ -247,13 +291,13 @@ function resolveNodeCanvasBounds(node: RendererNode): CanvasBounds | null {
     height,
     width,
     x,
-    y
+    y,
   };
 }
 
 function resolveCanvasNumber(
   value: RenderStyleValue | undefined,
-  fallback: number | undefined
+  fallback: number | undefined,
 ): number | null {
   const authoredValue = resolveFiniteCanvasNumber(value);
 
@@ -261,15 +305,19 @@ function resolveCanvasNumber(
     return authoredValue;
   }
 
-  return typeof fallback === "number" && Number.isFinite(fallback) ? fallback : null;
+  return typeof fallback === 'number' && Number.isFinite(fallback)
+    ? fallback
+    : null;
 }
 
-function resolveFiniteCanvasNumber(value: RenderStyleValue | undefined): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
+function resolveFiniteCanvasNumber(
+  value: RenderStyleValue | undefined,
+): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
 
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
 
@@ -288,7 +336,10 @@ function resolveFiniteCanvasNumber(value: RenderStyleValue | undefined): number 
   return null;
 }
 
-function unionCanvasBounds(left: CanvasBounds, right: CanvasBounds): CanvasBounds {
+function unionCanvasBounds(
+  left: CanvasBounds,
+  right: CanvasBounds,
+): CanvasBounds {
   const minX = Math.min(left.x, right.x);
   const minY = Math.min(left.y, right.y);
   const maxX = Math.max(left.x + left.width, right.x + right.width);
@@ -298,13 +349,13 @@ function unionCanvasBounds(left: CanvasBounds, right: CanvasBounds): CanvasBound
     height: maxY - minY,
     width: maxX - minX,
     x: minX,
-    y: minY
+    y: minY,
   };
 }
 
 function getCanvasBoundsCenter(bounds: CanvasBounds): { x: number; y: number } {
   return {
     x: bounds.x + bounds.width / 2,
-    y: bounds.y + bounds.height / 2
+    y: bounds.y + bounds.height / 2,
   };
 }
