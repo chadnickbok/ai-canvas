@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -21,6 +21,11 @@ import { ProjectStore } from "./projectStore";
 
 const cleanupPaths: string[] = [];
 const activeBridges: LocalMcpBridge[] = [];
+const TINY_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4ZcAAAAASUVORK5CYII=";
+const TINY_PNG_BYTES = Buffer.from(TINY_PNG_BASE64, "base64");
+const TINY_PNG_HASH =
+  "e9cd408c8c8d0c2b28cff985d699b60d1dd970785342f19eeaac21a1060cc1d0";
 
 afterEach(async () => {
   await Promise.all(activeBridges.splice(0).map((bridge) => bridge.stop()));
@@ -123,6 +128,17 @@ function resolveFiniteCanvasNumber(value: RendererDocument["nodes"][string]["ren
   }
 
   return null;
+}
+
+function createMockAssetUrlDownloader() {
+  return async () =>
+    ok({
+      bytes: TINY_PNG_BYTES,
+      height: 1,
+      mimeType: "image/png" as const,
+      originalFilename: "logo.png",
+      width: 1
+    });
 }
 
 describe("ProjectRuntime", () => {
@@ -383,6 +399,195 @@ describe("ProjectRuntime", () => {
       },
       type: "history_state_changed"
     });
+
+    store.close();
+  });
+
+  it("creates project-local assets from bytes, persists them on disk, and resolves them for rendering", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-assets-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store);
+    const created = runtime.createProject("Asset Project");
+
+    if (!created.ok) {
+      throw new Error(created.error.message);
+    }
+
+    attachTestComputedLayoutRefresher(runtime);
+    runtime.setMeasurementSurfaceAvailable(true);
+
+    const createdAsset = await runtime.createAssetFromBytes({
+      assetId: "asset_logo",
+      bytesBase64: TINY_PNG_BASE64,
+      height: 1,
+      kind: "image",
+      mimeType: "image/png",
+      originalFilename: "logo.png",
+      width: 1
+    });
+
+    expect(createdAsset.ok).toBe(true);
+
+    if (!createdAsset.ok) {
+      throw new Error(createdAsset.error.message);
+    }
+
+    expect(createdAsset.data).toEqual({
+      asset_id: "asset_logo",
+      content_hash: TINY_PNG_HASH,
+      kind: "image",
+      mime_type: "image/png",
+      revision: 2,
+      size_bytes: 68,
+      source: {
+        content_hash: TINY_PNG_HASH,
+        kind: "asset_store",
+        original_filename: "logo.png"
+      }
+    });
+
+    const activeProject = runtime.getActiveProject();
+
+    expect(activeProject.ok).toBe(true);
+
+    if (!activeProject.ok || !activeProject.data) {
+      throw new Error("Expected the active project session to remain available");
+    }
+
+    expect(activeProject.data.document.assets.asset_logo).toEqual({
+      height: 1,
+      id: "asset_logo",
+      kind: "image",
+      mime_type: "image/png",
+      source: {
+        content_hash: TINY_PNG_HASH,
+        kind: "asset_store",
+        original_filename: "logo.png"
+      },
+      width: 1
+    });
+    expect(activeProject.data.resolved_assets.asset_logo?.url).toContain(
+      "ai-canvas-asset://project/"
+    );
+
+    const assetPath = store.resolveAssetFilePath(created.data.id, "asset_logo");
+
+    expect(assetPath).not.toBeNull();
+    expect(await readFile(assetPath ?? "", "base64")).toBe(TINY_PNG_BASE64);
+
+    const duplicateAsset = await runtime.createAssetFromBytes({
+      assetId: "asset_logo",
+      bytesBase64: TINY_PNG_BASE64,
+      mimeType: "image/png"
+    });
+
+    expect(duplicateAsset).toEqual(
+      err("validation_failed", "Asset asset_logo already exists")
+    );
+
+    store.close();
+  });
+
+  it("creates project-local assets from a public image URL and resolves them for rendering", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-assets-url-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store, {
+      assetUrlDownloader: createMockAssetUrlDownloader()
+    });
+    const created = runtime.createProject("Asset URL Project");
+
+    if (!created.ok) {
+      throw new Error(created.error.message);
+    }
+
+    attachTestComputedLayoutRefresher(runtime);
+    runtime.setMeasurementSurfaceAvailable(true);
+
+    const createdAsset = await runtime.createAssetFromUrl({
+      assetId: "asset_logo",
+      url: "https://cdn.example.test/logo.png"
+    });
+
+    expect(createdAsset.ok).toBe(true);
+
+    if (!createdAsset.ok) {
+      throw new Error(createdAsset.error.message);
+    }
+
+    expect(createdAsset.data).toEqual({
+      asset_id: "asset_logo",
+      content_hash: TINY_PNG_HASH,
+      kind: "image",
+      mime_type: "image/png",
+      revision: 2,
+      size_bytes: 68,
+      source: {
+        content_hash: TINY_PNG_HASH,
+        kind: "asset_store",
+        original_filename: "logo.png"
+      }
+    });
+
+    const activeProject = runtime.getActiveProject();
+
+    expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
+      height: 1,
+      id: "asset_logo",
+      kind: "image",
+      mime_type: "image/png",
+      source: {
+        content_hash: TINY_PNG_HASH,
+        kind: "asset_store",
+        original_filename: "logo.png"
+      },
+      width: 1
+    });
+
+    store.close();
+  });
+
+  it("rejects asset creation while the runtime is read-only", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-assets-readonly-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store, {
+      assetUrlDownloader: createMockAssetUrlDownloader()
+    });
+    const created = runtime.createProject("Read Only Assets");
+
+    if (!created.ok) {
+      throw new Error(created.error.message);
+    }
+
+    attachTestComputedLayoutRefresher(runtime);
+
+    await expect(
+      runtime.createAssetFromBytes({
+        bytesBase64: TINY_PNG_BASE64,
+        mimeType: "image/png"
+      })
+    ).resolves.toEqual(
+      err(
+        "measurement_surface_unavailable",
+        "Write-capable command execution requires an available renderer measurement surface"
+      )
+    );
+
+    await expect(
+      runtime.createAssetFromUrl({
+        url: "https://cdn.example.test/logo.png"
+      })
+    ).resolves.toEqual(
+      err(
+        "measurement_surface_unavailable",
+        "Write-capable command execution requires an available renderer measurement surface"
+      )
+    );
 
     store.close();
   });
@@ -701,6 +906,211 @@ describe("ProjectRuntime", () => {
         }
       });
       expect(activeProject.data.revision).toBe(2);
+    } finally {
+      await transport.close();
+      await client.close();
+      store.close();
+    }
+  });
+
+  it("creates project-local assets through the real local MCP bridge", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-mcp-assets-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store);
+    const bridge = new LocalMcpBridge({
+      host: "127.0.0.1",
+      port: await getAvailablePort(),
+      projectService: createProjectService(runtime)
+    });
+    activeBridges.push(bridge);
+
+    await bridge.start();
+
+    const client = new Client({
+      name: "ai-canvas-runtime-test-client",
+      version: "0.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`)
+    );
+
+    try {
+      await client.connect(transport);
+
+      const createProjectResult = await client.callTool({
+        arguments: {
+          name: "Asset Bridge Slice"
+        },
+        name: "create_project"
+      });
+
+      expect(createProjectResult.isError).not.toBe(true);
+
+      const createdProject = (
+        createProjectResult.structuredContent as {
+          ok: true;
+          project: {
+            id: string;
+          };
+        }
+      ).project;
+
+      await client.callTool({
+        arguments: {
+          project_id: createdProject.id
+        },
+        name: "open_project"
+      });
+
+      attachTestComputedLayoutRefresher(runtime);
+      runtime.setMeasurementSurfaceAvailable(true);
+
+      const createAssetResult = await client.callTool({
+        arguments: {
+          asset_id: "asset_logo",
+          bytes_base64: TINY_PNG_BASE64,
+          height: 1,
+          kind: "image",
+          mime_type: "image/png",
+          original_filename: "logo.png",
+          width: 1
+        },
+        name: "create_asset_from_bytes"
+      });
+
+      expect(createAssetResult.isError).not.toBe(true);
+      expect(createAssetResult.structuredContent).toMatchObject({
+        asset_id: "asset_logo",
+        content_hash: TINY_PNG_HASH,
+        kind: "image",
+        mime_type: "image/png",
+        ok: true,
+        revision: 2,
+        size_bytes: 68,
+        source: {
+          content_hash: TINY_PNG_HASH,
+          kind: "asset_store",
+          original_filename: "logo.png"
+        }
+      });
+
+      const activeProject = runtime.getActiveProject();
+
+      expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
+        height: 1,
+        id: "asset_logo",
+        kind: "image",
+        mime_type: "image/png",
+        source: {
+          content_hash: TINY_PNG_HASH,
+          kind: "asset_store",
+          original_filename: "logo.png"
+        },
+        width: 1
+      });
+    } finally {
+      await transport.close();
+      await client.close();
+      store.close();
+    }
+  });
+
+  it("creates project-local assets from a URL through the real local MCP bridge", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ai-canvas-runtime-mcp-assets-url-"));
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, "app.db"));
+    const runtime = createProjectRuntime(store, {
+      assetUrlDownloader: createMockAssetUrlDownloader()
+    });
+    const bridge = new LocalMcpBridge({
+      host: "127.0.0.1",
+      port: await getAvailablePort(),
+      projectService: createProjectService(runtime)
+    });
+    activeBridges.push(bridge);
+
+    await bridge.start();
+
+    const client = new Client({
+      name: "ai-canvas-runtime-test-client",
+      version: "0.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://127.0.0.1:${bridge.getStatus().port}/mcp`)
+    );
+
+    try {
+      await client.connect(transport);
+
+      const createProjectResult = await client.callTool({
+        arguments: {
+          name: "Asset URL Bridge Slice"
+        },
+        name: "create_project"
+      });
+
+      expect(createProjectResult.isError).not.toBe(true);
+
+      const createdProject = (
+        createProjectResult.structuredContent as {
+          ok: true;
+          project: {
+            id: string;
+          };
+        }
+      ).project;
+
+      await client.callTool({
+        arguments: {
+          project_id: createdProject.id
+        },
+        name: "open_project"
+      });
+
+      attachTestComputedLayoutRefresher(runtime);
+      runtime.setMeasurementSurfaceAvailable(true);
+
+      const createAssetResult = await client.callTool({
+        arguments: {
+          asset_id: "asset_logo",
+          url: "https://cdn.example.test/logo.png"
+        },
+        name: "create_asset_from_url"
+      });
+
+      expect(createAssetResult.isError).not.toBe(true);
+      expect(createAssetResult.structuredContent).toMatchObject({
+        asset_id: "asset_logo",
+        content_hash: TINY_PNG_HASH,
+        kind: "image",
+        mime_type: "image/png",
+        ok: true,
+        revision: 2,
+        size_bytes: 68,
+        source: {
+          content_hash: TINY_PNG_HASH,
+          kind: "asset_store",
+          original_filename: "logo.png"
+        }
+      });
+
+      const activeProject = runtime.getActiveProject();
+
+      expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
+        height: 1,
+        id: "asset_logo",
+        kind: "image",
+        mime_type: "image/png",
+        source: {
+          content_hash: TINY_PNG_HASH,
+          kind: "asset_store",
+          original_filename: "logo.png"
+        },
+        width: 1
+      });
     } finally {
       await transport.close();
       await client.close();

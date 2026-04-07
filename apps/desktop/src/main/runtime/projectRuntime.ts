@@ -8,8 +8,10 @@ import {
   inspectRootTree,
   inspectScenes as inspectDocumentScenes,
   inspectSubtree,
+  type AssetRecord,
   type DesignSystemInspection,
   type DocumentInspection,
+  type OpaqueValue,
   type SceneInspection,
   type TreeNodeInspection
 } from "@ai-canvas/document-core";
@@ -33,6 +35,13 @@ import type {
   ProjectHistoryEntry,
   ProjectStore
 } from "./projectStore.js";
+import {
+  downloadRasterAssetFromUrl,
+  type DownloadedRasterAsset,
+  type DownloadRasterAssetFromUrlInput
+} from "./assetUrlIngest.js";
+import { decodeBase64AssetBytes } from "./assetStorage.js";
+import { createAssetId } from "./ids.js";
 
 type McpStatusProvider = {
   getStatus: () => McpStatus;
@@ -94,6 +103,49 @@ export type ApplyProjectCommandsInput = {
   projectId?: string;
 };
 
+export type CreateAssetFromBytesInput = {
+  assetId?: string;
+  bytesBase64: string;
+  height?: number;
+  kind?: AssetRecord["kind"];
+  metadata?: Record<string, OpaqueValue>;
+  mimeType: string;
+  originalFilename?: string;
+  projectId?: string;
+  width?: number;
+};
+
+export type CreateAssetFromUrlInput = {
+  assetId?: string;
+  projectId?: string;
+  url: string;
+};
+
+export type CreateAssetResult = {
+  asset_id: string;
+  content_hash: string;
+  kind: AssetRecord["kind"];
+  mime_type: string;
+  revision: number;
+  size_bytes: number;
+  source: {
+    content_hash: string;
+    kind: "asset_store";
+    original_filename?: string;
+  };
+};
+
+export type CreateAssetFromBytesResult = CreateAssetResult;
+export type CreateAssetFromUrlResult = CreateAssetResult;
+
+export type AssetUrlDownloader = (
+  input: DownloadRasterAssetFromUrlInput
+) => Promise<AppResult<DownloadedRasterAsset>>;
+
+export type ProjectRuntimeOptions = {
+  assetUrlDownloader?: AssetUrlDownloader;
+};
+
 type ComputedLayoutRefreshResult = {
   document: ActiveProject["document"];
   layoutRefresh: CommandResult["layout_refresh"];
@@ -104,6 +156,7 @@ type ComputedLayoutRefresher = (
 ) => Promise<ComputedLayoutRefreshResult>;
 
 const MAX_HISTORY_ENTRY_COUNT = 50;
+const MAX_CREATE_ASSET_BYTES = 50 * 1024 * 1024;
 const EMPTY_HISTORY_STATE: HistoryState = {
   canRedo: false,
   canUndo: false,
@@ -119,8 +172,14 @@ export class ProjectRuntime {
   private readonly listeners = new Set<(event: RuntimeEvent) => void>();
   private measurementSurfaceAvailable = false;
   private mcpStatusProvider: McpStatusProvider | null = null;
+  private readonly assetUrlDownloader: AssetUrlDownloader;
 
-  constructor(private readonly store: ProjectStore) {}
+  constructor(
+    private readonly store: ProjectStore,
+    options: ProjectRuntimeOptions = {}
+  ) {
+    this.assetUrlDownloader = options.assetUrlDownloader ?? downloadRasterAssetFromUrl;
+  }
 
   attachMcpStatusProvider(provider: McpStatusProvider): void {
     this.mcpStatusProvider = provider;
@@ -337,6 +396,87 @@ export class ProjectRuntime {
         "mcp"
       )
     );
+  }
+
+  async createAssetFromBytes(
+    input: CreateAssetFromBytesInput
+  ): Promise<AppResult<CreateAssetFromBytesResult>> {
+    const writableSession = this.resolveWritableAssetMutation(input.projectId);
+
+    if (!writableSession.ok) {
+      return writableSession;
+    }
+
+    if (!isValidMimeType(input.mimeType)) {
+      return err("validation_failed", `Invalid mime_type: ${input.mimeType}`);
+    }
+
+    const bytes = decodeBase64AssetBytes(input.bytesBase64);
+
+    if (!bytes) {
+      return err("validation_failed", "bytes_base64 must be a valid base64 string");
+    }
+
+    if (bytes.byteLength > MAX_CREATE_ASSET_BYTES) {
+      return err(
+        "validation_failed",
+        `Decoded asset payload exceeds the ${MAX_CREATE_ASSET_BYTES} byte limit`
+      );
+    }
+
+    const assetId = this.resolveCreateAssetId(writableSession.data.document, input.assetId);
+
+    if (!assetId.ok) {
+      return assetId;
+    }
+
+    return this.createStoredAsset({
+      assetId: assetId.data,
+      bytes,
+      height: input.height,
+      kind: input.kind ?? "image",
+      metadata: input.metadata,
+      mimeType: input.mimeType,
+      originalFilename: input.originalFilename,
+      width: input.width,
+      writableSession: writableSession.data
+    });
+  }
+
+  async createAssetFromUrl(
+    input: CreateAssetFromUrlInput
+  ): Promise<AppResult<CreateAssetFromUrlResult>> {
+    const writableSession = this.resolveWritableAssetMutation(input.projectId);
+
+    if (!writableSession.ok) {
+      return writableSession;
+    }
+
+    const assetId = this.resolveCreateAssetId(writableSession.data.document, input.assetId);
+
+    if (!assetId.ok) {
+      return assetId;
+    }
+
+    const downloadedAsset = await this.assetUrlDownloader({
+      maxBytes: MAX_CREATE_ASSET_BYTES,
+      url: input.url
+    });
+
+    if (!downloadedAsset.ok) {
+      return downloadedAsset;
+    }
+
+    return this.createStoredAsset({
+      assetId: assetId.data,
+      bytes: downloadedAsset.data.bytes,
+      height: downloadedAsset.data.height,
+      kind: "image",
+      mimeType: downloadedAsset.data.mimeType,
+      originalFilename: downloadedAsset.data.originalFilename,
+      width: downloadedAsset.data.width,
+      writableSession: writableSession.data
+    });
   }
 
   async undo(): Promise<AppResult<CommandResult>> {
@@ -727,10 +867,108 @@ export class ProjectRuntime {
 
     return ok(this.activeSession);
   }
+
+  private resolveWritableAssetMutation(projectId?: string): AppResult<ActiveProject> {
+    const writableSession = this.resolveWritableProject(projectId);
+
+    if (!writableSession.ok) {
+      return writableSession;
+    }
+
+    if (!this.hasMeasurementSurface()) {
+      return err(
+        "measurement_surface_unavailable",
+        "Write-capable command execution requires an available renderer measurement surface"
+      );
+    }
+
+    return writableSession;
+  }
+
+  private resolveCreateAssetId(
+    document: ActiveProject["document"],
+    requestedAssetId?: string
+  ): AppResult<string> {
+    if (requestedAssetId !== undefined) {
+      if (document.assets[requestedAssetId]) {
+        return err("validation_failed", `Asset ${requestedAssetId} already exists`);
+      }
+
+      return ok(requestedAssetId);
+    }
+
+    let nextAssetId = createAssetId();
+
+    while (document.assets[nextAssetId]) {
+      nextAssetId = createAssetId();
+    }
+
+    return ok(nextAssetId);
+  }
+
+  private async createStoredAsset(input: {
+    assetId: string;
+    bytes: Uint8Array;
+    height?: number;
+    kind: AssetRecord["kind"];
+    metadata?: Record<string, OpaqueValue>;
+    mimeType: string;
+    originalFilename?: string;
+    width?: number;
+    writableSession: ActiveProject;
+  }): Promise<AppResult<CreateAssetResult>> {
+    const storedAsset = this.store.storeAssetBytes(input.bytes);
+    const source: CreateAssetResult["source"] = {
+      content_hash: storedAsset.contentHash,
+      kind: "asset_store",
+      ...(input.originalFilename === undefined
+        ? {}
+        : { original_filename: input.originalFilename })
+    };
+    const commandResult = await this.enqueueCommand(() =>
+      this.applyCommandsInternal(
+        {
+          commands: [
+            {
+              asset: {
+                ...(input.height === undefined ? {} : { height: input.height }),
+                id: input.assetId,
+                kind: input.kind,
+                ...(input.metadata === undefined ? {} : { metadata: input.metadata }),
+                mime_type: input.mimeType,
+                source,
+                ...(input.width === undefined ? {} : { width: input.width })
+              },
+              type: "create_asset"
+            }
+          ],
+          document_id: input.writableSession.document.document_id
+        },
+        "mcp"
+      )
+    );
+
+    if (!commandResult.ok) {
+      return commandResult;
+    }
+
+    return ok({
+      asset_id: input.assetId,
+      content_hash: storedAsset.contentHash,
+      kind: input.kind,
+      mime_type: input.mimeType,
+      revision: commandResult.data.revision,
+      size_bytes: storedAsset.sizeBytes,
+      source
+    });
+  }
 }
 
-export function createProjectRuntime(store: ProjectStore): ProjectRuntime {
-  return new ProjectRuntime(store);
+export function createProjectRuntime(
+  store: ProjectStore,
+  options: ProjectRuntimeOptions = {}
+): ProjectRuntime {
+  return new ProjectRuntime(store, options);
 }
 
 function resolveRuntimeErrorCode(error: unknown): AppErrorCode {
@@ -759,6 +997,10 @@ function resolveRuntimeErrorCode(error: unknown): AppErrorCode {
 
 function resolveRuntimeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Failed to refresh computed layout";
+}
+
+function isValidMimeType(value: string): boolean {
+  return /^[^\s/]+\/[^\s/]+$/.test(value);
 }
 
 function createEmptyHistory(): ProjectHistory {

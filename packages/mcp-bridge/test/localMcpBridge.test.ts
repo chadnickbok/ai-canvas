@@ -72,6 +72,40 @@ function createService(overrides: Partial<ProjectService> = {}): ProjectService 
         },
         revision: 2
       })),
+    createAssetFromBytes:
+      overrides.createAssetFromBytes ??
+      (async (input) =>
+        createOk({
+          asset_id: input.asset_id ?? "asset_uploaded",
+          content_hash: "abc123",
+          kind: input.kind ?? "image",
+          mime_type: input.mime_type,
+          revision: 2,
+          size_bytes: 68,
+          source: {
+            content_hash: "abc123",
+            kind: "asset_store" as const,
+            ...(input.original_filename === undefined
+              ? {}
+              : { original_filename: input.original_filename })
+          }
+        })),
+    createAssetFromUrl:
+      overrides.createAssetFromUrl ??
+      (async (input) =>
+        createOk({
+          asset_id: input.asset_id ?? "asset_downloaded",
+          content_hash: "url123",
+          kind: "image",
+          mime_type: "image/png",
+          revision: 2,
+          size_bytes: 68,
+          source: {
+            content_hash: "url123",
+            kind: "asset_store" as const,
+            original_filename: "downloaded.png"
+          }
+        })),
     createProject:
       overrides.createProject ??
       (async (name) =>
@@ -230,6 +264,8 @@ describe("LocalMcpBridge", () => {
 
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
       "apply_commands",
+      "create_asset_from_bytes",
+      "create_asset_from_url",
       "create_project",
       "inspect_design_system",
       "inspect_node",
@@ -249,6 +285,150 @@ describe("LocalMcpBridge", () => {
     expect(result.structuredContent).toEqual({
       ok: true,
       projects: [fixtureProject]
+    });
+
+    await transport.close();
+    await client.close();
+  });
+
+  it("creates project-local assets from a public image URL and returns a usable asset id", async () => {
+    const createAssetFromUrl = vi.fn(async (input) =>
+      createOk({
+        asset_id: input.asset_id ?? "asset_downloaded",
+        content_hash: "url123",
+        kind: "image",
+        mime_type: "image/png",
+        revision: 2,
+        size_bytes: 68,
+        source: {
+          content_hash: "url123",
+          kind: "asset_store" as const,
+          original_filename: "downloaded.png"
+        }
+      })
+    );
+    const bridge = new LocalMcpBridge({
+      host: "127.0.0.1",
+      port: 4325,
+      projectService: createService({ createAssetFromUrl })
+    });
+    activeBridges.push(bridge);
+
+    await bridge.start();
+
+    const client = new Client({
+      name: "ai-canvas-test-client",
+      version: "0.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL("http://127.0.0.1:4325/mcp"));
+
+    await client.connect(transport);
+
+    const result = await client.callTool({
+      arguments: {
+        asset_id: "asset_logo",
+        project_id: fixtureProject.id,
+        url: "https://cdn.example.test/logo.png"
+      },
+      name: "create_asset_from_url"
+    });
+
+    expect(createAssetFromUrl).toHaveBeenCalledWith({
+      asset_id: "asset_logo",
+      project_id: fixtureProject.id,
+      url: "https://cdn.example.test/logo.png"
+    });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toEqual({
+      asset_id: "asset_logo",
+      content_hash: "url123",
+      kind: "image",
+      mime_type: "image/png",
+      ok: true,
+      revision: 2,
+      size_bytes: 68,
+      source: {
+        content_hash: "url123",
+        kind: "asset_store",
+        original_filename: "downloaded.png"
+      }
+    });
+
+    await transport.close();
+    await client.close();
+  });
+
+  it("creates project-local assets from inline bytes and returns a usable asset id", async () => {
+    const createAssetFromBytes = vi.fn(async (input) =>
+      createOk({
+        asset_id: input.asset_id ?? "asset_uploaded",
+        content_hash: "4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f",
+        kind: input.kind ?? "image",
+        mime_type: input.mime_type,
+        revision: 2,
+        size_bytes: 68,
+        source: {
+          content_hash: "4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f",
+          kind: "asset_store" as const,
+          ...(input.original_filename === undefined
+            ? {}
+            : { original_filename: input.original_filename })
+        }
+      })
+    );
+    const bridge = new LocalMcpBridge({
+      host: "127.0.0.1",
+      port: 4324,
+      projectService: createService({ createAssetFromBytes })
+    });
+    activeBridges.push(bridge);
+
+    await bridge.start();
+
+    const client = new Client({
+      name: "ai-canvas-test-client",
+      version: "0.0.0"
+    });
+    const transport = new StreamableHTTPClientTransport(new URL("http://127.0.0.1:4324/mcp"));
+
+    await client.connect(transport);
+
+    const result = await client.callTool({
+      arguments: {
+        asset_id: "asset_logo",
+        bytes_base64:
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4ZcAAAAASUVORK5CYII=",
+        kind: "image",
+        mime_type: "image/png",
+        original_filename: "logo.png",
+        project_id: fixtureProject.id
+      },
+      name: "create_asset_from_bytes"
+    });
+
+    expect(createAssetFromBytes).toHaveBeenCalledWith({
+      asset_id: "asset_logo",
+      bytes_base64:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4ZcAAAAASUVORK5CYII=",
+      kind: "image",
+      mime_type: "image/png",
+      original_filename: "logo.png",
+      project_id: fixtureProject.id
+    });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toEqual({
+      asset_id: "asset_logo",
+      content_hash: "4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f",
+      kind: "image",
+      mime_type: "image/png",
+      ok: true,
+      revision: 2,
+      size_bytes: 68,
+      source: {
+        content_hash: "4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f",
+        kind: "asset_store",
+        original_filename: "logo.png"
+      }
     });
 
     await transport.close();

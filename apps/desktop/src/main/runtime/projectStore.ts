@@ -14,7 +14,7 @@ import {
 } from "@ai-canvas/document-core";
 import type { ProjectSummary, ResolvedAssetsById } from "@ai-canvas/ipc-contract";
 
-import { AssetStorage } from "./assetStorage.js";
+import { AssetStorage, hashAssetBytes } from "./assetStorage.js";
 import { createDocumentId, createProjectId } from "./ids.js";
 
 type ProjectRow = {
@@ -363,6 +363,21 @@ export class ProjectStore {
 
   resolveDocumentAssets(projectId: string, document: RendererDocument): ResolvedAssetsById {
     return this.assetStorage.resolveDocumentAssets(projectId, document.assets);
+  }
+
+  storeAssetBytes(bytes: Uint8Array): {
+    contentHash: string;
+    path: string;
+    sizeBytes: number;
+  } {
+    const contentHash = hashAssetBytes(bytes);
+    const stored = this.assetStorage.ensureStoredBytes(contentHash, bytes);
+
+    return {
+      contentHash,
+      path: stored.path,
+      sizeBytes: stored.sizeBytes
+    };
   }
 
   migrateEmbeddedAssets(): EmbeddedAssetMigrationReport {
