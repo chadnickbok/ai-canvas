@@ -79,6 +79,27 @@ Recommended stance:
 - v1 does not add separate document-targeting or document-switching MCP surface because the targeted project's sole document is implied
 - tools should still allow explicit project targeting to avoid ambiguity
 
+## Self-documentation
+
+The bridge should be self-documenting through official MCP surfaces rather than a separate custom manifest.
+
+Recommended three-layer shape:
+
+- handshake layer: initialize `serverInfo` plus `instructions`
+- capability layer: `tools/list`, `resources/list`, and `resources/templates/list`
+- content layer: readable `docs://...` resources plus live `ai-canvas://...` resources
+
+For the current implemented pass:
+
+- `initialize.instructions` should explain project targeting, read-only versus write-capable behavior, and the asset workflow
+- every tool should expose a clear title, description, and strict schema through `tools/list`
+- inspection tools should advertise themselves as read-only where the MCP tool metadata supports that hint
+- the bridge should expose a browsable docs surface such as `docs://overview`, `docs://tools`, `docs://resources`, and `docs://examples/quickstart`
+- the bridge should expose live project resources such as `ai-canvas://projects` and `ai-canvas://active/project`
+- dynamic project spaces should be exposed through resource templates such as `ai-canvas://projects/{project_id}`, `.../scenes`, `.../design-system`, `.../tree`, and `.../nodes/{node_id}`
+
+Prompts are intentionally deferred until the runtime exposes a reusable workflow that is meaningfully more than documentation text or a thin wrapper around one existing tool.
+
 ## Initial MCP surface
 
 Recommended initial read tools:

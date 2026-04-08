@@ -49,6 +49,16 @@ const fixtureNodeWithUndefinedComputedLayout = {
   computed_layout: undefined,
 };
 
+const DOCS_OVERVIEW_URI = 'docs://overview';
+const DOCS_TOOL_LIST_PROJECTS_URI = 'docs://tools/list_projects';
+const AI_CANVAS_PROJECTS_URI = 'ai-canvas://projects';
+const AI_CANVAS_ACTIVE_PROJECT_URI = 'ai-canvas://active/project';
+const AI_CANVAS_PROJECT_URI = `ai-canvas://projects/${fixtureProject.id}`;
+const AI_CANVAS_PROJECT_SCENES_URI = `ai-canvas://projects/${fixtureProject.id}/scenes`;
+const AI_CANVAS_PROJECT_DESIGN_SYSTEM_URI = `ai-canvas://projects/${fixtureProject.id}/design-system`;
+const AI_CANVAS_PROJECT_TREE_URI = `ai-canvas://projects/${fixtureProject.id}/tree`;
+const AI_CANVAS_PROJECT_NODE_URI = `ai-canvas://projects/${fixtureProject.id}/nodes/${fixtureNode.id}`;
+
 function createOk<T>(data: T) {
   return {
     data,
@@ -240,7 +250,7 @@ function createService(
 }
 
 describe('LocalMcpBridge', () => {
-  it('initializes and exposes the full first-pass MCP tool surface', async () => {
+  it('initializes and exposes the self-documenting MCP surface', async () => {
     const bridge = new LocalMcpBridge({
       host: '127.0.0.1',
       port: 4318,
@@ -267,6 +277,18 @@ describe('LocalMcpBridge', () => {
 
     await client.connect(transport);
 
+    expect(client.getInstructions()).toContain(DOCS_OVERVIEW_URI);
+    expect(client.getInstructions()).toContain('renderer measurement surface');
+    expect(client.getServerCapabilities()).toMatchObject({
+      resources: {
+        listChanged: true,
+      },
+      tools: {
+        listChanged: true,
+      },
+    });
+    expect(client.getServerCapabilities()?.prompts).toBeUndefined();
+
     const tools = await client.listTools();
 
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
@@ -282,6 +304,64 @@ describe('LocalMcpBridge', () => {
       'list_projects',
       'open_project',
     ]);
+    expect(
+      tools.tools.find((tool) => tool.name === 'list_projects'),
+    ).toMatchObject({
+      annotations: {
+        readOnlyHint: true,
+      },
+      title: 'List Projects',
+    });
+    expect(
+      tools.tools.find((tool) => tool.name === 'inspect_project'),
+    ).toMatchObject({
+      annotations: {
+        readOnlyHint: true,
+      },
+      title: 'Inspect Project',
+    });
+    expect(
+      tools.tools.find((tool) => tool.name === 'open_project'),
+    ).toMatchObject({
+      title: 'Open Project',
+    });
+
+    const resources = await client.listResources();
+
+    expect(resources.resources.map((resource) => resource.uri)).toEqual(
+      expect.arrayContaining([
+        DOCS_OVERVIEW_URI,
+        'docs://capabilities',
+        'docs://tools',
+        'docs://resources',
+        'docs://examples/quickstart',
+        DOCS_TOOL_LIST_PROJECTS_URI,
+        AI_CANVAS_PROJECTS_URI,
+        AI_CANVAS_ACTIVE_PROJECT_URI,
+        AI_CANVAS_PROJECT_URI,
+        AI_CANVAS_PROJECT_SCENES_URI,
+        AI_CANVAS_PROJECT_DESIGN_SYSTEM_URI,
+        AI_CANVAS_PROJECT_TREE_URI,
+      ]),
+    );
+    expect(resources.resources.map((resource) => resource.uri)).not.toContain(
+      AI_CANVAS_PROJECT_NODE_URI,
+    );
+
+    const templates = await client.listResourceTemplates();
+
+    expect(
+      templates.resourceTemplates.map((resource) => resource.uriTemplate),
+    ).toEqual(
+      expect.arrayContaining([
+        'docs://tools/{tool_name}',
+        'ai-canvas://projects/{project_id}',
+        'ai-canvas://projects/{project_id}/scenes',
+        'ai-canvas://projects/{project_id}/design-system',
+        'ai-canvas://projects/{project_id}/tree',
+        'ai-canvas://projects/{project_id}/nodes/{node_id}',
+      ]),
+    );
 
     const result = await client.callTool({
       arguments: {},
@@ -292,6 +372,89 @@ describe('LocalMcpBridge', () => {
     expect(result.structuredContent).toEqual({
       ok: true,
       projects: [fixtureProject],
+    });
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource_link',
+          uri: AI_CANVAS_PROJECTS_URI,
+        }),
+      ]),
+    );
+
+    await transport.close();
+    await client.close();
+  });
+
+  it('reads documentation and live project resources', async () => {
+    const bridge = new LocalMcpBridge({
+      host: '127.0.0.1',
+      port: 4326,
+      projectService: createService(),
+    });
+    activeBridges.push(bridge);
+
+    await bridge.start();
+
+    const client = new Client({
+      name: 'ai-canvas-test-client',
+      version: '0.0.0',
+    });
+    const transport = new StreamableHTTPClientTransport(
+      new URL('http://127.0.0.1:4326/mcp'),
+    );
+
+    await client.connect(transport);
+
+    const overview = await client.readResource({
+      uri: DOCS_OVERVIEW_URI,
+    });
+
+    expect(overview.contents[0]).toMatchObject({
+      mimeType: 'text/markdown',
+      uri: DOCS_OVERVIEW_URI,
+    });
+    expect(overview.contents[0]?.text).toContain(
+      'Project targeting defaults to the active project session',
+    );
+
+    const toolDoc = await client.readResource({
+      uri: DOCS_TOOL_LIST_PROJECTS_URI,
+    });
+
+    expect(toolDoc.contents[0]).toMatchObject({
+      mimeType: 'text/markdown',
+      uri: DOCS_TOOL_LIST_PROJECTS_URI,
+    });
+    expect(toolDoc.contents[0]?.text).toContain('Tool name: `list_projects`');
+
+    const projectsResource = await client.readResource({
+      uri: AI_CANVAS_PROJECTS_URI,
+    });
+
+    expect(JSON.parse(projectsResource.contents[0]?.text ?? '')).toEqual({
+      ok: true,
+      projects: [fixtureProject],
+    });
+
+    const projectResource = await client.readResource({
+      uri: AI_CANVAS_PROJECT_URI,
+    });
+
+    expect(JSON.parse(projectResource.contents[0]?.text ?? '')).toMatchObject({
+      ok: true,
+      project: fixtureProject,
+      revision: 1,
+    });
+
+    const nodeResource = await client.readResource({
+      uri: AI_CANVAS_PROJECT_NODE_URI,
+    });
+
+    expect(JSON.parse(nodeResource.contents[0]?.text ?? '')).toMatchObject({
+      node: fixtureNode,
+      ok: true,
+      project_id: fixtureProject.id,
     });
 
     await transport.close();
@@ -362,6 +525,14 @@ describe('LocalMcpBridge', () => {
         original_filename: 'downloaded.png',
       },
     });
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource_link',
+          uri: AI_CANVAS_PROJECT_URI,
+        }),
+      ]),
+    );
 
     await transport.close();
     await client.close();
@@ -371,13 +542,15 @@ describe('LocalMcpBridge', () => {
     const createAssetFromBytes = vi.fn(async (input) =>
       createOk({
         asset_id: input.asset_id ?? 'asset_uploaded',
-        content_hash: '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
+        content_hash:
+          '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
         kind: input.kind ?? 'image',
         mime_type: input.mime_type,
         revision: 2,
         size_bytes: 68,
         source: {
-          content_hash: '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
+          content_hash:
+            '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
           kind: 'asset_store' as const,
           ...(input.original_filename === undefined
             ? {}
@@ -429,18 +602,28 @@ describe('LocalMcpBridge', () => {
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toEqual({
       asset_id: 'asset_logo',
-      content_hash: '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
+      content_hash:
+        '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
       kind: 'image',
       mime_type: 'image/png',
       ok: true,
       revision: 2,
       size_bytes: 68,
       source: {
-        content_hash: '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
+        content_hash:
+          '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
         kind: 'asset_store',
         original_filename: 'logo.png',
       },
     });
+    expect(result.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource_link',
+          uri: AI_CANVAS_PROJECT_URI,
+        }),
+      ]),
+    );
 
     await transport.close();
     await client.close();
@@ -494,6 +677,14 @@ describe('LocalMcpBridge', () => {
       project: fixtureProject,
       revision: 1,
     });
+    expect(openResult.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource_link',
+          uri: AI_CANVAS_PROJECT_URI,
+        }),
+      ]),
+    );
 
     const inspectProjectResult = await client.callTool({
       arguments: {},
@@ -563,6 +754,14 @@ describe('LocalMcpBridge', () => {
       project_id: fixtureProject.id,
       revision: 1,
     });
+    expect(inspectNodeResult.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource_link',
+          uri: AI_CANVAS_PROJECT_NODE_URI,
+        }),
+      ]),
+    );
 
     const inspectScenesResult = await client.callTool({
       arguments: {},
@@ -674,6 +873,14 @@ describe('LocalMcpBridge', () => {
       ok: true,
       revision: 2,
     });
+    expect(applyResult.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'resource_link',
+          uri: AI_CANVAS_PROJECT_URI,
+        }),
+      ]),
+    );
 
     await transport.close();
     await client.close();
