@@ -50,7 +50,10 @@ const fixtureNodeWithUndefinedComputedLayout = {
 };
 
 const DOCS_OVERVIEW_URI = 'docs://overview';
+const DOCS_QUICKSTART_URI = 'docs://examples/quickstart';
+const DOCS_TROUBLESHOOTING_URI = 'docs://troubleshooting';
 const DOCS_TOOL_LIST_PROJECTS_URI = 'docs://tools/list_projects';
+const DOCS_TOOL_APPLY_COMMANDS_URI = 'docs://tools/apply_commands';
 const AI_CANVAS_PROJECTS_URI = 'ai-canvas://projects';
 const AI_CANVAS_ACTIVE_PROJECT_URI = 'ai-canvas://active/project';
 const AI_CANVAS_PROJECT_URI = `ai-canvas://projects/${fixtureProject.id}`;
@@ -278,6 +281,7 @@ describe('LocalMcpBridge', () => {
     await client.connect(transport);
 
     expect(client.getInstructions()).toContain(DOCS_OVERVIEW_URI);
+    expect(client.getInstructions()).toContain(DOCS_TROUBLESHOOTING_URI);
     expect(client.getInstructions()).toContain('renderer measurement surface');
     expect(client.getServerCapabilities()).toMatchObject({
       resources: {
@@ -334,7 +338,8 @@ describe('LocalMcpBridge', () => {
         'docs://capabilities',
         'docs://tools',
         'docs://resources',
-        'docs://examples/quickstart',
+        DOCS_QUICKSTART_URI,
+        DOCS_TROUBLESHOOTING_URI,
         DOCS_TOOL_LIST_PROJECTS_URI,
         AI_CANVAS_PROJECTS_URI,
         AI_CANVAS_ACTIVE_PROJECT_URI,
@@ -417,6 +422,7 @@ describe('LocalMcpBridge', () => {
     expect(overview.contents[0]?.text).toContain(
       'Project targeting defaults to the active project session',
     );
+    expect(overview.contents[0]?.text).toContain(DOCS_TROUBLESHOOTING_URI);
 
     const toolDoc = await client.readResource({
       uri: DOCS_TOOL_LIST_PROJECTS_URI,
@@ -427,6 +433,59 @@ describe('LocalMcpBridge', () => {
       uri: DOCS_TOOL_LIST_PROJECTS_URI,
     });
     expect(toolDoc.contents[0]?.text).toContain('Tool name: `list_projects`');
+    expect(toolDoc.contents[0]?.text).toContain('## Example');
+    expect(toolDoc.contents[0]?.text).toContain('project_id behavior');
+
+    const applyCommandsDoc = await client.readResource({
+      uri: DOCS_TOOL_APPLY_COMMANDS_URI,
+    });
+
+    expect(applyCommandsDoc.contents[0]).toMatchObject({
+      mimeType: 'text/markdown',
+      uri: DOCS_TOOL_APPLY_COMMANDS_URI,
+    });
+    expect(applyCommandsDoc.contents[0]?.text).toContain(
+      'Minimal valid command batch',
+    );
+    expect(applyCommandsDoc.contents[0]?.text).toContain(
+      'url(asset://asset_logo)',
+    );
+    expect(applyCommandsDoc.contents[0]?.text).toContain(
+      `ai-canvas://projects/${fixtureProject.id}/tree`,
+    );
+
+    const quickstartDoc = await client.readResource({
+      uri: DOCS_QUICKSTART_URI,
+    });
+
+    expect(quickstartDoc.contents[0]).toMatchObject({
+      mimeType: 'text/markdown',
+      uri: DOCS_QUICKSTART_URI,
+    });
+    expect(quickstartDoc.contents[0]?.text).toContain('## End-to-end flow');
+    expect(quickstartDoc.contents[0]?.text).toContain('"name": "open_project"');
+    expect(quickstartDoc.contents[0]?.text).toContain(
+      `"name": "apply_commands"`,
+    );
+    expect(quickstartDoc.contents[0]?.text).toContain(
+      DOCS_TROUBLESHOOTING_URI,
+    );
+
+    const troubleshootingDoc = await client.readResource({
+      uri: DOCS_TROUBLESHOOTING_URI,
+    });
+
+    expect(troubleshootingDoc.contents[0]).toMatchObject({
+      mimeType: 'text/markdown',
+      uri: DOCS_TROUBLESHOOTING_URI,
+    });
+    expect(troubleshootingDoc.contents[0]?.text).toContain(
+      'Invalid or missing MCP session ID',
+    );
+    expect(troubleshootingDoc.contents[0]?.text).toContain(
+      'measurement_surface_unavailable',
+    );
+    expect(troubleshootingDoc.contents[0]?.text).toContain('/mcp');
 
     const projectsResource = await client.readResource({
       uri: AI_CANVAS_PROJECTS_URI,

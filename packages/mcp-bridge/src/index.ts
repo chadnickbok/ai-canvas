@@ -515,12 +515,21 @@ type ToolResourceLink = {
   uri: string;
 };
 
+type ToolDocExample = {
+  notes?: readonly string[];
+  request: JsonObject;
+  response: JsonObject;
+  title: string;
+};
+
 type ToolDocDefinition = {
   category: 'inspection' | 'mutation' | 'session';
   description: string;
-  guidance: string[];
+  examples: readonly ToolDocExample[];
+  guidance: readonly string[];
+  projectIdBehavior: string;
   readOnly: boolean;
-  relatedResources: string[];
+  relatedResources: readonly string[];
   requiresMeasurementSurface: boolean;
   title: string;
 };
@@ -554,6 +563,7 @@ const DOCS_CAPABILITIES_URI = 'docs://capabilities';
 const DOCS_TOOLS_URI = 'docs://tools';
 const DOCS_RESOURCES_URI = 'docs://resources';
 const DOCS_QUICKSTART_URI = 'docs://examples/quickstart';
+const DOCS_TROUBLESHOOTING_URI = 'docs://troubleshooting';
 const DOCS_TOOL_URI_TEMPLATE = 'docs://tools/{tool_name}';
 
 const AI_CANVAS_PROJECTS_URI = 'ai-canvas://projects';
@@ -608,6 +618,14 @@ const fixedDocsResources: readonly FixedResourceDefinition[] = [
     name: 'quickstart',
     title: 'AI Canvas MCP Quickstart',
     uri: DOCS_QUICKSTART_URI,
+  },
+  {
+    description:
+      'Troubleshooting guide for common MCP operator errors and session-state failures.',
+    mimeType: 'text/markdown',
+    name: 'troubleshooting',
+    title: 'AI Canvas MCP Troubleshooting',
+    uri: DOCS_TROUBLESHOOTING_URI,
   },
 ] as const;
 
@@ -682,11 +700,32 @@ const toolDocs = {
     category: 'inspection',
     description:
       'List local AI Canvas projects from the shared desktop runtime.',
+    examples: [
+      {
+        request: {},
+        response: {
+          ok: true,
+          projects: [
+            {
+              createdAt: '2026-03-25T00:00:00.000Z',
+              documentId: 'doc_123',
+              id: 'project_123',
+              lastOpenedAt: '2026-04-07T18:00:00.000Z',
+              name: 'Marketing Homepage',
+              updatedAt: '2026-04-07T18:00:00.000Z',
+            },
+          ],
+        },
+        title: 'Discover project ids',
+      },
+    ],
     guidance: [
       'Use this when you need a project id before calling open_project or explicit project resources.',
       'This tool is read-only and remains available when the editor window is closed.',
       `Read ${AI_CANVAS_PROJECTS_URI} for the same information through the resources surface.`,
     ],
+    projectIdBehavior:
+      'This tool does not accept project_id because it lists every local project.',
     readOnly: true,
     relatedResources: [AI_CANVAS_PROJECTS_URI],
     requiresMeasurementSurface: false,
@@ -696,11 +735,32 @@ const toolDocs = {
     category: 'session',
     description:
       'Create a new local AI Canvas project and make it the active desktop session.',
+    examples: [
+      {
+        request: {
+          name: 'Landing Page Sprint',
+        },
+        response: {
+          ok: true,
+          project: {
+            createdAt: '2026-04-07T18:10:00.000Z',
+            documentId: 'doc_456',
+            id: 'project_456',
+            lastOpenedAt: '2026-04-07T18:10:00.000Z',
+            name: 'Landing Page Sprint',
+            updatedAt: '2026-04-07T18:10:00.000Z',
+          },
+        },
+        title: 'Create and activate a new project',
+      },
+    ],
     guidance: [
       'The created project becomes the active project session immediately.',
       `Inspect the result through ${AI_CANVAS_ACTIVE_PROJECT_URI} or ${AI_CANVAS_PROJECT_URI_TEMPLATE}.`,
       'This does not require the renderer measurement surface.',
     ],
+    projectIdBehavior:
+      'This tool does not accept project_id because it creates and activates a new project.',
     readOnly: false,
     relatedResources: [
       AI_CANVAS_ACTIVE_PROJECT_URI,
@@ -713,11 +773,33 @@ const toolDocs = {
     category: 'session',
     description:
       'Open a local AI Canvas project and make it the active desktop session.',
+    examples: [
+      {
+        request: {
+          project_id: 'project_123',
+        },
+        response: {
+          ok: true,
+          project: {
+            createdAt: '2026-03-25T00:00:00.000Z',
+            documentId: 'doc_123',
+            id: 'project_123',
+            lastOpenedAt: '2026-04-07T18:12:00.000Z',
+            name: 'Marketing Homepage',
+            updatedAt: '2026-04-07T18:12:00.000Z',
+          },
+          revision: 12,
+        },
+        title: 'Switch the active project session',
+      },
+    ],
     guidance: [
       'Use this to switch the active project session before omitting project_id from later calls.',
       `The canonical inspection resource is ${AI_CANVAS_PROJECT_URI_TEMPLATE}.`,
       'This changes session state but does not require the renderer measurement surface.',
     ],
+    projectIdBehavior:
+      'Always include project_id because opening a project is an explicit session switch.',
     readOnly: false,
     relatedResources: [
       AI_CANVAS_ACTIVE_PROJECT_URI,
@@ -730,11 +812,46 @@ const toolDocs = {
     category: 'inspection',
     description:
       'Inspect a project summary and normalized document overview for the active or targeted project.',
+    examples: [
+      {
+        request: {},
+        response: {
+          document: {
+            asset_count: 2,
+            document_id: 'doc_123',
+            name: 'Marketing Homepage',
+            node_count: 42,
+            page_name: 'Canvas',
+            paint_style_count: 3,
+            root_child_ids: ['scene_home'],
+            root_id: 'canvas_root',
+            scene_count: 1,
+            text_style_count: 2,
+            variable_collection_count: 1,
+            variable_count: 8,
+          },
+          is_active: true,
+          ok: true,
+          project: {
+            createdAt: '2026-03-25T00:00:00.000Z',
+            documentId: 'doc_123',
+            id: 'project_123',
+            lastOpenedAt: '2026-04-07T18:12:00.000Z',
+            name: 'Marketing Homepage',
+            updatedAt: '2026-04-07T18:12:00.000Z',
+          },
+          revision: 12,
+        },
+        title: 'Inspect the active project before mutating it',
+      },
+    ],
     guidance: [
       'Omit project_id to inspect the active project session.',
       'This is the best top-level starting point before inspecting scenes, nodes, or design-system state.',
       `The matching resource URI is ${AI_CANVAS_PROJECT_URI_TEMPLATE}.`,
     ],
+    projectIdBehavior:
+      'Omit project_id to inspect the active project, or include it to avoid ambiguity in multi-step workflows.',
     readOnly: true,
     relatedResources: [
       AI_CANVAS_ACTIVE_PROJECT_URI,
@@ -747,11 +864,42 @@ const toolDocs = {
     category: 'inspection',
     description:
       'Inspect the normalized node tree for the active or targeted project.',
+    examples: [
+      {
+        request: {
+          project_id: 'project_123',
+          root_node_id: 'scene_home',
+        },
+        response: {
+          document_id: 'doc_123',
+          ok: true,
+          project_id: 'project_123',
+          revision: 12,
+          root_node_id: 'scene_home',
+          tree: [
+            {
+              child_ids: ['hero_card'],
+              children: [],
+              id: 'scene_home',
+              is_locked: false,
+              is_visible: true,
+              kind: 'frame',
+              name: 'Home',
+              parent_id: null,
+              scene_id: 'scene_home',
+            },
+          ],
+        },
+        title: 'Inspect a scene subtree',
+      },
+    ],
     guidance: [
       'Omit root_node_id to inspect the full normalized tree.',
       'Use inspect_node for a single detailed node payload.',
       `The matching resource URI is ${AI_CANVAS_PROJECT_TREE_URI_TEMPLATE}.`,
     ],
+    projectIdBehavior:
+      'Omit project_id only when you intentionally want the active project session; otherwise include it for stable tree reads.',
     readOnly: true,
     relatedResources: [AI_CANVAS_PROJECT_TREE_URI_TEMPLATE],
     requiresMeasurementSurface: false,
@@ -761,11 +909,45 @@ const toolDocs = {
     category: 'inspection',
     description:
       'Inspect a normalized node from the active or targeted project.',
+    examples: [
+      {
+        request: {
+          node_id: 'hero_card',
+          project_id: 'project_123',
+        },
+        response: {
+          document_id: 'doc_123',
+          node: {
+            child_ids: [],
+            id: 'hero_card',
+            is_locked: false,
+            is_visible: true,
+            kind: 'rectangle',
+            name: 'Hero Card',
+            parent_id: 'scene_home',
+            render_style: {
+              background_color: '#faf7f0',
+              height: 320,
+              left: 40,
+              top: 120,
+              width: 310,
+            },
+            scene_id: 'scene_home',
+          },
+          ok: true,
+          project_id: 'project_123',
+          revision: 12,
+        },
+        title: 'Inspect one node in detail',
+      },
+    ],
     guidance: [
       'This returns the full normalized node payload for a single node id.',
       'Use inspect_tree first when you need to discover child relationships or candidate node ids.',
       `The matching resource URI is ${AI_CANVAS_PROJECT_NODE_URI_TEMPLATE}.`,
     ],
+    projectIdBehavior:
+      'Omit project_id only when the active project is already locked in; otherwise include it alongside node_id.',
     readOnly: true,
     relatedResources: [AI_CANVAS_PROJECT_NODE_URI_TEMPLATE],
     requiresMeasurementSurface: false,
@@ -775,11 +957,58 @@ const toolDocs = {
     category: 'inspection',
     description:
       'Inspect scenes and backing frame records from the active or targeted project.',
+    examples: [
+      {
+        request: {
+          project_id: 'project_123',
+        },
+        response: {
+          document_id: 'doc_123',
+          ok: true,
+          project_id: 'project_123',
+          revision: 12,
+          scenes: [
+            {
+              child_ids: ['hero_card'],
+              frame: {
+                child_ids: ['hero_card'],
+                id: 'scene_home',
+                is_locked: false,
+                is_visible: true,
+                kind: 'frame',
+                name: 'Home',
+                parent_id: null,
+                render_style: {
+                  height: 844,
+                  left: 40,
+                  top: 60,
+                  width: 390,
+                },
+                scene_id: 'scene_home',
+              },
+              scene: {
+                child_count: 1,
+                frame_node_id: 'scene_home',
+                id: 'scene_home',
+                name: 'Home',
+                scene_metadata: {
+                  role: 'landing',
+                  tags: ['marketing'],
+                },
+              },
+            },
+          ],
+        },
+        title: 'Inspect scene organization',
+      },
+    ],
     guidance: [
       'This is the fastest way to inspect top-level scene organization.',
       'Each scene payload includes both scene metadata and its backing frame node.',
       `The matching resource URI is ${AI_CANVAS_PROJECT_SCENES_URI_TEMPLATE}.`,
     ],
+    projectIdBehavior:
+      'Omit project_id to inspect the active project session, or include it when comparing specific projects.',
     readOnly: true,
     relatedResources: [AI_CANVAS_PROJECT_SCENES_URI_TEMPLATE],
     requiresMeasurementSurface: false,
@@ -789,11 +1018,54 @@ const toolDocs = {
     category: 'inspection',
     description:
       'Inspect canvas authoring, variables, and styles from the active or targeted project.',
+    examples: [
+      {
+        request: {
+          project_id: 'project_123',
+        },
+        response: {
+          design_system: {
+            canvas: {
+              authoring: {
+                local_values: {
+                  'canvas.background_color': '#faf7f0',
+                },
+                variable_bindings: {},
+              },
+              background_color: '#faf7f0',
+              extent_mode: 'infinite',
+            },
+            styles: {
+              paint: {
+                paint_brand_surface: {
+                  id: 'paint_brand_surface',
+                },
+              },
+              text: {},
+            },
+            variables: {
+              collections: {
+                color: {
+                  id: 'color',
+                },
+              },
+            },
+          },
+          document_id: 'doc_123',
+          ok: true,
+          project_id: 'project_123',
+          revision: 12,
+        },
+        title: 'Inspect document-level styles and variables',
+      },
+    ],
     guidance: [
       'Use this to inspect document-level canvas state plus design-system data.',
       'This is read-only and remains available while the editor window is closed.',
       `The matching resource URI is ${AI_CANVAS_PROJECT_DESIGN_SYSTEM_URI_TEMPLATE}.`,
     ],
+    projectIdBehavior:
+      'Omit project_id to inspect the active design-system state, or include it for explicit project reads.',
     readOnly: true,
     relatedResources: [AI_CANVAS_PROJECT_DESIGN_SYSTEM_URI_TEMPLATE],
     requiresMeasurementSurface: false,
@@ -803,11 +1075,89 @@ const toolDocs = {
     category: 'mutation',
     description:
       'Apply a validated command batch to the active project session and refresh computed_layout before persistence.',
+    examples: [
+      {
+        notes: [
+          'Use inspect_project first so base_revision matches the current persisted revision.',
+        ],
+        request: {
+          base_revision: 12,
+          commands: [
+            {
+              scene: {
+                height: 844,
+                id: 'scene_checkout',
+                left: 480,
+                name: 'Checkout',
+                top: 60,
+                width: 390,
+              },
+              type: 'create_scene',
+            },
+          ],
+          project_id: 'project_123',
+        },
+        response: {
+          document_id: 'doc_123',
+          effects: {
+            changed_node_ids: ['scene_checkout'],
+            changed_scene_ids: ['scene_checkout'],
+          },
+          layout_refresh: {
+            measured_node_count: 1,
+            measured_root_ids: ['scene_checkout'],
+            status: 'refreshed',
+          },
+          ok: true,
+          revision: 13,
+        },
+        title: 'Minimal valid command batch',
+      },
+      {
+        notes: [
+          'Call create_asset_from_bytes or create_asset_from_url first to get asset_logo.',
+          `Before mutating, inspect ${buildProjectTreeUri('project_123')} or ${buildProjectUri('project_123')}.`,
+          `After success, re-read ${buildProjectTreeUri('project_123')} or ${buildProjectUri('project_123')} to confirm the new revision.`,
+        ],
+        request: {
+          commands: [
+            {
+              node_id: 'hero_card',
+              patch: {
+                render_style: {
+                  background_image: 'url(asset://asset_logo)',
+                  background_size: 'cover',
+                },
+              },
+              type: 'update_node',
+            },
+          ],
+          project_id: 'project_123',
+        },
+        response: {
+          document_id: 'doc_123',
+          effects: {
+            changed_node_ids: ['hero_card'],
+            changed_scene_ids: ['scene_home'],
+          },
+          layout_refresh: {
+            measured_node_count: 1,
+            measured_root_ids: ['scene_home'],
+            status: 'refreshed',
+          },
+          ok: true,
+          revision: 14,
+        },
+        title: 'Attach a previously imported asset',
+      },
+    ],
     guidance: [
       'Use inspect_project to get the current revision before setting base_revision.',
       'This requires the editor window to remain open because the renderer measurement surface must be available.',
       'Create project-local assets first, then attach them through follow-up commands.',
     ],
+    projectIdBehavior:
+      'Omit project_id only after open_project or inspect_project confirm the active session; include it for deterministic writes.',
     readOnly: false,
     relatedResources: [
       AI_CANVAS_ACTIVE_PROJECT_URI,
@@ -821,11 +1171,43 @@ const toolDocs = {
     category: 'mutation',
     description:
       'Create a new project-local asset from inline base64 bytes and return a usable asset_id.',
+    examples: [
+      {
+        request: {
+          asset_id: 'asset_logo',
+          bytes_base64:
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4ZcAAAAASUVORK5CYII=',
+          kind: 'image',
+          mime_type: 'image/png',
+          original_filename: 'logo.png',
+          project_id: 'project_123',
+        },
+        response: {
+          asset_id: 'asset_logo',
+          content_hash:
+            '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
+          kind: 'image',
+          mime_type: 'image/png',
+          ok: true,
+          revision: 13,
+          size_bytes: 68,
+          source: {
+            content_hash:
+              '4caece539b039b16e16206ea2478f8c5ffb2ca05c5d1d8eb6573993dbcbdbb0f',
+            kind: 'asset_store',
+            original_filename: 'logo.png',
+          },
+        },
+        title: 'Import local bytes into the project asset store',
+      },
+    ],
     guidance: [
       'Use this for image or SVG bytes you already have locally.',
       'Attach the returned asset_id to nodes separately with apply_commands.',
       'This is write-capable and requires the editor measurement surface to be available.',
     ],
+    projectIdBehavior:
+      'Omit project_id only when the active project is already selected; include it when importing assets for a specific project.',
     readOnly: false,
     relatedResources: [
       AI_CANVAS_ACTIVE_PROJECT_URI,
@@ -838,11 +1220,37 @@ const toolDocs = {
     category: 'mutation',
     description:
       'Create a new project-local asset from a public image URL and return a usable asset_id.',
+    examples: [
+      {
+        request: {
+          asset_id: 'asset_logo',
+          project_id: 'project_123',
+          url: 'https://cdn.example.test/logo.png',
+        },
+        response: {
+          asset_id: 'asset_logo',
+          content_hash: 'url123',
+          kind: 'image',
+          mime_type: 'image/png',
+          ok: true,
+          revision: 13,
+          size_bytes: 68,
+          source: {
+            content_hash: 'url123',
+            kind: 'asset_store',
+            original_filename: 'downloaded.png',
+          },
+        },
+        title: 'Import a public image URL into the project asset store',
+      },
+    ],
     guidance: [
       'Use this when the asset is reachable over http or https and should be imported into the project asset store.',
       'Attach the returned asset_id to nodes separately with apply_commands.',
       'This is write-capable and requires the editor measurement surface to be available.',
     ],
+    projectIdBehavior:
+      'Omit project_id only when the active project is already selected; include it when importing assets for a specific project.',
     readOnly: false,
     relatedResources: [
       AI_CANVAS_ACTIVE_PROJECT_URI,
@@ -863,7 +1271,7 @@ function isToolName(value: string): value is ToolName {
 
 const serverInstructions = [
   'AI Canvas Desktop exposes a localhost MCP server over the same project runtime the editor uses.',
-  `Start with ${DOCS_OVERVIEW_URI}, ${DOCS_QUICKSTART_URI}, or ${AI_CANVAS_PROJECTS_URI}.`,
+  `Start with ${DOCS_OVERVIEW_URI}, ${DOCS_QUICKSTART_URI}, ${DOCS_TROUBLESHOOTING_URI}, or ${AI_CANVAS_PROJECTS_URI}.`,
   'Tools may omit project_id to target the active project session.',
   'Inspection remains available when the editor window is closed, but write-capable actions require the editor window to stay open so the renderer measurement surface is available.',
   'Create assets with create_asset_from_bytes or create_asset_from_url, then attach them with apply_commands.',
@@ -893,8 +1301,35 @@ function buildProjectNodeUri(projectId: string, nodeId: string): string {
   return `ai-canvas://projects/${projectId}/nodes/${nodeId}`;
 }
 
-function buildMarkdownList(items: string[]): string {
+function buildMarkdownList(items: readonly string[]): string {
   return items.map((item) => `- ${item}`).join('\n');
+}
+
+function renderJsonCodeBlock(value: JsonObject): string {
+  return `\`\`\`json
+${JSON.stringify(value, null, 2)}
+\`\`\``;
+}
+
+function renderToolExamples(examples: readonly ToolDocExample[]): string {
+  return examples
+    .map((example) => {
+      const notes =
+        example.notes === undefined || example.notes.length === 0
+          ? ''
+          : `\n\nNotes:\n${buildMarkdownList(example.notes)}`;
+
+      return `### ${example.title}
+
+Request:
+
+${renderJsonCodeBlock(example.request)}
+
+Response:
+
+${renderJsonCodeBlock(example.response)}${notes}`;
+    })
+    .join('\n\n');
 }
 
 function buildFixedResourceSummary(
@@ -936,6 +1371,7 @@ AI Canvas Desktop exposes a localhost MCP server over the same shared project ru
 ## Discovery path
 
 - Read \`${DOCS_QUICKSTART_URI}\` for the recommended inspect-first workflow.
+- Read \`${DOCS_TROUBLESHOOTING_URI}\` when a session or write request fails unexpectedly.
 - Read \`${DOCS_RESOURCES_URI}\` for the fixed and templated URI spaces.
 - Use \`tools/list\` for strict machine-readable tool contracts.
 - Use \`resources/list\` and \`resources/templates/list\` for human-readable docs and live project resources.`;
@@ -1019,11 +1455,81 @@ ${buildTemplateResourceSummary(templateResources)}
 function renderQuickstartDoc(): string {
   return `# AI Canvas MCP Quickstart
 
-1. Start by reading \`${AI_CANVAS_PROJECTS_URI}\` or calling \`list_projects\` to discover project ids.
-2. If you need to change the active project session, call \`open_project\`.
-3. Call \`inspect_project\`, \`inspect_scenes\`, \`inspect_tree\`, or \`inspect_design_system\` before mutating the document.
-4. When importing external images, call \`create_asset_from_bytes\` or \`create_asset_from_url\` first, then attach the returned \`asset_id\` with \`apply_commands\`.
-5. Keep the editor window open for write-capable operations so the measurement surface is available.
+1. Discover candidate projects through \`${AI_CANVAS_PROJECTS_URI}\` or \`list_projects\`.
+2. Call \`open_project\` when you want later calls without \`project_id\` to target a specific session.
+3. Call \`inspect_project\` and capture the current \`revision\` before sending \`apply_commands\`.
+4. If you need external imagery, import it with \`create_asset_from_bytes\` or \`create_asset_from_url\`.
+5. Call \`apply_commands\` while the editor window is open, then re-read the project or tree resources to confirm the persisted revision.
+
+## End-to-end flow
+
+### 1. Discover projects
+
+${renderJsonCodeBlock({
+  arguments: {},
+  name: 'list_projects',
+})}
+
+### 2. Open the project you want to mutate
+
+${renderJsonCodeBlock({
+  arguments: {
+    project_id: 'project_123',
+  },
+  name: 'open_project',
+})}
+
+### 3. Inspect the active project and note the current revision
+
+${renderJsonCodeBlock({
+  arguments: {},
+  name: 'inspect_project',
+})}
+
+Expected fields to keep:
+
+- \`project.id\` for explicit follow-up calls
+- \`revision\` for \`base_revision\`
+- \`document.root_child_ids\` or \`${AI_CANVAS_PROJECT_TREE_URI_TEMPLATE}\` when you need target node ids
+
+### 4. Optionally import an external asset
+
+${renderJsonCodeBlock({
+  arguments: {
+    asset_id: 'asset_logo',
+    project_id: 'project_123',
+    url: 'https://cdn.example.test/logo.png',
+  },
+  name: 'create_asset_from_url',
+})}
+
+### 5. Apply a mutation batch
+
+${renderJsonCodeBlock({
+  arguments: {
+    base_revision: 12,
+    commands: [
+      {
+        node_id: 'hero_card',
+        patch: {
+          render_style: {
+            background_image: 'url(asset://asset_logo)',
+            background_size: 'cover',
+          },
+        },
+        type: 'update_node',
+      },
+    ],
+    project_id: 'project_123',
+  },
+  name: 'apply_commands',
+})}
+
+### 6. Re-inspect after the write
+
+- Read \`${buildProjectUri('project_123')}\` to confirm the new revision.
+- Read \`${buildProjectTreeUri('project_123')}\` or \`${buildProjectNodeUri('project_123', 'hero_card')}\` to confirm the updated structure or node payload.
+- If the write fails, read \`${DOCS_TROUBLESHOOTING_URI}\` before retrying.
 
 ## Recommended starting points
 
@@ -1031,6 +1537,109 @@ ${buildMarkdownList([
   `Docs overview: \`${DOCS_OVERVIEW_URI}\``,
   `Project list: \`${AI_CANVAS_PROJECTS_URI}\``,
   `Tool catalog: \`${DOCS_TOOLS_URI}\``,
+  `Troubleshooting: \`${DOCS_TROUBLESHOOTING_URI}\``,
+])}`;
+}
+
+function renderTroubleshootingDoc(): string {
+  return `# AI Canvas MCP Troubleshooting
+
+## Missing or invalid MCP session
+
+Symptom:
+
+- HTTP 400 with \`Bad Request: missing valid MCP session\`
+- HTTP 400 with \`Invalid or missing MCP session ID\`
+
+Cause:
+
+- The client sent a non-initialize request before opening an MCP session.
+- The client reused an expired or unknown \`mcp-session-id\`.
+
+Fix:
+
+- Send an MCP \`initialize\` request first and let the SDK manage the session header.
+- Reconnect the client instead of replaying stale session headers manually.
+
+## Wrong endpoint
+
+Symptom:
+
+- The desktop app appears to be running, but the client cannot complete MCP requests.
+
+Cause:
+
+- The client is pointed at the host or port without the \`/mcp\` path.
+
+Fix:
+
+- Use the exact endpoint shown by the desktop app, including \`/mcp\`.
+
+## Editor window closed
+
+Symptom:
+
+- \`apply_commands\`, \`create_asset_from_bytes\`, or \`create_asset_from_url\` returns \`measurement_surface_unavailable\`.
+
+Cause:
+
+- Inspection can run headlessly, but write-capable actions require the browser-backed measurement surface from the open editor window.
+
+Fix:
+
+- Reopen the editor window, wait for the project workspace to load, and retry the write.
+
+## No active project when omitting project_id
+
+Symptom:
+
+- A tool that allows omitted \`project_id\` fails because there is no active project session.
+
+Cause:
+
+- No project has been opened yet in the current desktop runtime.
+
+Fix:
+
+- Call \`list_projects\`, then \`open_project\`, or include \`project_id\` explicitly on the next call.
+
+## Stale or ambiguous active project targeting
+
+Symptom:
+
+- A multi-step workflow reads one project and writes to another because the active session changed in between.
+
+Cause:
+
+- Omitting \`project_id\` relies on the current active session.
+
+Fix:
+
+- Prefer explicit \`project_id\` on multi-step flows.
+- If you want to rely on the active session, call \`open_project\` and \`inspect_project\` immediately before the write.
+
+## Measurement-surface-dependent writes
+
+Symptom:
+
+- Inspection works, but writes fail only after the window closes.
+
+Cause:
+
+- Read-only inspection is still available after window close, but durable writes need \`computed_layout\` refresh before persistence.
+
+Fix:
+
+- Treat inspection and mutation as different capability modes.
+- Keep the editor window open for \`create_asset_from_bytes\`, \`create_asset_from_url\`, and \`apply_commands\`.
+
+## Next checks
+
+${buildMarkdownList([
+  `Overview: \`${DOCS_OVERVIEW_URI}\``,
+  `Quickstart: \`${DOCS_QUICKSTART_URI}\``,
+  `Project list: \`${AI_CANVAS_PROJECTS_URI}\``,
+  `Project resource template: \`${AI_CANVAS_PROJECT_URI_TEMPLATE}\``,
 ])}`;
 }
 
@@ -1049,6 +1658,7 @@ function renderToolDoc(toolName: ToolName): string {
 - Access mode: ${access}
 - Measurement surface: ${measurementSurface}
 - Category: ${tool.category}
+- project_id behavior: ${tool.projectIdBehavior}
 
 ## Description
 
@@ -1061,6 +1671,10 @@ ${buildMarkdownList(tool.relatedResources.map((resource) => `\`${resource}\``))}
 ## Guidance
 
 ${buildMarkdownList(tool.guidance)}
+
+## ${tool.examples.length === 1 ? 'Example' : 'Examples'}
+
+${renderToolExamples(tool.examples)}
 
 ## Machine-readable contract
 
@@ -1573,6 +2187,8 @@ export class LocalMcpBridge {
         return renderResourcesDoc();
       case DOCS_QUICKSTART_URI:
         return renderQuickstartDoc();
+      case DOCS_TROUBLESHOOTING_URI:
+        return renderTroubleshootingDoc();
       default:
         throw new McpError(
           ErrorCode.InvalidParams,

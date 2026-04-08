@@ -6,6 +6,8 @@ This directory contains the current product and implementation docs for AI Canva
 
 This file is a map to the docs set, not a source-of-truth contract. If behavior matters, the contract docs win over this index.
 
+For MCP operators, the best entrypoint is the bridge's live `docs://...` resources at runtime rather than this repository index.
+
 ## Contract docs
 
 - [product-stance.md](product-stance.md)
@@ -42,6 +44,7 @@ This file is a map to the docs set, not a source-of-truth contract. If behavior 
 
 - [local-mcp.md](local-mcp.md)
   Describes the recommended local MCP surface and runtime integration shape.
+  Runtime operator docs are exposed by the bridge itself through `docs://overview`, `docs://examples/quickstart`, `docs://tools`, and `docs://troubleshooting`.
 
 - [storage-model.md](storage-model.md)
   Describes the recommended v1 local persistence implementation shape.
