@@ -529,21 +529,40 @@ export function DocumentWorkspaceScreen({
     ],
   );
 
+  const getDeleteCommand = (node: typeof selectedNode) => {
+    if (!node) {
+      return null;
+    }
+
+    return node.kind === 'frame' && node.scene_id === node.id
+      ? {
+          scene_id: node.id,
+          type: 'delete_scene' as const,
+        }
+      : {
+          node_id: node.id,
+          type: 'delete_node' as const,
+        };
+  };
+
+  const clearSelection = () => {
+    setSelectionState((currentSelectionState) => ({
+      nodeId: null,
+      sequence: currentSelectionState.sequence + 1,
+      source: null,
+      workspaceIdentity,
+    }));
+  };
+
   const handleDeleteSelection = useCallback(async () => {
-    if (!onApplyCommands || !selectedNode || !canMutateSelection) {
+    if (!onApplyCommands || !canMutateSelection || !selectedNode) {
       return;
     }
 
-    const command =
-      selectedNode.kind === 'frame' && selectedNode.scene_id === selectedNode.id
-        ? {
-            scene_id: selectedNode.id,
-            type: 'delete_scene' as const,
-          }
-        : {
-            node_id: selectedNode.id,
-            type: 'delete_node' as const,
-          };
+    const command = getDeleteCommand(selectedNode);
+    if (!command) {
+      return;
+    }
 
     const result = await onApplyCommands({
       base_revision: activeProject.revision,
@@ -551,16 +570,9 @@ export function DocumentWorkspaceScreen({
       document_id: activeProject.document.document_id,
     });
 
-    if (!result.ok) {
-      return;
+    if (result.ok) {
+      clearSelection();
     }
-
-    setSelectionState((currentSelectionState) => ({
-      nodeId: null,
-      sequence: currentSelectionState.sequence + 1,
-      source: null,
-      workspaceIdentity,
-    }));
   }, [
     activeProject.document.document_id,
     activeProject.revision,
@@ -576,13 +588,13 @@ export function DocumentWorkspaceScreen({
         return;
       }
 
-      const isDeleteKey = event.key === 'Delete' || event.key === 'Backspace';
+      const isPlainDeleteKey =
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey;
 
-      if (!isDeleteKey || event.metaKey || event.ctrlKey || event.altKey) {
-        return;
-      }
-
-      if (!selectedNodeId || !canMutateSelection) {
+      if (!isPlainDeleteKey || !selectedNode || !canMutateSelection) {
         return;
       }
 
@@ -591,11 +603,8 @@ export function DocumentWorkspaceScreen({
     };
 
     window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [canMutateSelection, handleDeleteSelection, selectedNodeId]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canMutateSelection, handleDeleteSelection, selectedNode]);
 
   const commitZoomInput = () => {
     const parsedZoom = parseViewportZoomPercent(zoomInputValue);
