@@ -1,3 +1,4 @@
+import type { RendererNode } from '@ai-canvas/document-core';
 import type {
   ActiveProject,
   AppResult,
@@ -64,6 +65,22 @@ type CanvasToolButtonDefinition = {
   label: string;
   tool: CanvasTool;
 };
+
+function getDeleteCommand(node: RendererNode | null) {
+  if (!node) {
+    return null;
+  }
+
+  return node.kind === 'frame' && node.scene_id === node.id
+    ? {
+        scene_id: node.id,
+        type: 'delete_scene' as const,
+      }
+    : {
+        node_id: node.id,
+        type: 'delete_node' as const,
+      };
+}
 
 const CANVAS_TOOL_BUTTONS: CanvasToolButtonDefinition[] = [
   {
@@ -529,30 +546,14 @@ export function DocumentWorkspaceScreen({
     ],
   );
 
-  const getDeleteCommand = (node: typeof selectedNode) => {
-    if (!node) {
-      return null;
-    }
-
-    return node.kind === 'frame' && node.scene_id === node.id
-      ? {
-          scene_id: node.id,
-          type: 'delete_scene' as const,
-        }
-      : {
-          node_id: node.id,
-          type: 'delete_node' as const,
-        };
-  };
-
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectionState((currentSelectionState) => ({
       nodeId: null,
       sequence: currentSelectionState.sequence + 1,
       source: null,
       workspaceIdentity,
     }));
-  };
+  }, [workspaceIdentity]);
 
   const handleDeleteSelection = useCallback(async () => {
     if (!onApplyCommands || !canMutateSelection || !selectedNode) {
@@ -577,9 +578,9 @@ export function DocumentWorkspaceScreen({
     activeProject.document.document_id,
     activeProject.revision,
     canMutateSelection,
+    clearSelection,
     onApplyCommands,
     selectedNode,
-    workspaceIdentity,
   ]);
 
   useEffect(() => {
