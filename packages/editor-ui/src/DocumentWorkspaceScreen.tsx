@@ -256,7 +256,8 @@ export function DocumentWorkspaceScreen({
   onUndo,
   runtimeCapabilities,
 }: DocumentWorkspaceScreenProps) {
-  const resolvedAssetsById = activeProject.resolved_assets as ResolvedAssetsById;
+  const resolvedAssetsById =
+    activeProject.resolved_assets as ResolvedAssetsById;
   const sceneCount = Object.keys(activeProject.document.scenes).length;
   const workspaceIdentity = `${activeProject.project.id}:${activeProject.document.document_id}`;
   const rendererRef = useRef<RendererMeasurementHandle | null>(null);
@@ -343,6 +344,9 @@ export function DocumentWorkspaceScreen({
     activeProject.document.nodes[selectionState.nodeId]
       ? selectionState.nodeId
       : null;
+  const selectedNode = selectedNodeId
+    ? (activeProject.document.nodes[selectedNodeId] ?? null)
+    : null;
   const selectedNodeSelectionSource =
     selectionState.workspaceIdentity === workspaceIdentity &&
     selectedNodeId !== null
@@ -524,6 +528,74 @@ export function DocumentWorkspaceScreen({
       onApplyCommands,
     ],
   );
+
+  const handleDeleteSelection = useCallback(async () => {
+    if (!onApplyCommands || !selectedNode || !canMutateSelection) {
+      return;
+    }
+
+    const command =
+      selectedNode.kind === 'frame' && selectedNode.scene_id === selectedNode.id
+        ? {
+            scene_id: selectedNode.id,
+            type: 'delete_scene' as const,
+          }
+        : {
+            node_id: selectedNode.id,
+            type: 'delete_node' as const,
+          };
+
+    const result = await onApplyCommands({
+      base_revision: activeProject.revision,
+      commands: [command],
+      document_id: activeProject.document.document_id,
+    });
+
+    if (!result.ok) {
+      return;
+    }
+
+    setSelectionState((currentSelectionState) => ({
+      nodeId: null,
+      sequence: currentSelectionState.sequence + 1,
+      source: null,
+      workspaceIdentity,
+    }));
+  }, [
+    activeProject.document.document_id,
+    activeProject.revision,
+    canMutateSelection,
+    onApplyCommands,
+    selectedNode,
+    workspaceIdentity,
+  ]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || isEditableEventTarget(event.target)) {
+        return;
+      }
+
+      const isDeleteKey = event.key === 'Delete' || event.key === 'Backspace';
+
+      if (!isDeleteKey || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      if (!selectedNodeId || !canMutateSelection) {
+        return;
+      }
+
+      event.preventDefault();
+      void handleDeleteSelection();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [canMutateSelection, handleDeleteSelection, selectedNodeId]);
 
   const commitZoomInput = () => {
     const parsedZoom = parseViewportZoomPercent(zoomInputValue);

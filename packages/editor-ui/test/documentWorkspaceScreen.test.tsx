@@ -220,7 +220,12 @@ function createActiveProject(
         case 'data_uri':
           return [[asset.id, { url: asset.source.data_uri }]];
         case 'base64':
-          return [[asset.id, { url: `data:${asset.mime_type};base64,${asset.source.base64}` }]];
+          return [
+            [
+              asset.id,
+              { url: `data:${asset.mime_type};base64,${asset.source.base64}` },
+            ],
+          ];
         case 'asset_store':
           return [];
       }
@@ -2777,6 +2782,55 @@ describe('DocumentWorkspaceScreen', () => {
       });
 
       expect(onApplyCommands).not.toHaveBeenCalled();
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('deletes the selected node when Delete is pressed', async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          measured_node_count: 1,
+          measured_root_ids: ['rect_loose'],
+          status: 'refreshed',
+        },
+        revision: 2,
+      }),
+    );
+    const harness = renderIntoDom(
+      createActiveProject(createDocumentWithLooseNode()),
+      {
+        onApplyCommands,
+      },
+    );
+
+    try {
+      act(() => {
+        getLayerRow(harness, 'rect_loose')?.click();
+      });
+
+      await act(async () => {
+        window.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            bubbles: true,
+            key: 'Delete',
+          }),
+        );
+        await Promise.resolve();
+      });
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          {
+            node_id: 'rect_loose',
+            type: 'delete_node',
+          },
+        ],
+        document_id: 'doc_workspace_loose',
+      });
     } finally {
       harness.cleanup();
     }
