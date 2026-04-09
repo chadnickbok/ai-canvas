@@ -24,6 +24,7 @@ import { resolveRendererLoadTarget } from './resolveRendererLoadTarget.js';
 import { registerIpc } from './registerIpc.js';
 import { DESKTOP_ASSET_PROTOCOL } from './runtime/assetStorage.js';
 import { createProjectRuntime, ProjectStore } from './runtime/index.js';
+import { startAutoUpdates } from './updater.js';
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -31,10 +32,10 @@ protocol.registerSchemesAsPrivileged([
       corsEnabled: true,
       secure: true,
       standard: true,
-      supportFetchAPI: true
+      supportFetchAPI: true,
     },
-    scheme: DESKTOP_ASSET_PROTOCOL
-  }
+    scheme: DESKTOP_ASSET_PROTOCOL,
+  },
 ]);
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -209,6 +210,11 @@ async function bootstrap() {
       mcpBridge.getStatus().errorMessage ?? formatMcpStartError(mcpStartError),
     );
   }
+
+  startAutoUpdates({
+    app,
+    getParentWindow: () => mainWindow,
+  });
 
   app.on('activate', async () => {
     await createMainWindow(runtime, layoutMeasurementBridge);

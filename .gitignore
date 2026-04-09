@@ -7,3 +7,4 @@ out
 .electron-vite
 coverage
 /screenshots/
+apps/desktop/dist-electron

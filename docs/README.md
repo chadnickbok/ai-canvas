@@ -53,3 +53,6 @@ For MCP operators, the best entrypoint is the bridge's live `docs://...` resourc
 
 - [testing-and-release.md](testing-and-release.md)
   Defines the validation strategy, release gates, and manual verification bar for the desktop app.
+
+- [release-strategy.md](release-strategy.md)
+  Defines the current release pipeline, versioning, artifacts, publication flow, and updater model for the desktop app.

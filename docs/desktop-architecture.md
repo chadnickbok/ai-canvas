@@ -265,7 +265,7 @@ Allowed early compromises:
 - tray-resident lifecycle instead of a separate background daemon
 - no multi-window support
 - no hidden/offscreen measurement surface while the window is closed
-- no auto-updater
+- startup-time auto-update against the latest published `main` GitHub release only
 - no plugin system
 - limited import/export formats
 - in-process storage and command handling
