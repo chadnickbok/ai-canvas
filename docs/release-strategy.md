@@ -47,7 +47,7 @@ This is the default branch-protection lane, not the packaging lane.
 
 ### 2.2 `macOS Packaging Smoke`
 
-`macOS Packaging Smoke` runs on pull requests and on pushes to non-`main` branches.
+`macOS Packaging Smoke` runs on pull request updates only.
 
 Its job is to prove that macOS packaging still works without using release secrets. It currently:
 

@@ -7,12 +7,9 @@ on:
       - reopened
       - synchronize
       - ready_for_review
-  push:
-    branches-ignore:
-      - main
 
 concurrency:
-  group: mac-smoke-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: mac-smoke-${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -49,7 +46,10 @@ jobs:
 
       - name: Verify macOS update metadata
         run: |
-          mapfile -t UPDATE_METADATA_PATHS < <(find apps/desktop/dist-electron -maxdepth 1 -name 'latest-mac*.yml' -type f | sort)
+          UPDATE_METADATA_PATHS=()
+          while IFS= read -r UPDATE_METADATA_PATH; do
+            UPDATE_METADATA_PATHS+=("$UPDATE_METADATA_PATH")
+          done < <(find apps/desktop/dist-electron -maxdepth 1 -name 'latest-mac*.yml' -type f | sort)
 
           if [ "${#UPDATE_METADATA_PATHS[@]}" -eq 0 ]; then
             echo "macOS update metadata was not generated." >&2

@@ -325,7 +325,7 @@ Current implementation priorities are:
 ## Build and release automation
 
 - `CI` runs fast Linux validation on pull requests.
-- `macOS Packaging Smoke` runs unsigned macOS packaging on pull requests and non-`main` branch pushes.
+- `macOS Packaging Smoke` runs unsigned macOS packaging once per pull request update.
 - `Release macOS` publishes the signed and notarized macOS release stream from `main`.
 - Release versioning, artifacts, signing prerequisites, publication flow, and updater behavior are documented in [docs/release-strategy.md](docs/release-strategy.md).
 
