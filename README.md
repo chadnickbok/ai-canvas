@@ -258,6 +258,8 @@ lsof -nP -iTCP:9311 -sTCP:LISTEN
 
 If nothing is listening on port `9311`, MCP is not running in the desktop app.
 
+Once connected, use the live MCP docs as the operator guide: `docs://overview`, `docs://examples/quickstart`, `docs://tools`, and `docs://troubleshooting`.
+
 ### MCP troubleshooting
 
 - `Cannot find package '@tailwindcss/vite'`
