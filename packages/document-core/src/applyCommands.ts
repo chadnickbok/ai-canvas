@@ -2630,111 +2630,58 @@ function applyUpdateSvgPrimitiveCommand(
 }
 
 function applySingleCommand(context: CommandContext, command: Command): void {
-  switch (command.type) {
-    case 'create_scene':
-      applyCreateSceneCommand(context, command);
-      return;
-    case 'update_scene':
-      applyUpdateSceneCommand(context, command);
-      return;
-    case 'delete_scene':
-      applyDeleteSceneCommand(context, command);
-      return;
-    case 'update_scene_metadata':
-      applyUpdateSceneMetadataCommand(context, command);
-      return;
-    case 'create_node':
-      applyCreateNodeCommand(context, command);
-      return;
-    case 'update_node':
-      applyUpdateNodeCommand(context, command);
-      return;
-    case 'reparent_node':
-      applyReparentNodeCommand(context, command);
-      return;
-    case 'reorder_children':
-      applyReorderChildrenCommand(context, command);
-      return;
-    case 'delete_node':
-      applyDeleteNodeCommand(context, command);
-      return;
-    case 'update_text_content':
-      applyUpdateTextContentCommand(context, command);
-      return;
-    case 'set_canvas_local_value':
-      applySetCanvasLocalValueCommand(context, command);
-      return;
-    case 'clear_canvas_local_value':
-      applyClearCanvasLocalValueCommand(context, command);
-      return;
-    case 'bind_canvas_variable':
-      applyBindCanvasVariableCommand(context, command);
-      return;
-    case 'clear_canvas_variable_binding':
-      applyClearCanvasVariableBindingCommand(context, command);
-      return;
-    case 'set_node_local_value':
-      applySetNodeLocalValueCommand(context, command);
-      return;
-    case 'clear_node_local_value':
-      applyClearNodeLocalValueCommand(context, command);
-      return;
-    case 'bind_node_variable':
-      applyBindNodeVariableCommand(context, command);
-      return;
-    case 'clear_node_variable_binding':
-      applyClearNodeVariableBindingCommand(context, command);
-      return;
-    case 'bind_node_style':
-      applyBindNodeStyleCommand(context, command);
-      return;
-    case 'clear_node_style_binding':
-      applyClearNodeStyleBindingCommand(context, command);
-      return;
-    case 'create_variable_collection':
-      applyCreateVariableCollectionCommand(context, command);
-      return;
-    case 'update_variable_collection':
-      applyUpdateVariableCollectionCommand(context, command);
-      return;
-    case 'delete_variable_collection':
-      applyDeleteVariableCollectionCommand(context, command);
-      return;
-    case 'create_variable':
-      applyCreateVariableCommand(context, command);
-      return;
-    case 'update_variable':
-      applyUpdateVariableCommand(context, command);
-      return;
-    case 'delete_variable':
-      applyDeleteVariableCommand(context, command);
-      return;
-    case 'create_style':
-      applyCreateStyleCommand(context, command);
-      return;
-    case 'update_style':
-      applyUpdateStyleCommand(context, command);
-      return;
-    case 'delete_style':
-      applyDeleteStyleCommand(context, command);
-      return;
-    case 'create_asset':
-      applyCreateAssetCommand(context, command);
-      return;
-    case 'update_asset':
-      applyUpdateAssetCommand(context, command);
-      return;
-    case 'delete_asset':
-      applyDeleteAssetCommand(context, command);
-      return;
-    case 'update_svg_root':
-      applyUpdateSvgRootCommand(context, command);
-      return;
-    case 'update_svg_primitive':
-      applyUpdateSvgPrimitiveCommand(context, command);
-      return;
-  }
+  const handler = commandHandlers[command.type] as (
+    context: CommandContext,
+    command: Command,
+  ) => void;
+  handler(context, command);
 }
+
+type CommandType = Command['type'];
+type CommandHandler<TType extends CommandType> = (
+  context: CommandContext,
+  command: Extract<Command, { type: TType }>,
+) => void;
+type CommandHandlerRegistry = {
+  [TType in CommandType]: CommandHandler<TType>;
+};
+
+const commandHandlers = {
+  create_scene: applyCreateSceneCommand,
+  update_scene: applyUpdateSceneCommand,
+  delete_scene: applyDeleteSceneCommand,
+  update_scene_metadata: applyUpdateSceneMetadataCommand,
+  create_node: applyCreateNodeCommand,
+  update_node: applyUpdateNodeCommand,
+  reparent_node: applyReparentNodeCommand,
+  reorder_children: applyReorderChildrenCommand,
+  delete_node: applyDeleteNodeCommand,
+  update_text_content: applyUpdateTextContentCommand,
+  set_canvas_local_value: applySetCanvasLocalValueCommand,
+  clear_canvas_local_value: applyClearCanvasLocalValueCommand,
+  bind_canvas_variable: applyBindCanvasVariableCommand,
+  clear_canvas_variable_binding: applyClearCanvasVariableBindingCommand,
+  set_node_local_value: applySetNodeLocalValueCommand,
+  clear_node_local_value: applyClearNodeLocalValueCommand,
+  bind_node_variable: applyBindNodeVariableCommand,
+  clear_node_variable_binding: applyClearNodeVariableBindingCommand,
+  bind_node_style: applyBindNodeStyleCommand,
+  clear_node_style_binding: applyClearNodeStyleBindingCommand,
+  create_variable_collection: applyCreateVariableCollectionCommand,
+  update_variable_collection: applyUpdateVariableCollectionCommand,
+  delete_variable_collection: applyDeleteVariableCollectionCommand,
+  create_variable: applyCreateVariableCommand,
+  update_variable: applyUpdateVariableCommand,
+  delete_variable: applyDeleteVariableCommand,
+  create_style: applyCreateStyleCommand,
+  update_style: applyUpdateStyleCommand,
+  delete_style: applyDeleteStyleCommand,
+  create_asset: applyCreateAssetCommand,
+  update_asset: applyUpdateAssetCommand,
+  delete_asset: applyDeleteAssetCommand,
+  update_svg_root: applyUpdateSvgRootCommand,
+  update_svg_primitive: applyUpdateSvgPrimitiveCommand,
+} satisfies CommandHandlerRegistry;
 
 export async function applyCommands(
   currentDocument: unknown,
