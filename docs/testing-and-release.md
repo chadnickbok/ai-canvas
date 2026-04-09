@@ -12,6 +12,7 @@ It answers:
 - what release gates must pass before shipping
 - what manual verification is still required
 - what failures block release vs generate warnings
+- how validation expectations map onto CI lanes
 
 This policy applies to:
 
@@ -22,6 +23,8 @@ This policy applies to:
 
 It does **not** define product behavior itself.  
 Those contracts live in the product, schema, normalization, command, rendering, computed-layout-refresh, and snapshot docs.
+
+It also does **not** define the operational release pipeline, versioning scheme, signing setup, publication mechanics, or updater feed topology. Those live in [release-strategy.md](release-strategy.md).
 
 ## 1. Policy Scope
 
@@ -517,7 +520,7 @@ A release must not ship if any of the following fail:
 - MCP parity suite
 - required end-to-end workflows
 - packaging/build success for the target release platform
-- manual smoke test checklist for the release candidate
+- macOS update metadata generation for the published release
 
 ## 7.2 Warning-level gates
 
@@ -559,7 +562,9 @@ Fast CI should include:
 - semantic resolution tests
 - core IPC contract tests
 
-## 8.2 Heavier validation on protected branches or release candidates
+The repository's `CI` workflow is the fast lane. It runs on pull requests on Linux and is intended to stay fast enough to serve as the default branch-protection gate.
+
+## 8.2 Heavier validation on protected branches or main releases
 
 Heavier CI should include:
 
@@ -570,9 +575,11 @@ Heavier CI should include:
 - packaging smoke build
 - end-to-end desktop workflow tests
 
-## 8.3 Release-candidate CI
+The current repository automation maps these heavier checks across dedicated packaging and release lanes. The operational workflow split lives in [release-strategy.md](release-strategy.md).
 
-A release candidate should run the full suite required by the target platform, including:
+## 8.3 Main-release CI
+
+A releasable `main` commit should execute the full validation and packaging work required by the target platform, including:
 
 - packaged app build
 - install or launch smoke test
@@ -581,11 +588,13 @@ A release candidate should run the full suite required by the target platform, i
 - tray-close and explicit-quit behavior validation
 - MCP localhost validation
 
+The current operational release workflow, publication model, and updater expectations are documented in [release-strategy.md](release-strategy.md).
+
 ## 9. Manual Verification
 
 Automation is necessary but not sufficient for a desktop product.
 
-Every release candidate should pass a manual smoke test.
+Recent published `main` releases should continue to pass manual smoke verification.
 
 ## 9.1 Manual smoke checklist
 
@@ -611,7 +620,7 @@ At minimum, manual release verification should cover:
 
 ## 9.2 Manual degraded-state checks
 
-At minimum, at least one release candidate should be checked manually against:
+At minimum, recent published `main` releases should be checked manually against:
 
 - missing asset behavior
 - damaged snapshot partial recovery behavior
@@ -690,7 +699,7 @@ The desktop release is ready when all of the following are true:
 - MCP reads and mutates the same live project session as the UI
 - MCP remains available after the window closes and stops on explicit quit
 - target-platform packaging succeeds
-- manual smoke verification passes on the release candidate
+- recent manual smoke verification continues to pass on the active `main` release stream
 
 ## 14. Non-Goals of This Document
 
@@ -700,5 +709,5 @@ This document does not define:
 - the internal structure of every test file
 - a cloud release system
 - analytics-driven rollout strategy
-- auto-update infrastructure
+- website-backed update hosting beyond GitHub Releases
 - team process such as code review ownership or sprint planning

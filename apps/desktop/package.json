@@ -1,6 +1,9 @@
 {
   "name": "@ai-canvas/desktop",
   "private": true,
+  "version": "0.1.0",
+  "description": "Local-first scene-first mockup editor desktop app.",
+  "author": "Nick Chadwick",
   "productName": "AI Canvas",
   "type": "module",
   "main": "out/main/index.js",
@@ -10,28 +13,31 @@
     "dev:app": "electron-vite dev --watch",
     "build": "pnpm --dir ../.. build",
     "build:app": "electron-vite build",
-    "package:mac": "pnpm icon:build && pnpm build:app && node ./scripts/package-mac.mjs",
+    "dist:mac": "pnpm --dir ../.. build:packages && pnpm build:app && node ./scripts/run-electron-builder.mjs",
+    "dist:mac:unsigned": "pnpm --dir ../.. build:packages && pnpm build:app && DESKTOP_UNSIGNED=true node ./scripts/run-electron-builder.mjs",
+    "package:mac": "pnpm dist:mac",
     "mcp:demo-slice": "node ./scripts/mcp-demo-vertical-slice.mjs",
     "migrate:embedded-assets": "node ./scripts/migrate-embedded-assets.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src",
     "test": "pnpm --dir ../.. build:packages && vitest run"
   },
-  "dependencies": {
+  "devDependencies": {
     "@ai-canvas/document-core": "workspace:*",
     "@ai-canvas/editor-ui": "workspace:*",
     "@ai-canvas/ipc-contract": "workspace:*",
     "@ai-canvas/mcp-bridge": "workspace:*",
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@modelcontextprotocol/sdk": "^1.28.0",
     "electron": "^41.0.4",
+    "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
+    "jsdom": "^26.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
-  "devDependencies": {
-    "@electron/packager": "^19.1.0",
-    "@modelcontextprotocol/sdk": "^1.28.0",
-    "jsdom": "^26.1.0"
+  "dependencies": {
+    "electron-updater": "^6.8.3"
   }
 }

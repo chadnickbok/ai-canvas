@@ -22,7 +22,7 @@ The goal is to make a powerful mockup and flow-design tool that feels strong bot
 
 > Experimental and actively under development.
 
-The repository currently contains the current product and implementation documentation set that guides implementation. This README is a map, not a source-of-truth contract. See `docs/README.md` for the full index and the split between contract docs, guidance docs, and release policy.
+The repository currently contains the current product and implementation documentation set that guides implementation. This README is a map, not a source-of-truth contract. See `docs/README.md` for the full index and the split between contract docs, guidance docs, validation policy, and release operations.
 
 ## Features
 
@@ -227,6 +227,24 @@ pnpm hooks:install
 pnpm build
 ```
 
+Build only the desktop production bundle:
+
+```bash
+pnpm build:desktop
+```
+
+Package unsigned macOS release artifacts locally:
+
+```bash
+pnpm dist:mac:unsigned
+```
+
+Package signed macOS release artifacts locally on a machine with valid Apple signing credentials available to Electron Builder:
+
+```bash
+pnpm dist:mac
+```
+
 ### Verify local MCP bridge
 
 Run the desktop app and keep it open, then run:
@@ -304,6 +322,13 @@ Current implementation priorities are:
 7. local MCP workflows
 8. packaging and release hardening
 
+## Build and release automation
+
+- `CI` runs fast Linux validation on pull requests.
+- `macOS Packaging Smoke` runs unsigned macOS packaging once per pull request update.
+- `Release macOS` publishes the signed and notarized macOS release stream from `main`.
+- Release versioning, artifacts, signing prerequisites, publication flow, and updater behavior are documented in [docs/release-strategy.md](docs/release-strategy.md).
+
 ## Documentation
 
 This README is a map, not a source-of-truth contract. See [docs/README.md](docs/README.md) for the full classification.
@@ -329,6 +354,7 @@ Guidance docs:
 Policy docs:
 
 - [docs/testing-and-release.md](docs/testing-and-release.md)
+- [docs/release-strategy.md](docs/release-strategy.md)
 
 ## Contributing
 
