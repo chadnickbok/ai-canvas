@@ -61,3 +61,18 @@ linux:
 deb:
   packageCategory: graphics
   packageName: ai-canvas
+
+win:
+  icon: build/icons/strapping-app-icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  verifyUpdateCodeSignature: true
+
+nsis:
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  oneClick: true
+  perMachine: false

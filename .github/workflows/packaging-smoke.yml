@@ -145,3 +145,60 @@ jobs:
             apps/desktop/dist-electron/*.yml
             apps/desktop/dist-electron/*.blockmap
           if-no-files-found: error
+
+  windows-smoke:
+    name: Windows Smoke Build (x64)
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build unsigned Windows artifacts
+        run: pnpm dist:win:x64
+
+      - name: Verify Windows artifacts
+        shell: pwsh
+        run: |
+          $installerPaths = Get-ChildItem apps/desktop/dist-electron -Filter *.exe -File
+          $updateMetadataPath = Join-Path $PWD 'apps/desktop/dist-electron/latest.yml'
+          $blockmapPaths = Get-ChildItem apps/desktop/dist-electron -Filter *.blockmap -File
+
+          if ($installerPaths.Count -eq 0) {
+            throw 'Windows installer artifact was not generated.'
+          }
+
+          if (-not (Test-Path $updateMetadataPath)) {
+            throw 'Windows update metadata was not generated.'
+          }
+
+          if ($blockmapPaths.Count -eq 0) {
+            throw 'Windows blockmap artifact was not generated.'
+          }
+
+      - name: Upload Windows smoke artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-artifacts-x64
+          path: |
+            apps/desktop/dist-electron/*.exe
+            apps/desktop/dist-electron/*.yml
+            apps/desktop/dist-electron/*.blockmap
+          if-no-files-found: error

@@ -23,6 +23,8 @@
     "dist:linux": "pnpm --filter @ai-canvas/desktop dist:linux",
     "dist:linux:x64": "pnpm --filter @ai-canvas/desktop dist:linux:x64",
     "dist:linux:arm64": "pnpm --filter @ai-canvas/desktop dist:linux:arm64",
+    "dist:win": "pnpm --filter @ai-canvas/desktop dist:win",
+    "dist:win:x64": "pnpm --filter @ai-canvas/desktop dist:win:x64",
     "mcp:demo-slice": "pnpm --filter @ai-canvas/desktop mcp:demo-slice",
     "hooks:install": "git config core.hooksPath .githooks",
     "typecheck": "pnpm build:packages && pnpm --filter @ai-canvas/desktop typecheck && pnpm --filter @ai-canvas/marketing typecheck",

@@ -93,6 +93,47 @@ jobs:
           echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
           echo "release_title=${RELEASE_TITLE}" >> "$GITHUB_OUTPUT"
 
+  windows-signing-ready:
+    name: Windows Signing Readiness
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+
+    steps:
+      - name: Check Windows signing configuration
+        id: check
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          WINDOWS_AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ vars.WINDOWS_AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+          WINDOWS_AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ vars.WINDOWS_AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          WINDOWS_AZURE_TRUSTED_SIGNING_PROFILE_NAME: ${{ vars.WINDOWS_AZURE_TRUSTED_SIGNING_PROFILE_NAME }}
+          WINDOWS_SIGN_PUBLISHER_NAME: ${{ vars.WINDOWS_SIGN_PUBLISHER_NAME }}
+        run: |
+          missing=0
+
+          for var_name in \
+            AZURE_TENANT_ID \
+            AZURE_CLIENT_ID \
+            AZURE_CLIENT_SECRET \
+            WINDOWS_AZURE_TRUSTED_SIGNING_ENDPOINT \
+            WINDOWS_AZURE_TRUSTED_SIGNING_ACCOUNT_NAME \
+            WINDOWS_AZURE_TRUSTED_SIGNING_PROFILE_NAME \
+            WINDOWS_SIGN_PUBLISHER_NAME
+          do
+            if [ -z "${!var_name:-}" ]; then
+              echo "Missing Windows signing input: ${var_name}"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
   release-macos:
     name: Signed macOS Release
     runs-on: macos-latest
@@ -370,6 +411,91 @@ jobs:
             apps/desktop/dist-electron/*.blockmap
           if-no-files-found: error
 
+  release-windows:
+    name: Windows Release (x64)
+    runs-on: windows-latest
+    environment: release
+    needs:
+      - quality
+      - test
+      - release-meta
+      - windows-signing-ready
+    if: ${{ needs.windows-signing-ready.outputs.ready == 'true' }}
+    timeout-minutes: 45
+
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DESKTOP_BUILD_VERSION: ${{ github.run_number }}
+      DESKTOP_RELEASE_VERSION: ${{ needs.release-meta.outputs.app_version }}
+      DESKTOP_WINDOWS_SIGN: 'true'
+      WINDOWS_AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: ${{ vars.WINDOWS_AZURE_TRUSTED_SIGNING_ACCOUNT_NAME }}
+      WINDOWS_AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ vars.WINDOWS_AZURE_TRUSTED_SIGNING_ENDPOINT }}
+      WINDOWS_AZURE_TRUSTED_SIGNING_PROFILE_NAME: ${{ vars.WINDOWS_AZURE_TRUSTED_SIGNING_PROFILE_NAME }}
+      WINDOWS_AZURE_TRUSTED_SIGNING_TIMESTAMP_RFC3161: ${{ vars.WINDOWS_AZURE_TRUSTED_SIGNING_TIMESTAMP_RFC3161 }}
+      WINDOWS_SIGN_PUBLISHER_NAME: ${{ vars.WINDOWS_SIGN_PUBLISHER_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build signed Windows artifacts
+        run: pnpm dist:win:x64
+
+      - name: Verify Windows artifacts
+        shell: pwsh
+        run: |
+          $installerPaths = Get-ChildItem apps/desktop/dist-electron -Filter *.exe -File
+          $updateMetadataPath = Join-Path $PWD 'apps/desktop/dist-electron/latest.yml'
+          $blockmapPaths = Get-ChildItem apps/desktop/dist-electron -Filter *.blockmap -File
+
+          if ($installerPaths.Count -eq 0) {
+            throw 'Windows installer artifact was not generated.'
+          }
+
+          if (-not (Test-Path $updateMetadataPath)) {
+            throw 'Windows update metadata was not generated.'
+          }
+
+          if ($blockmapPaths.Count -eq 0) {
+            throw 'Windows blockmap artifact was not generated.'
+          }
+
+      - name: Verify Windows code signature
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem apps/desktop/dist-electron -Filter *.exe -File | Select-Object -First 1
+          $signature = Get-AuthenticodeSignature $installer.FullName
+
+          if ($signature.Status -ne 'Valid') {
+            throw "Windows code signing verification failed: $($signature.Status)"
+          }
+
+      - name: Upload Windows release artifacts to workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-artifacts-x64
+          path: |
+            apps/desktop/dist-electron/*.exe
+            apps/desktop/dist-electron/*.yml
+            apps/desktop/dist-electron/*.blockmap
+          if-no-files-found: error
+
   publish-release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
@@ -377,6 +503,8 @@ jobs:
       - release-meta
       - release-macos
       - release-linux
+      - release-windows
+    if: ${{ always() && needs.release-meta.result == 'success' && needs.release-macos.result == 'success' && needs.release-linux.result == 'success' && (needs.release-windows.result == 'success' || needs.release-windows.result == 'skipped') }}
 
     steps:
       - name: Download release artifacts
@@ -391,7 +519,7 @@ jobs:
           RELEASE_ARTIFACT_PATHS=()
           while IFS= read -r RELEASE_ARTIFACT_PATH; do
             RELEASE_ARTIFACT_PATHS+=("$RELEASE_ARTIFACT_PATH")
-          done < <(find apps/desktop/dist-electron -maxdepth 1 \( -name '*.dmg' -o -name '*.zip' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) -type f | sort)
+          done < <(find apps/desktop/dist-electron -maxdepth 1 \( -name '*.dmg' -o -name '*.zip' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.yml' -o -name '*.blockmap' \) -type f | sort)
 
           if [ "${#RELEASE_ARTIFACT_PATHS[@]}" -eq 0 ]; then
             echo "Release artifacts were not downloaded." >&2
@@ -401,13 +529,14 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          WINDOWS_RELEASE_INCLUDED: ${{ needs.release-windows.result == 'success' }}
         run: |
           set -euo pipefail
 
           ARTIFACT_PATHS=()
           while IFS= read -r ARTIFACT_PATH; do
             ARTIFACT_PATHS+=("$ARTIFACT_PATH")
-          done < <(find apps/desktop/dist-electron -maxdepth 1 \( -name '*.dmg' -o -name '*.zip' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) -type f | sort)
+          done < <(find apps/desktop/dist-electron -maxdepth 1 \( -name '*.dmg' -o -name '*.zip' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.yml' -o -name '*.blockmap' \) -type f | sort)
 
           if [ "${#ARTIFACT_PATHS[@]}" -eq 0 ]; then
             echo "No release artifacts found to publish." >&2
@@ -425,6 +554,15 @@ jobs:
           - Debian/Ubuntu: download the matching \`.deb\` file and install with \`sudo apt install ./AI-Canvas-<version>-<arch>.deb\`
           - Other Linux environments: download the matching \`.AppImage\`, run \`chmod +x\`, then launch it directly
           EOF
+
+          if [ "${WINDOWS_RELEASE_INCLUDED}" = "true" ]; then
+            cat >> "$RUNNER_TEMP/release-notes.md" <<EOF
+
+          Windows install notes:
+          - Download the \`.exe\` installer and run it normally
+          - Installed Windows builds use Electron Updater against this GitHub Release feed
+          EOF
+          fi
 
           if gh release view "${{ needs.release-meta.outputs.release_tag }}" >/dev/null 2>&1; then
             gh release upload "${{ needs.release-meta.outputs.release_tag }}" "${ARTIFACT_PATHS[@]}" --clobber

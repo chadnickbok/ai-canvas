@@ -258,6 +258,19 @@ pnpm dist:linux:x64
 pnpm dist:linux:arm64
 ```
 
+Package Windows release artifacts locally on Windows for `x64`:
+
+```bash
+pnpm dist:win:x64
+```
+
+Package signed Windows release artifacts locally on Windows after configuring Azure Artifact Signing environment variables:
+
+```powershell
+$env:DESKTOP_WINDOWS_SIGN='true'
+pnpm dist:win:x64
+```
+
 Install the generated Debian package on Ubuntu or Debian:
 
 ```bash
@@ -351,8 +364,9 @@ Current implementation priorities are:
 ## Build and release automation
 
 - `CI` runs fast Linux validation on pull requests.
-- `Packaging Smoke` runs unsigned packaging verification on pull requests for macOS and Linux.
-- `Release Desktop` publishes the signed macOS release stream and the Linux `.deb` and AppImage release artifacts from `main`.
+- `CI` also runs a Windows desktop build-and-test lane.
+- `Packaging Smoke` runs unsigned packaging verification on pull requests for macOS, Linux, and Windows.
+- `Release Desktop` publishes the signed macOS release stream, the Linux `.deb` and AppImage release artifacts, and a signed Windows NSIS installer when the Windows Azure signing configuration is present in GitHub Actions.
 - Release versioning, artifacts, signing prerequisites, publication flow, and updater behavior are documented in [docs/release-strategy.md](docs/release-strategy.md).
 
 ## Documentation

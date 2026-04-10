@@ -71,3 +71,37 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+  windows-desktop:
+    name: Windows Desktop
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: pnpm build:packages
+
+      - name: Build desktop app
+        run: pnpm build:desktop
+
+      - name: Run desktop tests
+        run: pnpm --filter @ai-canvas/desktop test

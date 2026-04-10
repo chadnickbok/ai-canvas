@@ -521,6 +521,7 @@ A release must not ship if any of the following fail:
 - required end-to-end workflows
 - packaging/build success for the target release platform
 - macOS update metadata generation for the published release
+- Windows update metadata generation for the published release when Windows shipping is enabled
 
 ## 7.2 Warning-level gates
 
@@ -590,6 +591,12 @@ A releasable `main` commit should execute the full validation and packaging work
 
 The current operational release workflow, publication model, and updater expectations are documented in [release-strategy.md](release-strategy.md).
 
+When Windows shipping is enabled, the release lane should also validate:
+
+- signed Windows NSIS packaging
+- Windows update metadata generation
+- Windows installer signature verification
+
 ## 9. Manual Verification
 
 Automation is necessary but not sufficient for a desktop product.
@@ -617,6 +624,12 @@ At minimum, manual release verification should cover:
 - apply one safe read call and one mutation through MCP
 - explicitly quit app and verify MCP stops
 - relaunch app and confirm project library remains intact
+
+When shipping Windows builds, recent published releases should also be checked manually for:
+
+- clean install from the signed NSIS installer
+- app launch from the Start menu and desktop shortcut if created
+- one packaged auto-update check without signature-validation failure
 
 ## 9.2 Manual degraded-state checks
 

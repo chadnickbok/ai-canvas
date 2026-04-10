@@ -44,7 +44,10 @@ export function supportsAutoUpdates(
   app: SupportedApp,
   platform: NodeJS.Platform = process.platform,
 ): boolean {
-  return app.isPackaged && (platform === 'darwin' || platform === 'linux');
+  return (
+    app.isPackaged &&
+    (platform === 'darwin' || platform === 'linux' || platform === 'win32')
+  );
 }
 
 export function createRestartPrompt(
