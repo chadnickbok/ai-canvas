@@ -20,8 +20,8 @@ Those live in the contract docs and in [testing-and-release.md](testing-and-rele
 The current release model is intentionally simple:
 
 - releases ship for macOS and Linux, and the repository is wired to ship Windows when the Azure Artifact Signing configuration is present
-- every push to `main` is treated as a release candidate
-- the `Release Desktop` workflow publishes the release if its gates pass
+- merges to `main` become releasable candidates, but a release is only cut when an operator manually runs `Release Desktop` from GitHub Actions against `main`
+- the `Release Desktop` workflow publishes the release after manual dispatch and release-environment approval if its gates pass
 - published binaries and update metadata live on normal GitHub Releases
 - installed desktop builds follow the latest published `main` release while the product is in active development
 
@@ -63,7 +63,10 @@ This lane is for packaging confidence only. It does not publish a GitHub Release
 
 ### 2.3 `Release Desktop`
 
-`Release Desktop` runs on every push to `main`.
+`Release Desktop` runs only when an operator manually dispatches it from GitHub Actions.
+
+It is intended to be run against the latest `main` commit.
+The workflow fails early if it is dispatched from any other ref, and the protected `release` environment remains the approval gate before signing and publication work starts.
 
 It depends on the Linux quality and test jobs first, then performs the release-specific platform work:
 
@@ -176,11 +179,13 @@ This matches the architecture guidance that v1 uses startup-time auto-update aga
 For the current single-stream release model, the release operator flow is:
 
 1. Merge or push the releasable commit to `main`.
-2. Let `Release Desktop` compute the version and build the macOS and Linux artifacts, plus Windows artifacts if Azure Artifact Signing is configured.
-3. Verify that the workflow produced signed macOS app bundles, DMGs, ZIPs, Linux `.deb` and AppImage artifacts, and Windows NSIS artifacts for every enabled platform.
-4. Verify that signing checks and packaging checks all passed for the enabled platforms.
-5. Verify that the GitHub Release exists with the expected tag, title, commit target, and uploaded assets for every enabled platform.
-6. Run the manual smoke verification bar from [testing-and-release.md](testing-and-release.md) against a recent published `main` build.
+2. In GitHub Actions, open `Release Desktop`, select the `main` branch, and click `Run workflow`.
+3. Approve the protected `release` environment when GitHub prompts for it so the signing jobs can start.
+4. Let `Release Desktop` compute the version and build the macOS and Linux artifacts, plus Windows artifacts if Azure Artifact Signing is configured.
+5. Verify that the workflow produced signed macOS app bundles, DMGs, ZIPs, Linux `.deb` and AppImage artifacts, and Windows NSIS artifacts for every enabled platform.
+6. Verify that signing checks and packaging checks all passed for the enabled platforms.
+7. Verify that the GitHub Release exists with the expected tag, title, commit target, and uploaded assets for every enabled platform.
+8. Run the manual smoke verification bar from [testing-and-release.md](testing-and-release.md) against a recent published `main` build.
 
 ## 6.1 Windows signing prerequisites
 
