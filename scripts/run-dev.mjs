@@ -1,12 +1,14 @@
 import { spawn } from 'node:child_process';
 
-const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const isWindows = process.platform === 'win32';
+const pnpmCommand = isWindows ? 'pnpm.cmd' : 'pnpm';
 const childProcesses = [];
 
 function spawnProcess(label, args) {
-  const child = spawn(pnpmCommand, args, {
+  const child = spawn(getCommand(), getArgs(args), {
     env: process.env,
     stdio: 'inherit',
+    windowsVerbatimArguments: isWindows,
   });
 
   child.on('error', (error) => {
@@ -31,6 +33,34 @@ function spawnProcess(label, args) {
   });
 
   childProcesses.push(child);
+}
+
+function getCommand() {
+  if (!isWindows) {
+    return pnpmCommand;
+  }
+
+  return process.env.ComSpec ?? process.env.COMSPEC ?? 'cmd.exe';
+}
+
+function getArgs(args) {
+  if (!isWindows) {
+    return args;
+  }
+
+  return ['/d', '/s', '/c', quoteWindowsCommand([pnpmCommand, ...args])];
+}
+
+function quoteWindowsCommand(args) {
+  return args.map(quoteWindowsArgument).join(' ');
+}
+
+function quoteWindowsArgument(arg) {
+  if (!/[\s"&<>^|()]/.test(arg)) {
+    return arg;
+  }
+
+  return `"${arg.replaceAll('"', '""')}"`;
 }
 
 let shuttingDown = false;
