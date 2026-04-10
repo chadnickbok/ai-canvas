@@ -245,6 +245,32 @@ Package signed macOS release artifacts locally on a machine with valid Apple sig
 pnpm dist:mac
 ```
 
+Package Linux release artifacts locally on a Linux machine for the current architecture:
+
+```bash
+pnpm dist:linux
+```
+
+Package Linux release artifacts for a specific architecture:
+
+```bash
+pnpm dist:linux:x64
+pnpm dist:linux:arm64
+```
+
+Install the generated Debian package on Ubuntu or Debian:
+
+```bash
+sudo apt install ./apps/desktop/dist-electron/AI-Canvas-<version>-<arch>.deb
+```
+
+Run the AppImage directly on Linux after marking it executable:
+
+```bash
+chmod +x ./apps/desktop/dist-electron/AI-Canvas-<version>-<arch>.AppImage
+./apps/desktop/dist-electron/AI-Canvas-<version>-<arch>.AppImage
+```
+
 ### Verify local MCP bridge
 
 Run the desktop app and keep it open, then run:
@@ -325,8 +351,8 @@ Current implementation priorities are:
 ## Build and release automation
 
 - `CI` runs fast Linux validation on pull requests.
-- `macOS Packaging Smoke` runs unsigned macOS packaging once per pull request update.
-- `Release macOS` publishes the signed and notarized macOS release stream from `main`.
+- `Packaging Smoke` runs unsigned packaging verification on pull requests for macOS and Linux.
+- `Release Desktop` publishes the signed macOS release stream and the Linux `.deb` and AppImage release artifacts from `main`.
 - Release versioning, artifacts, signing prerequisites, publication flow, and updater behavior are documented in [docs/release-strategy.md](docs/release-strategy.md).
 
 ## Documentation

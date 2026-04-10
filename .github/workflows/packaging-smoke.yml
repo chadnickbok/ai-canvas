@@ -1,0 +1,147 @@
+name: Packaging Smoke
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+concurrency:
+  group: packaging-smoke-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  mac-smoke:
+    name: macOS Smoke Build
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build unsigned macOS artifacts
+        run: pnpm dist:mac:unsigned
+
+      - name: Verify macOS update metadata
+        run: |
+          UPDATE_METADATA_PATHS=()
+          while IFS= read -r UPDATE_METADATA_PATH; do
+            UPDATE_METADATA_PATHS+=("$UPDATE_METADATA_PATH")
+          done < <(find apps/desktop/dist-electron -maxdepth 1 -name 'latest-mac*.yml' -type f | sort)
+
+          if [ "${#UPDATE_METADATA_PATHS[@]}" -eq 0 ]; then
+            echo "macOS update metadata was not generated." >&2
+            exit 1
+          fi
+
+      - name: Upload macOS smoke artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-smoke-artifacts
+          path: |
+            apps/desktop/dist-electron/*.dmg
+            apps/desktop/dist-electron/*.zip
+            apps/desktop/dist-electron/*.yml
+            apps/desktop/dist-electron/*.blockmap
+          if-no-files-found: error
+
+  linux-smoke:
+    name: Linux Smoke Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Linux artifacts
+        run: pnpm dist:linux:${{ matrix.arch }}
+
+      - name: Verify Linux artifacts
+        run: |
+          DEB_PATHS=()
+          while IFS= read -r DEB_PATH; do
+            DEB_PATHS+=("$DEB_PATH")
+          done < <(find apps/desktop/dist-electron -maxdepth 1 -name '*.deb' -type f | sort)
+
+          APPIMAGE_PATHS=()
+          while IFS= read -r APPIMAGE_PATH; do
+            APPIMAGE_PATHS+=("$APPIMAGE_PATH")
+          done < <(find apps/desktop/dist-electron -maxdepth 1 -name '*.AppImage' -type f | sort)
+
+          UPDATE_METADATA_PATHS=()
+          while IFS= read -r UPDATE_METADATA_PATH; do
+            UPDATE_METADATA_PATHS+=("$UPDATE_METADATA_PATH")
+          done < <(find apps/desktop/dist-electron -maxdepth 1 -name 'latest-linux*.yml' -type f | sort)
+
+          if [ "${#DEB_PATHS[@]}" -eq 0 ]; then
+            echo "Linux .deb artifact was not generated." >&2
+            exit 1
+          fi
+
+          if [ "${#APPIMAGE_PATHS[@]}" -eq 0 ]; then
+            echo "Linux AppImage artifact was not generated." >&2
+            exit 1
+          fi
+
+          if [ "${#UPDATE_METADATA_PATHS[@]}" -eq 0 ]; then
+            echo "Linux update metadata was not generated." >&2
+            exit 1
+          fi
+
+      - name: Upload Linux smoke artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-smoke-artifacts-${{ matrix.arch }}
+          path: |
+            apps/desktop/dist-electron/*.deb
+            apps/desktop/dist-electron/*.AppImage
+            apps/desktop/dist-electron/*.yml
+            apps/desktop/dist-electron/*.blockmap
+          if-no-files-found: error

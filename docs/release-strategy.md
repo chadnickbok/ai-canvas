@@ -19,9 +19,9 @@ Those live in the contract docs and in [testing-and-release.md](testing-and-rele
 
 The current release model is intentionally simple:
 
-- releases are currently macOS-only
+- releases currently ship for macOS and Linux
 - every push to `main` is treated as a release candidate
-- the `Release macOS` workflow publishes the signed release if its gates pass
+- the `Release Desktop` workflow publishes the release if its gates pass
 - published binaries and update metadata live on normal GitHub Releases
 - installed desktop builds follow the latest published `main` release while the product is in active development
 
@@ -45,33 +45,36 @@ It currently runs:
 
 This is the default branch-protection lane, not the packaging lane.
 
-### 2.2 `macOS Packaging Smoke`
+### 2.2 `Packaging Smoke`
 
-`macOS Packaging Smoke` runs on pull request updates only.
+`Packaging Smoke` runs on pull request updates only.
 
-Its job is to prove that macOS packaging still works without using release secrets. It currently:
+Its job is to prove that packaging still works without release secrets. It currently:
 
 - builds unsigned macOS artifacts with `pnpm dist:mac:unsigned`
-- disables signing explicitly for that build
-- verifies that macOS update metadata is still generated
+- builds Linux `.deb` and AppImage artifacts for `x64` and `arm64`
+- disables signing explicitly for the macOS smoke build
+- verifies that macOS and Linux update metadata are still generated
 - uploads the packaging outputs to the workflow run
 
 This lane is for packaging confidence only. It does not publish a GitHub Release.
 
-### 2.3 `Release macOS`
+### 2.3 `Release Desktop`
 
-`Release macOS` runs on every push to `main`.
+`Release Desktop` runs on every push to `main`.
 
-It depends on the Linux quality and test jobs first, then performs the release-specific macOS work:
+It depends on the Linux quality and test jobs first, then performs the release-specific platform work:
 
 - computes the main-release version and release tag
+- builds Linux release artifacts for `x64` and `arm64`
 - installs the Apple signing certificate into a temporary keychain
 - writes the App Store Connect API key used for notarization
 - builds signed and notarized macOS app artifacts
 - signs, notarizes, and staples the final DMG artifacts
 - verifies code signing, Gatekeeper acceptance, and stapling for both app bundles and DMGs
-- uploads release artifacts to the workflow run
-- creates or updates the corresponding GitHub Release
+- verifies that Linux `.deb`, AppImage, and updater metadata were produced
+- uploads all platform artifacts to the workflow run
+- creates or updates the corresponding GitHub Release after the macOS and Linux jobs complete
 
 This workflow is the operational source of truth for shipping the current desktop build.
 
@@ -79,7 +82,7 @@ This workflow is the operational source of truth for shipping the current deskto
 
 `main` releases do not ship the static package version from `apps/desktop/package.json` as-is.
 
-The `Release macOS` workflow computes a release version in this format:
+The `Release Desktop` workflow computes a release version in this format:
 
 - `YYYY.MDD.RUN_NUMBER`
 
@@ -103,11 +106,14 @@ The builder wrapper script converts those into:
 - app `version`
 - app `buildVersion`
 
-The shipped macOS release artifacts currently include:
+The shipped release artifacts currently include:
 
 - signed, notarized, and stapled `.dmg` files
 - signed `.zip` files containing notarized and stapled `.app` bundles
+- Linux `.deb` packages for `x64` and `arm64`
+- Linux AppImage bundles for `x64` and `arm64`
 - `latest-mac*.yml` update metadata
+- `latest-linux*.yml` update metadata
 - `.blockmap` files used by Electron Updater
 
 Artifact names follow the configured pattern:
@@ -122,8 +128,9 @@ Electron Builder is configured with:
 
 - GitHub publish metadata pointing at `chadnickbok/ai-canvas`
 - macOS DMG and ZIP targets for `arm64` and `x64`
-- hardened runtime and notarization enabled
-- `forceCodeSigning: true` for normal release builds
+- Linux DEB and AppImage targets for `arm64` and `x64`
+- hardened runtime and notarization enabled for macOS
+- `forceCodeSigning: true` for normal macOS release builds
 
 The repository intentionally does **not** let Electron Builder publish releases directly from the build step.
 
@@ -133,21 +140,21 @@ The builder wrapper always runs Electron Builder with:
 
 That means the release flow is split on purpose:
 
-1. Electron Builder creates the app bundles, DMGs, ZIPs, and update metadata, and notarizes/staples the `.app` bundles used by the ZIP and updater path.
-2. The GitHub Actions workflow signs, notarizes, and staples the final DMGs used for direct-download distribution.
-3. The GitHub Actions workflow verifies app bundle and DMG signatures, Gatekeeper acceptance, and stapling.
-4. The workflow publishes the artifacts with `gh release create` or `gh release upload`.
+1. Electron Builder creates the platform artifacts and update metadata for macOS and Linux.
+2. The GitHub Actions macOS job signs, notarizes, and staples the final DMGs used for direct-download distribution.
+3. The GitHub Actions platform jobs verify their expected artifact sets.
+4. A final publish job creates or updates the GitHub Release with the merged macOS and Linux assets.
 
 This keeps publication under explicit workflow control while still generating the updater metadata Electron expects.
 
 ## 5. Runtime Update Behavior
 
-The desktop app currently enables auto-update only for packaged macOS builds.
+The desktop app currently enables auto-update for packaged macOS and Linux builds.
 
 More specifically:
 
 - unpackaged development builds do not check for updates
-- non-macOS builds do not enable the updater path
+- non-macOS and non-Linux builds do not enable the updater path
 - the main process starts the updater during app startup after the main window is created
 - the updater checks GitHub Releases for the latest published release
 - updates are downloaded automatically when available
@@ -161,10 +168,10 @@ This matches the architecture guidance that v1 uses startup-time auto-update aga
 For the current single-stream release model, the release operator flow is:
 
 1. Merge or push the releasable commit to `main`.
-2. Let `Release macOS` compute the version and build the signed artifacts.
-3. Verify that the workflow produced signed app bundles, DMGs, ZIPs, update metadata, and blockmaps.
-4. Verify that app bundle signing/stapling and DMG signing/Gatekeeper/stapling checks all passed in the workflow.
-5. Verify that the GitHub Release exists with the expected tag, title, commit target, and uploaded assets.
+2. Let `Release Desktop` compute the version and build the macOS and Linux artifacts.
+3. Verify that the workflow produced signed macOS app bundles, DMGs, ZIPs, Linux `.deb` and AppImage artifacts, update metadata, and blockmaps.
+4. Verify that macOS signing/stapling checks and Linux artifact checks all passed in the workflow.
+5. Verify that the GitHub Release exists with the expected tag, title, commit target, and uploaded assets for both platforms.
 6. Run the manual smoke verification bar from [testing-and-release.md](testing-and-release.md) against a recent published `main` build.
 
 The default recovery path for a bad release is currently fix-forward:

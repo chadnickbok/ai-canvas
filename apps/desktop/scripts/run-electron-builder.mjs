@@ -14,8 +14,20 @@ const args = [
   'never',
 ];
 
+if (process.env.DESKTOP_TARGET === 'linux') {
+  args.push('--linux');
+} else if (process.env.DESKTOP_TARGET === 'mac') {
+  args.push('--mac');
+}
+
+if (process.env.DESKTOP_ARCH === 'arm64') {
+  args.push('--arm64');
+} else if (process.env.DESKTOP_ARCH === 'x64') {
+  args.push('--x64');
+}
+
 if (process.env.DESKTOP_UNSIGNED === 'true') {
-  args.push('-c.mac.identity=null', '-c.forceCodeSigning=false');
+  args.push('-c.mac.identity=null', '-c.mac.forceCodeSigning=false');
 }
 
 if (process.env.DESKTOP_RELEASE_VERSION) {

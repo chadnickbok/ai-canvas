@@ -12,7 +12,7 @@ files:
 artifactName: AI-Canvas-${version}-${arch}.${ext}
 
 electronUpdaterCompatibility: '>=2.16'
-forceCodeSigning: true
+forceCodeSigning: false
 npmRebuild: false
 
 publish:
@@ -23,6 +23,7 @@ publish:
 
 mac:
   category: public.app-category.developer-tools
+  forceCodeSigning: true
   target:
     - target: dmg
       arch:
@@ -38,3 +39,25 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: true
+
+linux:
+  category: Graphics
+  executableName: ai-canvas
+  description: Local-first scene-first mockup editor desktop app.
+  maintainer: Nick Chadwick
+  synopsis: Local-first scene-first mockup editor.
+  icon: build/icons/strapping-app-icon.png
+  target:
+    - target: deb
+    - target: AppImage
+  desktop:
+    entry:
+      Name: AI Canvas
+      Comment: Local-first scene-first mockup editor
+      Categories: Graphics;Development;
+      StartupWMClass: ai-canvas
+      Terminal: false
+
+deb:
+  packageCategory: graphics
+  packageName: ai-canvas

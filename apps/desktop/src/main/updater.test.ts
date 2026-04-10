@@ -27,10 +27,12 @@ const silentLogger = {
 };
 
 describe('supportsAutoUpdates', () => {
-  it('supports packaged macOS builds only', () => {
+  it('supports packaged macOS and Linux builds only', () => {
     expect(supportsAutoUpdates({ isPackaged: true }, 'darwin')).toBe(true);
+    expect(supportsAutoUpdates({ isPackaged: true }, 'linux')).toBe(true);
     expect(supportsAutoUpdates({ isPackaged: false }, 'darwin')).toBe(false);
-    expect(supportsAutoUpdates({ isPackaged: true }, 'linux')).toBe(false);
+    expect(supportsAutoUpdates({ isPackaged: false }, 'linux')).toBe(false);
+    expect(supportsAutoUpdates({ isPackaged: true }, 'win32')).toBe(false);
   });
 });
 
@@ -76,6 +78,24 @@ describe('startAutoUpdates', () => {
 
     expect(restartPrompt).toHaveBeenCalledWith('2026.408.17');
     expect(updater.quitAndInstall).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks for updates for packaged Linux builds', () => {
+    const updater = new FakeUpdater();
+
+    expect(
+      startAutoUpdates({
+        app: { isPackaged: true },
+        getParentWindow: () => null,
+        logger: silentLogger,
+        platform: 'linux',
+        updater,
+      }),
+    ).toBe(true);
+
+    expect(updater.autoDownload).toBe(true);
+    expect(updater.autoInstallOnAppQuit).toBe(false);
+    expect(updater.checkForUpdatesAndNotify).toHaveBeenCalledTimes(1);
   });
 
   it('does not install the update when the restart prompt is declined', async () => {
