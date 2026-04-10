@@ -1,21 +1,35 @@
 name: Release Desktop
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-desktop-main
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  require-main:
+    name: Validate Release Ref
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require main branch
+        env:
+          TARGET_REF: ${{ github.ref }}
+        run: |
+          if [ "$TARGET_REF" != "refs/heads/main" ]; then
+            echo "Release Desktop can only publish from main; got $TARGET_REF." >&2
+            exit 1
+          fi
+
   quality:
     name: Quality
     runs-on: ubuntu-latest
+    needs:
+      - require-main
     timeout-minutes: 20
 
     steps:
@@ -45,6 +59,8 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    needs:
+      - require-main
     timeout-minutes: 20
 
     steps:
@@ -71,6 +87,8 @@ jobs:
   release-meta:
     name: Release Metadata
     runs-on: ubuntu-latest
+    needs:
+      - require-main
     outputs:
       app_version: ${{ steps.version.outputs.app_version }}
       release_tag: ${{ steps.version.outputs.release_tag }}
@@ -526,7 +544,7 @@ jobs:
           fi
 
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
-          Automated main release from \`${GITHUB_SHA}\`.
+          Manual main release from \`${GITHUB_SHA}\`.
 
           - Version: \`${{ needs.release-meta.outputs.app_version }}\`
           - Commit: \`${GITHUB_SHA}\`
