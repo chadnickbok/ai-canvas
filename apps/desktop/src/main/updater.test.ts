@@ -27,17 +27,18 @@ const silentLogger = {
 };
 
 describe('supportsAutoUpdates', () => {
-  it('supports packaged macOS and Linux builds only', () => {
+  it('supports packaged macOS, Linux, and Windows builds only', () => {
     expect(supportsAutoUpdates({ isPackaged: true }, 'darwin')).toBe(true);
     expect(supportsAutoUpdates({ isPackaged: true }, 'linux')).toBe(true);
+    expect(supportsAutoUpdates({ isPackaged: true }, 'win32')).toBe(true);
     expect(supportsAutoUpdates({ isPackaged: false }, 'darwin')).toBe(false);
     expect(supportsAutoUpdates({ isPackaged: false }, 'linux')).toBe(false);
-    expect(supportsAutoUpdates({ isPackaged: true }, 'win32')).toBe(false);
+    expect(supportsAutoUpdates({ isPackaged: false }, 'win32')).toBe(false);
   });
 });
 
 describe('startAutoUpdates', () => {
-  it('skips updater setup outside packaged macOS builds', () => {
+  it('skips updater setup for unpackaged builds', () => {
     const updater = new FakeUpdater();
 
     expect(
@@ -89,6 +90,24 @@ describe('startAutoUpdates', () => {
         getParentWindow: () => null,
         logger: silentLogger,
         platform: 'linux',
+        updater,
+      }),
+    ).toBe(true);
+
+    expect(updater.autoDownload).toBe(true);
+    expect(updater.autoInstallOnAppQuit).toBe(false);
+    expect(updater.checkForUpdatesAndNotify).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks for updates for packaged Windows builds', () => {
+    const updater = new FakeUpdater();
+
+    expect(
+      startAutoUpdates({
+        app: { isPackaged: true },
+        getParentWindow: () => null,
+        logger: silentLogger,
+        platform: 'win32',
         updater,
       }),
     ).toBe(true);

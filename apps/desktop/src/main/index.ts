@@ -108,6 +108,7 @@ async function createMainWindow(
 
 async function bootstrap() {
   app.setName(desktopBranding.appName);
+  app.setAppUserModelId(desktopBranding.appId);
   await app.whenReady();
 
   if (process.platform === 'darwin') {

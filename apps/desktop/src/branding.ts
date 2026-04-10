@@ -1,4 +1,5 @@
 export const desktopBranding = {
+  appId: 'com.strapping.ai-canvas',
   appName: 'AI Canvas',
   brandAttribution: {
     label: 'by strapping.ai',
