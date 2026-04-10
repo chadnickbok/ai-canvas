@@ -8,3 +8,6 @@ out
 coverage
 /screenshots/
 apps/desktop/dist-electron
+.codex-runtime
+.codex-runtime/pnpm-dev.stdout.log
+.codex-runtime/pnpm-dev.stderr.log
