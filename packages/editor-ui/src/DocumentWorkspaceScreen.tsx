@@ -9,6 +9,7 @@ import type {
   RuntimeCapabilities,
 } from '@ai-canvas/ipc-contract';
 import {
+  Circle,
   Frame,
   Hand,
   MousePointer2,
@@ -60,6 +61,7 @@ export type DocumentWorkspaceScreenProps = {
 };
 
 type SelectionSource = 'canvas' | 'hierarchy';
+type RectangleToolVariant = 'rectangle' | 'circle';
 type CanvasToolButtonDefinition = {
   icon: typeof MousePointer2;
   label: string;
@@ -150,12 +152,44 @@ function formatRuntimeMode(capabilities: RuntimeCapabilities | null): string {
 function CanvasToolBar({
   activeTool,
   canCreateNodes,
+  onRectangleToolVariantChange,
   onToolChange,
+  rectangleToolVariant,
 }: {
   activeTool: CanvasTool;
   canCreateNodes: boolean;
+  onRectangleToolVariantChange: (variant: RectangleToolVariant) => void;
   onToolChange: (tool: CanvasTool) => void;
+  rectangleToolVariant: RectangleToolVariant;
 }) {
+  const [isRectangleMenuOpen, setIsRectangleMenuOpen] = useState(false);
+  const rectangleMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isRectangleMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rectangleMenuRef.current?.contains(event.target as Node)) {
+        setIsRectangleMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsRectangleMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isRectangleMenuOpen]);
+
   return (
     <div
       aria-label="Canvas tools"
@@ -166,31 +200,93 @@ function CanvasToolBar({
       {CANVAS_TOOL_BUTTONS.map(({ icon: Icon, label, tool }) => {
         const isActive = activeTool === tool;
         const isDisabled = isCreateCanvasTool(tool) && !canCreateNodes;
+        const ToolIcon =
+          tool === 'rectangle' && rectangleToolVariant === 'circle'
+            ? Circle
+            : Icon;
+        const buttonLabel =
+          tool === 'rectangle' && rectangleToolVariant === 'circle'
+            ? 'Create circle'
+            : label;
 
         return (
-          <button
-            aria-label={label}
-            aria-pressed={isActive}
-            className={cn(
-              'flex h-9 w-9 items-center justify-center border border-black/14 text-[#111111] transition',
-              isActive
-                ? 'bg-[#111111] text-[var(--chrome-ink-inverse)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]'
-                : 'bg-white/96 hover:border-black/60',
-              isDisabled &&
-                'cursor-not-allowed opacity-40 hover:border-black/14',
-            )}
-            data-canvas-tool={tool}
-            data-canvas-tool-active={isActive ? 'true' : 'false'}
-            disabled={isDisabled}
+          <div
+            className="relative"
             key={tool}
-            onClick={() => {
-              onToolChange(tool);
-            }}
-            title={label}
-            type="button"
+            ref={tool === 'rectangle' ? rectangleMenuRef : undefined}
           >
-            <Icon className="h-4 w-4" strokeWidth={1.7} />
-          </button>
+            <button
+              aria-label={buttonLabel}
+              aria-pressed={isActive}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center border border-black/14 text-[#111111] transition',
+                isActive
+                  ? 'bg-[#111111] text-[var(--chrome-ink-inverse)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]'
+                  : 'bg-white/96 hover:border-black/60',
+                isDisabled &&
+                  'cursor-not-allowed opacity-40 hover:border-black/14',
+              )}
+              data-canvas-tool={tool}
+              data-canvas-tool-active={isActive ? 'true' : 'false'}
+              data-canvas-tool-variant={
+                tool === 'rectangle' ? rectangleToolVariant : undefined
+              }
+              disabled={isDisabled}
+              onClick={() => {
+                setIsRectangleMenuOpen(false);
+                onToolChange(tool);
+              }}
+              onContextMenu={
+                tool === 'rectangle'
+                  ? (event) => {
+                      event.preventDefault();
+                      if (!isDisabled) {
+                        setIsRectangleMenuOpen(true);
+                      }
+                    }
+                  : undefined
+              }
+              title={buttonLabel}
+              type="button"
+            >
+              <ToolIcon className="h-4 w-4" strokeWidth={1.7} />
+            </button>
+
+            {tool === 'rectangle' && isRectangleMenuOpen ? (
+              <div
+                className="absolute bottom-[calc(100%+8px)] left-0 min-w-[72px] border border-black/14 bg-white/98 p-1 shadow-[0_14px_36px_rgba(0,0,0,0.12)] backdrop-blur"
+                data-canvas-tool-menu="rectangle"
+              >
+                {(['rectangle', 'circle'] as const).map((variant) => {
+                  const isSelected = rectangleToolVariant === variant;
+                  const VariantIcon = variant === 'circle' ? Circle : Square;
+
+                  return (
+                    <button
+                      aria-label={`Use ${variant} shape`}
+                      className={cn(
+                        'flex w-full items-center justify-center px-3 py-2 transition',
+                        isSelected
+                          ? 'bg-black text-white'
+                          : 'text-[#111111] hover:bg-black/[0.04]',
+                      )}
+                      data-canvas-tool-menu-item={variant}
+                      key={variant}
+                      onClick={() => {
+                        onRectangleToolVariantChange(variant);
+                        onToolChange('rectangle');
+                        setIsRectangleMenuOpen(false);
+                      }}
+                      title={variant}
+                      type="button"
+                    >
+                      <VariantIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         );
       })}
     </div>
@@ -309,6 +405,13 @@ export function DocumentWorkspaceScreen({
     tool: 'selection',
     workspaceIdentity,
   }));
+  const [rectangleToolVariantState, setRectangleToolVariantState] = useState<{
+    variant: RectangleToolVariant;
+    workspaceIdentity: string;
+  }>(() => ({
+    variant: 'rectangle',
+    workspaceIdentity,
+  }));
   const requestedCanvasTool =
     canvasToolState.workspaceIdentity === workspaceIdentity
       ? canvasToolState.tool
@@ -317,11 +420,24 @@ export function DocumentWorkspaceScreen({
     canCreateNodes || !isCreateCanvasTool(requestedCanvasTool)
       ? requestedCanvasTool
       : 'selection';
+  const rectangleToolVariant =
+    rectangleToolVariantState.workspaceIdentity === workspaceIdentity
+      ? rectangleToolVariantState.variant
+      : 'rectangle';
   const isGrabToolActive = activeCanvasTool === 'grab';
   const handleCanvasToolChange = useCallback(
     (tool: CanvasTool) => {
       setCanvasToolState({
         tool,
+        workspaceIdentity,
+      });
+    },
+    [workspaceIdentity],
+  );
+  const handleRectangleToolVariantChange = useCallback(
+    (variant: RectangleToolVariant) => {
+      setRectangleToolVariantState({
+        variant,
         workspaceIdentity,
       });
     },
@@ -409,6 +525,7 @@ export function DocumentWorkspaceScreen({
       }));
     },
     onApplyCommands,
+    rectangleToolVariant,
     rendererRef,
     revision: activeProject.revision,
     selectedNodeId,
@@ -877,7 +994,11 @@ export function DocumentWorkspaceScreen({
                     <CanvasToolBar
                       activeTool={activeCanvasTool}
                       canCreateNodes={canCreateNodes}
+                      onRectangleToolVariantChange={
+                        handleRectangleToolVariantChange
+                      }
                       onToolChange={handleCanvasToolChange}
+                      rectangleToolVariant={rectangleToolVariant}
                     />
                   }
                   hasInteractedWithCanvas={hasInteractedWithCanvas}

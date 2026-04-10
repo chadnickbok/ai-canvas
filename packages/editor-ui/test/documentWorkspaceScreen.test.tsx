@@ -785,6 +785,24 @@ function getCanvasToolButton(
   ) as HTMLButtonElement | null;
 }
 
+function getCanvasToolMenu(
+  harness: RenderHarness,
+  tool: string,
+): HTMLElement | null {
+  return harness.container.querySelector(
+    `[data-canvas-tool-menu="${tool}"]`,
+  ) as HTMLElement | null;
+}
+
+function getCanvasToolMenuItem(
+  harness: RenderHarness,
+  item: string,
+): HTMLButtonElement | null {
+  return harness.container.querySelector(
+    `[data-canvas-tool-menu-item="${item}"]`,
+  ) as HTMLButtonElement | null;
+}
+
 function getInspectorSection(
   harness: RenderHarness,
   sectionName: string,
@@ -1106,6 +1124,106 @@ describe('DocumentWorkspaceScreen', () => {
       expect(selectionTool.getAttribute('data-canvas-tool-active')).toBe(
         'true',
       );
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('switches the rectangle tool to circle from the right-click menu and creates a circle node', async () => {
+    const onApplyCommands = vi.fn(async (input: ApplyCommandsInput) =>
+      ok({
+        document_id: input.document_id,
+        layout_refresh: {
+          measured_node_count: 1,
+          measured_root_ids: ['scene_home', 'circle_created'],
+          status: 'refreshed',
+        },
+        revision: 2,
+      }),
+    );
+    const harness = renderIntoDom(
+      createActiveProject(createDocumentWithScene()),
+      {
+        onApplyCommands,
+      },
+    );
+
+    try {
+      assignInteractionGeometry(harness);
+
+      const viewportFrame = harness.container.querySelector(
+        '[data-viewport-frame="true"]',
+      ) as HTMLElement;
+      const rectangleTool = getCanvasToolButton(
+        harness,
+        'rectangle',
+      ) as HTMLButtonElement;
+
+      act(() => {
+        rectangleTool.dispatchEvent(
+          new MouseEvent('contextmenu', {
+            bubbles: true,
+            button: 2,
+            cancelable: true,
+          }),
+        );
+      });
+
+      expect(getCanvasToolMenu(harness, 'rectangle')).not.toBeNull();
+
+      act(() => {
+        getCanvasToolMenuItem(harness, 'circle')?.click();
+      });
+
+      expect(rectangleTool.getAttribute('data-canvas-tool-active')).toBe(
+        'true',
+      );
+      expect(rectangleTool.getAttribute('data-canvas-tool-variant')).toBe(
+        'circle',
+      );
+      expect(rectangleTool.getAttribute('aria-label')).toBe('Create circle');
+
+      await act(async () => {
+        viewportFrame.dispatchEvent(
+          new MouseEvent('click', {
+            bubbles: true,
+            button: 0,
+            clientX: 900,
+            clientY: 500,
+          }),
+        );
+        await Promise.resolve();
+      });
+
+      expect(onApplyCommands).toHaveBeenCalledWith({
+        base_revision: 1,
+        commands: [
+          expect.objectContaining({
+            parent: {
+              index: 1,
+              parent_id: null,
+            },
+            type: 'create_node',
+            node: expect.objectContaining({
+              height: 120,
+              kind: 'rectangle',
+              left: 900,
+              name: 'Circle',
+              render_style: {
+                backgroundColor: '#d4d4d4',
+                borderRadius: 999,
+                position: 'absolute',
+              },
+              top: 500,
+              width: 120,
+            }),
+          }),
+        ],
+        document_id: 'doc_workspace_scene',
+      });
+      expect(
+        String(onApplyCommands.mock.calls[0]?.[0]?.commands?.[0]?.node?.id),
+      ).toMatch(/^rect_/);
     } finally {
       harness.cleanup();
     }

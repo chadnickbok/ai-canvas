@@ -87,6 +87,7 @@ export type UseInteractionControllerInput = {
   onApplyCommands?: (
     input: ApplyCommandsInput,
   ) => Promise<AppResult<CommandResult>>;
+  rectangleToolVariant?: 'rectangle' | 'circle';
   rendererRef: RefObject<RendererMeasurementHandle | null>;
   revision: number;
   selectedNodeId: string | null;
@@ -118,6 +119,7 @@ export function useInteractionController({
   onCanvasToolChange,
   onSelectedNodeIdChange,
   onApplyCommands,
+  rectangleToolVariant = 'rectangle',
   rendererRef,
   revision,
   selectedNodeId,
@@ -358,6 +360,7 @@ export function useInteractionController({
       const createCommand = resolveCreateCommandDescriptor({
         document,
         event,
+        rectangleToolVariant,
         rendererRef: rendererRef.current,
         revision,
         tool,
@@ -399,6 +402,7 @@ export function useInteractionController({
       onApplyCommands,
       onCanvasToolChange,
       onSelectedNodeIdChange,
+      rectangleToolVariant,
       rendererRef,
       revision,
       viewport,
@@ -770,6 +774,7 @@ function createCommitInput(
 function resolveCreateCommandDescriptor(input: {
   document: RendererDocument;
   event: ReactMouseEvent<HTMLDivElement>;
+  rectangleToolVariant: 'rectangle' | 'circle';
   rendererRef: RendererMeasurementHandle | null;
   revision: number;
   tool: CreateCanvasTool;
@@ -823,7 +828,12 @@ function resolveCreateCommandDescriptor(input: {
   }
 
   commands.push({
-    node: createNodePayload(input.tool, createdNodeId, localPoint),
+    node: createNodePayload(
+      input.tool,
+      createdNodeId,
+      localPoint,
+      input.rectangleToolVariant,
+    ),
     parent: {
       parent_id: insertionTarget.parentId,
       ...(insertionTarget.index === undefined
@@ -1020,6 +1030,7 @@ function createNodePayload(
   tool: CreateCanvasTool,
   nodeId: string,
   localPoint: CanvasPoint,
+  rectangleToolVariant: 'rectangle' | 'circle',
 ): CreateNodePayload {
   switch (tool) {
     case 'frame':
@@ -1038,6 +1049,23 @@ function createNodePayload(
         width: 320,
       };
     case 'rectangle':
+      if (rectangleToolVariant === 'circle') {
+        return {
+          height: 120,
+          id: nodeId,
+          kind: 'rectangle' as const,
+          left: localPoint.x,
+          name: 'Circle',
+          render_style: {
+            backgroundColor: '#d4d4d4',
+            borderRadius: 999,
+            position: 'absolute',
+          },
+          top: localPoint.y,
+          width: 120,
+        };
+      }
+
       return {
         height: 120,
         id: nodeId,
