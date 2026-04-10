@@ -59,6 +59,7 @@ if (process.env.DESKTOP_WINDOWS_SIGN === 'true') {
     `-c.win.azureSignOptions.endpoint=${process.env.WINDOWS_AZURE_TRUSTED_SIGNING_ENDPOINT}`,
     `-c.win.azureSignOptions.codeSigningAccountName=${process.env.WINDOWS_AZURE_TRUSTED_SIGNING_ACCOUNT_NAME}`,
     `-c.win.azureSignOptions.certificateProfileName=${process.env.WINDOWS_AZURE_TRUSTED_SIGNING_PROFILE_NAME}`,
+    `-c.win.azureSignOptions.publisherName=${process.env.WINDOWS_SIGN_PUBLISHER_NAME}`,
   );
 
   if (process.env.WINDOWS_AZURE_TRUSTED_SIGNING_TIMESTAMP_RFC3161) {
