@@ -67,8 +67,9 @@ It depends on the Linux quality and test jobs first, then performs the release-s
 - computes the main-release version and release tag
 - installs the Apple signing certificate into a temporary keychain
 - writes the App Store Connect API key used for notarization
-- builds signed and notarized macOS artifacts
-- verifies code signing, Gatekeeper acceptance, and stapling
+- builds signed and notarized macOS app artifacts
+- signs, notarizes, and staples the final DMG artifacts
+- verifies code signing, Gatekeeper acceptance, and stapling for both app bundles and DMGs
 - uploads release artifacts to the workflow run
 - creates or updates the corresponding GitHub Release
 
@@ -104,8 +105,8 @@ The builder wrapper script converts those into:
 
 The shipped macOS release artifacts currently include:
 
-- signed `.dmg` files
-- signed `.zip` files
+- signed, notarized, and stapled `.dmg` files
+- signed `.zip` files containing notarized and stapled `.app` bundles
 - `latest-mac*.yml` update metadata
 - `.blockmap` files used by Electron Updater
 
@@ -132,9 +133,10 @@ The builder wrapper always runs Electron Builder with:
 
 That means the release flow is split on purpose:
 
-1. Electron Builder creates the signed binaries and update metadata.
-2. The GitHub Actions workflow verifies those outputs.
-3. The workflow publishes the artifacts with `gh release create` or `gh release upload`.
+1. Electron Builder creates the app bundles, DMGs, ZIPs, and update metadata, and notarizes/staples the `.app` bundles used by the ZIP and updater path.
+2. The GitHub Actions workflow signs, notarizes, and staples the final DMGs used for direct-download distribution.
+3. The GitHub Actions workflow verifies app bundle and DMG signatures, Gatekeeper acceptance, and stapling.
+4. The workflow publishes the artifacts with `gh release create` or `gh release upload`.
 
 This keeps publication under explicit workflow control while still generating the updater metadata Electron expects.
 
@@ -161,7 +163,7 @@ For the current single-stream release model, the release operator flow is:
 1. Merge or push the releasable commit to `main`.
 2. Let `Release macOS` compute the version and build the signed artifacts.
 3. Verify that the workflow produced signed app bundles, DMGs, ZIPs, update metadata, and blockmaps.
-4. Verify that code-signing checks, Gatekeeper checks, and stapling validation passed in the workflow.
+4. Verify that app bundle signing/stapling and DMG signing/Gatekeeper/stapling checks all passed in the workflow.
 5. Verify that the GitHub Release exists with the expected tag, title, commit target, and uploaded assets.
 6. Run the manual smoke verification bar from [testing-and-release.md](testing-and-release.md) against a recent published `main` build.
 
