@@ -274,17 +274,41 @@ export function InteractionOverlay({
       })}
 
       {selectedRect ? (
-        <div
-          data-interaction-label="selection"
-          data-node-id={selectedNode?.id}
-          style={createLabelStyle(
-            selectedRect.x,
-            selectedRect.y - 14 * labelScale,
-            labelScale,
-          )}
-        >
-          {`${Math.round(selectedRect.width)} × ${Math.round(selectedRect.height)} at ${Math.round(selectedRect.x)}, ${Math.round(selectedRect.y)}`}
-        </div>
+        <>
+          <div
+            data-interaction-label="selection-position"
+            data-node-id={selectedNode?.id}
+            style={createSelectionMetricStyle(
+              selectedRect.x + selectedRect.width / 2,
+              selectedRect.y - 14 * labelScale,
+              labelScale,
+            )}
+          >
+            {`${Math.round(selectedRect.x)}x, ${Math.round(selectedRect.y)}y`}
+          </div>
+          <div
+            data-interaction-label="selection-width"
+            data-node-id={selectedNode?.id}
+            style={createSelectionMetricStyle(
+              selectedRect.x + selectedRect.width / 2,
+              selectedRect.bottom + 14 * labelScale,
+              labelScale,
+            )}
+          >
+            {Math.round(selectedRect.width)}w
+          </div>
+          <div
+            data-interaction-label="selection-height"
+            data-node-id={selectedNode?.id}
+            style={createSelectionMetricStyle(
+              selectedRect.right + 20 * labelScale,
+              selectedRect.y + selectedRect.height / 2,
+              labelScale,
+            )}
+          >
+            {Math.round(selectedRect.height)}h
+          </div>
+        </>
       ) : null}
 
       {preview && originalSelectedRect && preview.previewRect ? (
@@ -565,6 +589,21 @@ function createLabelStyle(x: number, y: number, scale: number) {
     fontSize: `${11 * scale}px`,
     left: `${x}px`,
     padding: `${3 * scale}px ${6 * scale}px`,
+    position: 'absolute' as const,
+    top: `${y}px`,
+    transform: 'translate(-50%, -50%)',
+    whiteSpace: 'nowrap' as const,
+  };
+}
+
+function createSelectionMetricStyle(x: number, y: number, scale: number) {
+  return {
+    color: '#949494',
+    fontFamily: 'IBM Plex Mono, monospace',
+    fontSize: `${11 * scale}px`,
+    fontWeight: 500,
+    left: `${x}px`,
+    padding: `${2 * scale}px ${4 * scale}px`,
     position: 'absolute' as const,
     top: `${y}px`,
     transform: 'translate(-50%, -50%)',

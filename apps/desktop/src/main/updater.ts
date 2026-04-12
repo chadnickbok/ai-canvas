@@ -1,5 +1,6 @@
+import { createRequire } from 'node:module';
+
 import { dialog, type App, type BrowserWindow } from 'electron';
-import electronUpdater, { type AppUpdater } from 'electron-updater';
 
 import { desktopBranding } from '../branding.js';
 
@@ -29,15 +30,35 @@ type StartAutoUpdateOptions = {
   updater?: UpdaterLike;
 };
 
+const require = createRequire(import.meta.url);
+
 const updaterLogger: Logger = {
   error: (...args) => console.error('[auto-update]', ...args),
   info: (...args) => console.info('[auto-update]', ...args),
   warn: (...args) => console.warn('[auto-update]', ...args),
 };
 
-export function getAutoUpdater(): AppUpdater {
-  const { autoUpdater } = electronUpdater;
-  return autoUpdater;
+export function getAutoUpdater(
+  logger: Logger = updaterLogger,
+): UpdaterLike | null {
+  try {
+    const electronUpdater = require('electron-updater') as {
+      autoUpdater?: UpdaterLike;
+      default?: { autoUpdater?: UpdaterLike };
+    };
+
+    return (
+      electronUpdater.autoUpdater ??
+      electronUpdater.default?.autoUpdater ??
+      null
+    );
+  } catch (error) {
+    logger.warn(
+      'Auto-updates are unavailable because the optional electron-updater dependency could not be loaded.',
+      error,
+    );
+    return null;
+  }
 }
 
 export function supportsAutoUpdates(
@@ -79,38 +100,44 @@ export function startAutoUpdates({
   logger = updaterLogger,
   platform = process.platform,
   restartPrompt = createRestartPrompt(getParentWindow),
-  updater = getAutoUpdater(),
+  updater,
 }: StartAutoUpdateOptions): boolean {
   if (!supportsAutoUpdates(app, platform)) {
     return false;
   }
 
+  const resolvedUpdater = updater ?? getAutoUpdater(logger);
+
+  if (!resolvedUpdater) {
+    return false;
+  }
+
   let promptInFlight = false;
 
-  updater.logger = logger;
-  updater.autoDownload = true;
-  updater.autoInstallOnAppQuit = false;
+  resolvedUpdater.logger = logger;
+  resolvedUpdater.autoDownload = true;
+  resolvedUpdater.autoInstallOnAppQuit = false;
 
-  updater.on('checking-for-update', () => {
+  resolvedUpdater.on('checking-for-update', () => {
     logger.info('Checking for updates.');
   });
 
-  updater.on('update-available', (info) => {
+  resolvedUpdater.on('update-available', (info) => {
     const version = readVersion(info);
     logger.info(
       version ? `Update available: ${version}.` : 'An update is available.',
     );
   });
 
-  updater.on('update-not-available', () => {
+  resolvedUpdater.on('update-not-available', () => {
     logger.info('No updates available.');
   });
 
-  updater.on('error', (error) => {
+  resolvedUpdater.on('error', (error) => {
     logger.error('Auto-update failed.', error);
   });
 
-  updater.on('update-downloaded', async (info) => {
+  resolvedUpdater.on('update-downloaded', async (info) => {
     const version = readVersion(info);
 
     logger.info(
@@ -131,7 +158,7 @@ export function startAutoUpdates({
       );
 
       if (shouldRestart) {
-        updater.quitAndInstall();
+        resolvedUpdater.quitAndInstall();
       } else {
         logger.info('User postponed installation of the downloaded update.');
       }
@@ -142,7 +169,7 @@ export function startAutoUpdates({
     }
   });
 
-  void updater.checkForUpdatesAndNotify().catch((error) => {
+  void resolvedUpdater.checkForUpdatesAndNotify().catch((error) => {
     logger.error('Failed to check for updates.', error);
   });
 
