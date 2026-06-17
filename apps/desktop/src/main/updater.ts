@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 
-import type { App, BrowserWindow } from 'electron';
+import type { App, BrowserWindow, dialog as electronDialog } from 'electron';
 import type { AppUpdater } from 'electron-updater';
 
 import { desktopBranding } from '../branding.js';
@@ -18,7 +18,7 @@ type UpdaterLike = {
   quitAndInstall(): void;
 };
 
-type DialogLike = Pick<typeof import('electron').dialog, 'showMessageBox'>;
+type DialogLike = Pick<typeof electronDialog, 'showMessageBox'>;
 
 type SupportedApp = Pick<App, 'isPackaged'>;
 
