@@ -9,10 +9,12 @@ import type {
 const appChannelNames = {
   applyCommands: 'app:applyCommands',
   createProject: 'app:createProject',
+  exportProjectSnapshot: 'app:exportProjectSnapshot',
   getActiveProject: 'app:getActiveProject',
   getHistoryState: 'app:getHistoryState',
   getMcpStatus: 'app:getMcpStatus',
   getRuntimeCapabilities: 'app:getRuntimeCapabilities',
+  importProjectSnapshot: 'app:importProjectSnapshot',
   layoutMeasurementRequest: 'app:layoutMeasurementRequest',
   listProjects: 'app:listProjects',
   openExternalUrl: 'app:openExternalUrl',
@@ -30,6 +32,9 @@ const api: DesktopApi = {
   async createProject(input) {
     return ipcRenderer.invoke(appChannelNames.createProject, input);
   },
+  async exportProjectSnapshot(input) {
+    return ipcRenderer.invoke(appChannelNames.exportProjectSnapshot, input);
+  },
   async getActiveProject() {
     return ipcRenderer.invoke(appChannelNames.getActiveProject);
   },
@@ -44,6 +49,9 @@ const api: DesktopApi = {
   },
   async listProjects() {
     return ipcRenderer.invoke(appChannelNames.listProjects);
+  },
+  async importProjectSnapshot() {
+    return ipcRenderer.invoke(appChannelNames.importProjectSnapshot, {});
   },
   async openExternalUrl(input) {
     return ipcRenderer.invoke(appChannelNames.openExternalUrl, input);

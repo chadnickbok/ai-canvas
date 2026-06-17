@@ -28,4 +28,11 @@ describe('desktop preload compatibility', () => {
 
     expect(runtimeImports).toEqual(['electron']);
   });
+
+  it('exposes snapshot import and export bridge methods', () => {
+    const source = readFileSync(preloadSourcePath, 'utf8');
+
+    expect(source).toContain('exportProjectSnapshot');
+    expect(source).toContain('importProjectSnapshot');
+  });
 });

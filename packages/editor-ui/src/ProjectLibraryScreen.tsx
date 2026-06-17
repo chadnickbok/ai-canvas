@@ -2,8 +2,10 @@ import {
   ArrowRight,
   CalendarDays,
   Clock3,
+  Download,
   Search,
   Settings,
+  Upload,
 } from 'lucide-react';
 import {
   useDeferredValue,
@@ -21,6 +23,7 @@ import {
   type McpStatus,
   type ProjectSummary,
   type RuntimeCapabilities,
+  type SnapshotWarning,
 } from '@ai-canvas/ipc-contract';
 
 type ProjectLibraryScreenProps = {
@@ -36,8 +39,11 @@ type ProjectLibraryScreenProps = {
   projects: ProjectSummary[];
   runtimeCapabilities: RuntimeCapabilities | null;
   onCreateProject: (input: CreateProjectInput) => Promise<void> | void;
+  onExportProjectSnapshot: (projectId: string) => Promise<void> | void;
+  onImportProjectSnapshot: () => Promise<void> | void;
   onOpenProject: (projectId: string) => void;
   onOpenExternalUrl: (url: string) => void;
+  snapshotWarnings?: SnapshotWarning[] | null;
 };
 
 type SortMode = 'updated' | 'created';
@@ -306,6 +312,42 @@ function EmptyPanel({
   );
 }
 
+function SnapshotWarningPanel({
+  warnings,
+}: {
+  warnings: SnapshotWarning[] | null | undefined;
+}) {
+  if (!warnings || warnings.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="border border-black/12 bg-white/70 px-5 py-4 text-[14px] leading-7 text-[#111111]">
+      <div className="ui-mono mb-2 text-[11px] uppercase tracking-[0.16em] text-black/42">
+        Snapshot warnings
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-1 p-0">
+        {warnings.slice(0, 4).map((warning, index) => (
+          <li key={`${warning.code}-${index}`}>
+            {warning.message}
+            {warning.path ? (
+              <span className="ui-mono ml-2 text-[12px] text-black/44">
+                {warning.path}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {warnings.length > 4 ? (
+        <div className="mt-2 text-[13px] text-black/56">
+          {warnings.length - 4} more warning
+          {warnings.length - 4 === 1 ? '' : 's'}.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function UtilityButton({
   children,
   className,
@@ -447,37 +489,51 @@ function ProjectRow({
   project,
   isActive,
   isBusy,
+  onExport,
   onOpen,
 }: {
   project: ProjectSummary;
   isActive: boolean;
   isBusy: boolean;
+  onExport: (projectId: string) => void;
   onOpen: (projectId: string) => void;
 }) {
   return (
     <li>
-      <button
-        aria-current={isActive ? 'page' : undefined}
+      <div
         className={cn(
-          'group flex w-full items-center gap-3 px-3 py-3 text-left transition',
+          'group flex w-full items-center gap-2 transition',
           isActive
             ? 'border border-black bg-white/95'
             : 'border-b border-black/10 hover:border-black/18 hover:bg-white/65',
         )}
-        disabled={isBusy}
-        onClick={() => onOpen(project.id)}
-        type="button"
       >
-        <ProjectPreview projectId={project.id} />
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-          <strong className="truncate text-[18px] font-semibold tracking-[-0.04em] text-[#111111]">
-            {project.name}
-          </strong>
-          <span className="ui-mono text-[11px] uppercase tracking-[0.16em] text-black/44">
-            {formatProjectTimestamp(project.updatedAt)}
-          </span>
-        </div>
-      </button>
+        <button
+          aria-current={isActive ? 'page' : undefined}
+          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left"
+          disabled={isBusy}
+          onClick={() => onOpen(project.id)}
+          type="button"
+        >
+          <ProjectPreview projectId={project.id} />
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+            <strong className="truncate text-[18px] font-semibold tracking-[-0.04em] text-[#111111]">
+              {project.name}
+            </strong>
+            <span className="ui-mono text-[11px] uppercase tracking-[0.16em] text-black/44">
+              {formatProjectTimestamp(project.updatedAt)}
+            </span>
+          </div>
+        </button>
+        <UtilityButton
+          className="mr-3"
+          disabled={isBusy}
+          onClick={() => onExport(project.id)}
+          title="Export project snapshot"
+        >
+          <Download className="h-[17px] w-[17px]" strokeWidth={1.6} />
+        </UtilityButton>
+      </div>
     </li>
   );
 }
@@ -828,18 +884,29 @@ status: running`}
             <h1 className="m-0 text-[22px] font-semibold tracking-[-0.05em] text-[#111111]">
               My Projects
             </h1>
-            <button
-              className={cn(
-                'h-[42px] shrink-0 border border-[#111111] bg-[#111111] px-4 text-[13px] font-semibold tracking-[0.01em] text-white transition hover:bg-white hover:text-[#111111]',
-                (!isReady || props.isBusy) &&
-                  'cursor-not-allowed opacity-45 hover:bg-[#111111] hover:text-white',
-              )}
-              disabled={!isReady || props.isBusy}
-              onClick={handleOpenCreateProjectDialog}
-              type="button"
-            >
-              New Project
-            </button>
+            <div className="flex items-center gap-2">
+              <UtilityButton
+                disabled={!isReady || props.isBusy}
+                onClick={() => {
+                  void props.onImportProjectSnapshot();
+                }}
+                title="Import project snapshot"
+              >
+                <Upload className="h-[17px] w-[17px]" strokeWidth={1.6} />
+              </UtilityButton>
+              <button
+                className={cn(
+                  'h-[42px] shrink-0 border border-[#111111] bg-[#111111] px-4 text-[13px] font-semibold tracking-[0.01em] text-white transition hover:bg-white hover:text-[#111111]',
+                  (!isReady || props.isBusy) &&
+                    'cursor-not-allowed opacity-45 hover:bg-[#111111] hover:text-white',
+                )}
+                disabled={!isReady || props.isBusy}
+                onClick={handleOpenCreateProjectDialog}
+                type="button"
+              >
+                New Project
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 border-b border-black/8 py-5">
@@ -945,6 +1012,9 @@ status: running`}
                         isActive={project.id === props.activeProjectId}
                         isBusy={props.isBusy}
                         key={project.id}
+                        onExport={(projectId) => {
+                          void props.onExportProjectSnapshot(projectId);
+                        }}
                         onOpen={props.onOpenProject}
                         project={project}
                       />
@@ -1080,6 +1150,8 @@ status: running`}
                   {modeWarning}
                 </div>
               ) : null}
+
+              <SnapshotWarningPanel warnings={props.snapshotWarnings} />
 
               {props.errorMessage && isReady ? (
                 <div className="border border-black/18 bg-black/[0.03] px-5 py-4 text-[14px] leading-7 text-[#111111]">

@@ -448,9 +448,10 @@ node through the canvas toolbar and inspector, relaunches the app with the same
 profile, reopens the project from the library, mutates the same project through
 the local MCP bridge, and verifies the renderer reflects the MCP mutation.
 
-This lane does **not** cover project snapshot export/import yet. Snapshot
-coverage remains a separate required release gap until the `.aicp`
-import/export runtime surface exists.
+This lane does **not** drive project snapshot export/import through native file
+dialogs. Snapshot coverage is provided by desktop snapshot service, runtime,
+IPC, preload, and renderer tests that exercise the `.aicp` runtime surface with
+temporary files and mocked native dialogs.
 
 Do not add `pnpm smoke:desktop` to CI by default until the target runner has an
 explicit desktop display strategy. Linux/headless CI should run it under xvfb or

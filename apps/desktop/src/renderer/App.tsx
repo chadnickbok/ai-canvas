@@ -17,6 +17,7 @@ import {
   runtimeEventSchema,
   type RuntimeCapabilities,
   type RuntimeEvent,
+  type SnapshotWarning,
 } from '@ai-canvas/ipc-contract';
 
 import { desktopBranding } from '../branding.js';
@@ -35,6 +36,7 @@ type ScreenState = {
   projects: ProjectSummary[];
   runtimeCapabilities: RuntimeCapabilities | null;
   screen: Screen;
+  snapshotWarnings: SnapshotWarning[] | null;
 };
 
 const initialState: ScreenState = {
@@ -47,6 +49,7 @@ const initialState: ScreenState = {
   projects: [],
   runtimeCapabilities: null,
   screen: 'library',
+  snapshotWarnings: null,
 };
 
 function getDesktopApi(): DesktopApi | null {
@@ -55,7 +58,12 @@ function getDesktopApi(): DesktopApi | null {
 
 async function loadScreenState(
   api: DesktopApi,
-): Promise<Omit<ScreenState, 'bootState' | 'errorMessage' | 'isBusy'>> {
+): Promise<
+  Omit<
+    ScreenState,
+    'bootState' | 'errorMessage' | 'isBusy' | 'snapshotWarnings'
+  >
+> {
   const [
     projectsResult,
     activeProjectResult,
@@ -140,6 +148,7 @@ export function App() {
           bootState: 'ready',
           errorMessage: null,
           isBusy: false,
+          snapshotWarnings: null,
         });
       });
     } catch (error) {
@@ -204,6 +213,7 @@ export function App() {
       ...current,
       errorMessage: null,
       isBusy: true,
+      snapshotWarnings: null,
     }));
 
     let result;
@@ -218,6 +228,7 @@ export function App() {
         ...current,
         errorMessage: message,
         isBusy: false,
+        snapshotWarnings: null,
       }));
 
       throw new Error(message);
@@ -230,6 +241,7 @@ export function App() {
         ...current,
         errorMessage: message,
         isBusy: false,
+        snapshotWarnings: null,
       }));
 
       throw new Error(message);
@@ -249,6 +261,7 @@ export function App() {
         ...current,
         errorMessage: message,
         isBusy: false,
+        snapshotWarnings: null,
       }));
 
       throw new Error(message);
@@ -263,6 +276,7 @@ export function App() {
         ...current,
         errorMessage: message,
         isBusy: false,
+        snapshotWarnings: null,
       }));
 
       throw new Error(message);
@@ -274,6 +288,7 @@ export function App() {
       errorMessage: null,
       isBusy: false,
       screen: 'workspace',
+      snapshotWarnings: null,
     }));
   };
 
@@ -288,6 +303,7 @@ export function App() {
       ...current,
       errorMessage: null,
       isBusy: true,
+      snapshotWarnings: null,
     }));
 
     let result;
@@ -300,6 +316,7 @@ export function App() {
         errorMessage:
           error instanceof Error ? error.message : 'Failed to open the project',
         isBusy: false,
+        snapshotWarnings: null,
       }));
       return;
     }
@@ -309,6 +326,7 @@ export function App() {
         ...current,
         errorMessage: result.error.message,
         isBusy: false,
+        snapshotWarnings: null,
       }));
       return;
     }
@@ -319,7 +337,105 @@ export function App() {
       errorMessage: null,
       isBusy: false,
       screen: 'workspace',
+      snapshotWarnings: null,
     }));
+  };
+
+  const handleExportProjectSnapshot = async (projectId: string) => {
+    const api = getDesktopApi();
+
+    if (!api || state.bootState !== 'ready') {
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      errorMessage: null,
+      isBusy: true,
+      snapshotWarnings: null,
+    }));
+
+    try {
+      const result = await api.exportProjectSnapshot({ projectId });
+
+      setState((current) => ({
+        ...current,
+        errorMessage: result.ok ? null : result.error.message,
+        isBusy: false,
+        snapshotWarnings:
+          result.ok && !result.data.canceled && result.data.warnings.length > 0
+            ? result.data.warnings
+            : null,
+      }));
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : 'Failed to export the project snapshot',
+        isBusy: false,
+        snapshotWarnings: null,
+      }));
+    }
+  };
+
+  const handleImportProjectSnapshot = async () => {
+    const api = getDesktopApi();
+
+    if (!api || state.bootState !== 'ready') {
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      errorMessage: null,
+      isBusy: true,
+      snapshotWarnings: null,
+    }));
+
+    try {
+      const result = await api.importProjectSnapshot();
+
+      if (!result.ok) {
+        setState((current) => ({
+          ...current,
+          errorMessage: result.error.message,
+          isBusy: false,
+          snapshotWarnings: null,
+        }));
+        return;
+      }
+
+      if (result.data.canceled) {
+        setState((current) => ({
+          ...current,
+          isBusy: false,
+        }));
+        return;
+      }
+
+      const nextState = await loadScreenState(api);
+
+      setState({
+        ...nextState,
+        bootState: 'ready',
+        errorMessage: null,
+        isBusy: false,
+        snapshotWarnings:
+          result.data.warnings.length > 0 ? result.data.warnings : null,
+      });
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : 'Failed to import the project snapshot',
+        isBusy: false,
+        snapshotWarnings: null,
+      }));
+    }
   };
 
   const handleOpenExternalUrl = async (url: string) => {
@@ -350,6 +466,7 @@ export function App() {
           error instanceof Error
             ? error.message
             : 'Failed to open the external link',
+        snapshotWarnings: null,
       }));
     }
   };
@@ -415,6 +532,7 @@ export function App() {
       ...current,
       errorMessage: null,
       isBusy: true,
+      snapshotWarnings: null,
     }));
 
     try {
@@ -424,12 +542,14 @@ export function App() {
         ...current,
         errorMessage: result.ok ? null : result.error.message,
         isBusy: false,
+        snapshotWarnings: result.ok ? current.snapshotWarnings : null,
       }));
     } catch (error) {
       setState((current) => ({
         ...current,
         errorMessage: error instanceof Error ? error.message : 'Failed to undo',
         isBusy: false,
+        snapshotWarnings: null,
       }));
     }
   };
@@ -445,6 +565,7 @@ export function App() {
       ...current,
       errorMessage: null,
       isBusy: true,
+      snapshotWarnings: null,
     }));
 
     try {
@@ -454,12 +575,14 @@ export function App() {
         ...current,
         errorMessage: result.ok ? null : result.error.message,
         isBusy: false,
+        snapshotWarnings: result.ok ? current.snapshotWarnings : null,
       }));
     } catch (error) {
       setState((current) => ({
         ...current,
         errorMessage: error instanceof Error ? error.message : 'Failed to redo',
         isBusy: false,
+        snapshotWarnings: null,
       }));
     }
   };
@@ -488,9 +611,11 @@ export function App() {
               screen: 'library',
             }));
           }}
+          onExportProjectSnapshot={handleExportProjectSnapshot}
           onRedo={handleRedo}
           onUndo={handleUndo}
           runtimeCapabilities={state.runtimeCapabilities}
+          snapshotWarnings={state.snapshotWarnings}
         />
         {measurementHost}
       </>
@@ -507,12 +632,15 @@ export function App() {
         isBusy={state.isBusy}
         mcpStatus={state.mcpStatus}
         onCreateProject={handleCreateProject}
+        onExportProjectSnapshot={handleExportProjectSnapshot}
+        onImportProjectSnapshot={handleImportProjectSnapshot}
         onOpenProject={handleOpenProject}
         onOpenExternalUrl={(url) => {
           void handleOpenExternalUrl(url);
         }}
         projects={state.projects}
         runtimeCapabilities={state.runtimeCapabilities}
+        snapshotWarnings={state.snapshotWarnings}
       />
       {measurementHost}
     </>

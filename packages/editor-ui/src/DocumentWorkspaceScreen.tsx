@@ -7,8 +7,10 @@ import type {
   HistoryState,
   McpStatus,
   RuntimeCapabilities,
+  SnapshotWarning,
 } from '@ai-canvas/ipc-contract';
 import {
+  Download,
   Frame,
   Hand,
   MousePointer2,
@@ -54,9 +56,11 @@ export type DocumentWorkspaceScreenProps = {
     input: ApplyCommandsInput,
   ) => Promise<AppResult<CommandResult>>;
   onBackToLibrary: () => void;
+  onExportProjectSnapshot?: (projectId: string) => Promise<void> | void;
   onRedo?: () => Promise<void> | void;
   onUndo?: () => Promise<void> | void;
   runtimeCapabilities: RuntimeCapabilities | null;
+  snapshotWarnings?: SnapshotWarning[] | null;
 };
 
 type SelectionSource = 'canvas' | 'hierarchy';
@@ -147,6 +151,32 @@ function formatRuntimeMode(capabilities: RuntimeCapabilities | null): string {
 
   return capabilities.mode === 'read_write' ? 'Read/write' : 'Read only';
 }
+
+function SnapshotWarningPanel({
+  warnings,
+}: {
+  warnings: SnapshotWarning[] | null | undefined;
+}) {
+  if (!warnings || warnings.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="border-b border-black/12 bg-white/78">
+      <div className="w-full px-4 py-3 text-[14px] leading-7 text-[#111111]">
+        <span className="ui-mono mr-3 text-[11px] uppercase tracking-[0.16em] text-black/42">
+          Snapshot warnings
+        </span>
+        {warnings
+          .slice(0, 3)
+          .map((warning) => warning.message)
+          .join(' ')}
+        {warnings.length > 3 ? ` ${warnings.length - 3} more.` : ''}
+      </div>
+    </div>
+  );
+}
+
 function CanvasToolBar({
   activeTool,
   canCreateNodes,
@@ -269,9 +299,11 @@ export function DocumentWorkspaceScreen({
   mcpStatus,
   onApplyCommands,
   onBackToLibrary,
+  onExportProjectSnapshot,
   onRedo,
   onUndo,
   runtimeCapabilities,
+  snapshotWarnings,
 }: DocumentWorkspaceScreenProps) {
   const resolvedAssetsById =
     activeProject.resolved_assets as ResolvedAssetsById;
@@ -427,6 +459,7 @@ export function DocumentWorkspaceScreen({
     runtimeCapabilities?.mode === 'read_write' && !isBusy;
   const canRedo = canTraverseHistory && historyState?.canRedo === true;
   const canUndo = canTraverseHistory && historyState?.canUndo === true;
+  const canExportProject = !isBusy && Boolean(onExportProjectSnapshot);
   const effectiveErrorMessage = errorMessage ?? commandError;
   const zoomInputValue =
     zoomInputState.lastCommittedZoom === viewport.zoom
@@ -673,6 +706,23 @@ export function DocumentWorkspaceScreen({
 
             <div className="flex items-center gap-2 border border-black/12 bg-white/86 px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.04)]">
               <button
+                aria-label="Export project snapshot"
+                className={cn(
+                  'flex h-[34px] w-[34px] items-center justify-center border border-black/12 text-[#111111] transition hover:border-black',
+                  !canExportProject &&
+                    'cursor-not-allowed opacity-45 hover:border-black/12',
+                )}
+                disabled={!canExportProject}
+                onClick={() => {
+                  void onExportProjectSnapshot?.(activeProject.project.id);
+                }}
+                title="Export project snapshot"
+                type="button"
+              >
+                <Download className="h-4 w-4" strokeWidth={1.6} />
+              </button>
+
+              <button
                 className={cn(
                   'ui-mono border border-black/12 px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[#111111] transition hover:border-black',
                   !canUndo &&
@@ -774,6 +824,8 @@ export function DocumentWorkspaceScreen({
           </div>
         </div>
       ) : null}
+
+      <SnapshotWarningPanel warnings={snapshotWarnings} />
 
       <section
         className="flex min-h-0 flex-1 overflow-hidden"
