@@ -67,6 +67,15 @@ importers:
       electron-updater:
         specifier: ^6.8.3
         version: 6.8.3
+      yauzl:
+        specifier: ^3.4.0
+        version: 3.4.0
+      yazl:
+        specifier: ^3.3.1
+        version: 3.3.1
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@ai-canvas/document-core':
         specifier: workspace:*
@@ -89,6 +98,12 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.28.0
         version: 1.28.0(zod@4.3.6)
+      '@types/yauzl':
+        specifier: ^3.4.0
+        version: 3.4.0
+      '@types/yazl':
+        specifier: ^3.3.1
+        version: 3.3.1
       electron:
         specifier: ^41.0.4
         version: 41.0.4
@@ -1715,6 +1730,18 @@ packages:
         integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==,
       }
 
+  '@types/yauzl@3.4.0':
+    resolution:
+      {
+        integrity: sha512-NRPn5w6h8dhcnmx3YIRQcqMywY/+nND/uOkJessedcrowO3C0AssHp3tMJpxKAwOhFOo0OV1y9VtsC5hbKKBAw==,
+      }
+
+  '@types/yazl@3.3.1':
+    resolution:
+      {
+        integrity: sha512-DIWfCKpsTp6hE5BDBHV3+fIL/bLUF9Bv13iDrWnMlmhQpH67buNvI291ZauQ1xcccxK3FqQ9honnXpq4R8NMuQ==,
+      }
+
   '@typescript-eslint/eslint-plugin@8.57.2':
     resolution:
       {
@@ -2177,6 +2204,13 @@ packages:
       {
         integrity: sha512-VO9Ht/+p3SN7SKWqcrgEzjGbRSJYTx+Q1pTQC0wrWqHx0vpJraQ6GtHx8tvcg1rlK1byhU5gccxgOgj7B0TDkQ==,
       }
+
+  buffer-crc32@1.0.0:
+    resolution:
+      {
+        integrity: sha512-Db1SbgBS/fg/392AblrMJk97KggmvYhr4pB5ZIMTWtaivCPMWLkmb7m21cJvpvgK+J3nsU2CmmixNBZx4vFj/w==,
+      }
+    engines: { node: '>=8.0.0' }
 
   buffer-from@1.1.2:
     resolution:
@@ -6022,6 +6056,19 @@ packages:
         integrity: sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==,
       }
 
+  yauzl@3.4.0:
+    resolution:
+      {
+        integrity: sha512-jIH9yLR9wqr0wOS0TpBvo/g/2UgZH5qePVbjgRliiF0BYvOZyaBknKsF+x9Iht0O6sqgnB93rCICdOZFecJuDw==,
+      }
+    engines: { node: '>=12' }
+
+  yazl@3.3.1:
+    resolution:
+      {
+        integrity: sha512-BbETDVWG+VcMUle37k5Fqp//7SDOK2/1+T7X8TD96M3D9G8jK5VLUdQVdVjGi8im7FGkazX7kk5hkU8X4L5Bng==,
+      }
+
   yocto-queue@0.1.0:
     resolution:
       {
@@ -6908,6 +6955,14 @@ snapshots:
       '@types/node': 25.5.0
     optional: true
 
+  '@types/yauzl@3.4.0':
+    dependencies:
+      '@types/node': 25.5.0
+
+  '@types/yazl@3.3.1':
+    dependencies:
+      '@types/node': 25.5.0
+
   '@typescript-eslint/eslint-plugin@8.57.2(@typescript-eslint/parser@8.57.2(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)':
     dependencies:
       '@eslint-community/regexpp': 4.12.2
@@ -7280,6 +7335,8 @@ snapshots:
       update-browserslist-db: 1.2.3(browserslist@4.28.1)
 
   buffer-crc32@0.2.13: {}
+
+  buffer-crc32@1.0.0: {}
 
   buffer-from@1.1.2: {}
 
@@ -9851,6 +9908,14 @@ snapshots:
     dependencies:
       buffer-crc32: 0.2.13
       fd-slicer: 1.1.0
+
+  yauzl@3.4.0:
+    dependencies:
+      pend: 1.2.0
+
+  yazl@3.3.1:
+    dependencies:
+      buffer-crc32: 1.0.0
 
   yocto-queue@0.1.0: {}
 

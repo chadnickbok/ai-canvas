@@ -52,12 +52,11 @@ contract, not a deviation from it.
 
 - Implemented: undo/redo history stores document snapshots in
   `project_history.undo_json` and `project_history.redo_json`.
-- Planned by docs: portable `.aicp` project snapshots for import, export,
-  backup and restore, as described in `docs/project-snapshot-format.md`.
+- Implemented: portable `.aicp` project snapshots for import, export, backup
+  and restore, as described in `docs/project-snapshot-format.md`.
 
-Only the undo/redo document-snapshot meaning exists in runtime code today. The
-portable project snapshot format is documented but not implemented as an
-import/export API.
+The undo/redo meaning is internal history state. The `.aicp` meaning is a
+user-facing ZIP archive format exposed through desktop import/export UI and IPC.
 
 ### Recovery today
 
@@ -327,14 +326,16 @@ writes. It also does not implement a separate checkpoint workflow:
 The durable SQLite save path is still useful crash resistance for completed
 commands. That is now the documented recovery model for the launch product.
 
-### Snapshot import/export gap
+### Snapshot import/export
 
-`docs/project-snapshot-format.md` defines a portable `.aicp` bundle format for
-export, import, backup, and restore.
+`docs/project-snapshot-format.md` defines the implemented portable `.aicp`
+bundle format for export, import, backup, and restore.
 
-The current IPC contract, preload API, runtime, store, and MCP bridge do not
-expose import/export snapshot operations. The implemented storage model is the
-live SQLite/project-asset-store model, not the portable snapshot bundle model.
+The desktop IPC contract, preload API, runtime, store, and editor UI now expose
+project snapshot import/export. Export leaves the live session unchanged. Import
+creates a new local project, remaps persisted ids, stores readable asset
+payloads in the local asset store, opens the imported project, and reports
+warnings for skipped damaged assets.
 
 ### Test gap
 
@@ -345,13 +346,16 @@ Current tests cover important implemented behavior:
 - command persistence and revision increments,
 - computed-layout refresh through test refreshers,
 - asset persistence and embedded-asset migration,
+- snapshot export/import, asset bundling, partial asset import, id remapping,
+  imported project persistence, IPC dialog cancellation, and renderer import and
+  export actions,
 - undo/redo and persisted history across reopen,
 - MCP mutation through the shared runtime path,
 - read-only write failure when measurement is unavailable.
 
-Current tests do not cover behavior outside the implemented current runtime:
-
-- portable snapshot import/export.
+Current tests do not cover snapshot import/export through the local
+product-level smoke lane because native file dialogs are covered with mocked IPC
+tests instead.
 
 ## What is already true
 
@@ -366,6 +370,8 @@ These parts should not be treated as gaps:
 - Undo/redo history is persisted locally and survives reopen.
 - Asset-store metadata is stored outside `current_document_json` and hydrated
   back into the document on load.
+- `.aicp` snapshot export/import exists for the supported one-project,
+  one-document archive format.
 - Write-capable commands fail when the renderer-backed measurement surface is
   unavailable.
 
@@ -376,4 +382,4 @@ At the time of this audit, `pnpm test` passed with:
 - `@ai-canvas/document-core`: 8 files, 31 tests
 - `@ai-canvas/editor-ui`: 9 files, 66 tests
 - `@ai-canvas/mcp-bridge`: 1 file, 9 tests
-- `@ai-canvas/desktop`: 7 files, 39 tests
+- `@ai-canvas/desktop`: 10 files, 59 tests

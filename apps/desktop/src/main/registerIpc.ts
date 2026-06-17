@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron';
+import { dialog, ipcMain, shell } from 'electron';
 
 import {
   appChannelNames,
@@ -6,6 +6,7 @@ import {
   createProjectInputSchema,
   emptyPayloadSchema,
   err,
+  exportProjectSnapshotInputSchema,
   layoutMeasurementResultSchema,
   ok,
   openExternalUrlInputSchema,
@@ -68,6 +69,78 @@ export function registerIpc(
       return toValidationError(error);
     }
   });
+
+  ipcMain.handle(
+    appChannelNames.exportProjectSnapshot,
+    async (_event, input) => {
+      try {
+        const parsed = exportProjectSnapshotInputSchema.parse(input);
+        const projectsResult = runtime.listProjects();
+        const project = projectsResult.ok
+          ? projectsResult.data.find(
+              (candidate) => candidate.id === parsed.projectId,
+            )
+          : null;
+        const saveResult = await dialog.showSaveDialog({
+          defaultPath: `${sanitizeSnapshotFileName(project?.name ?? parsed.projectId)}.aicp`,
+          filters: [
+            {
+              extensions: ['aicp'],
+              name: 'AI Canvas Project',
+            },
+          ],
+          properties: ['createDirectory', 'showOverwriteConfirmation'],
+          title: 'Export AI Canvas project',
+        });
+
+        if (saveResult.canceled || !saveResult.filePath) {
+          return ok({
+            canceled: true,
+            warnings: [],
+          });
+        }
+
+        return runtime.exportProjectSnapshot({
+          destinationPath: ensureAicpExtension(saveResult.filePath),
+          projectId: parsed.projectId,
+        });
+      } catch (error) {
+        return toValidationError(error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    appChannelNames.importProjectSnapshot,
+    async (_event, input) => {
+      try {
+        emptyPayloadSchema.parse(input ?? {});
+        const openResult = await dialog.showOpenDialog({
+          filters: [
+            {
+              extensions: ['aicp'],
+              name: 'AI Canvas Project',
+            },
+          ],
+          properties: ['openFile'],
+          title: 'Import AI Canvas project',
+        });
+
+        if (openResult.canceled || openResult.filePaths.length === 0) {
+          return ok({
+            canceled: true,
+            warnings: [],
+          });
+        }
+
+        return runtime.importProjectSnapshot({
+          filePath: openResult.filePaths[0] ?? '',
+        });
+      } catch (error) {
+        return toValidationError(error);
+      }
+    },
+  );
 
   ipcMain.handle(appChannelNames.openExternalUrl, async (_event, input) => {
     try {
@@ -139,6 +212,25 @@ export function registerIpc(
   );
 
   return unsubscribe;
+}
+
+function ensureAicpExtension(filePath: string): string {
+  return filePath.toLowerCase().endsWith('.aicp')
+    ? filePath
+    : `${filePath}.aicp`;
+}
+
+function sanitizeSnapshotFileName(value: string): string {
+  const sanitized = Array.from(value.trim(), (character) => {
+    const codePoint = character.charCodeAt(0);
+    return codePoint < 32 || '<>:"/\\|?*'.includes(character) ? '-' : character;
+  })
+    .join('')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+
+  return sanitized.length > 0 ? sanitized : 'AI Canvas Project';
 }
 
 function toValidationError(error: unknown) {

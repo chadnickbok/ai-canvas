@@ -21,7 +21,9 @@ import type {
   AppErrorCode,
   AppResult,
   CommandResult,
+  ExportProjectSnapshotResult,
   HistoryState,
+  ImportProjectSnapshotResult,
   McpStatus,
   ProjectSummary,
   RuntimeCapabilities,
@@ -42,6 +44,10 @@ import {
 } from './assetUrlIngest.js';
 import { decodeBase64AssetBytes } from './assetStorage.js';
 import { createAssetId } from './ids.js';
+import {
+  ProjectSnapshotError,
+  ProjectSnapshotService,
+} from './projectSnapshotService.js';
 
 type McpStatusProvider = {
   getStatus: () => McpStatus;
@@ -121,6 +127,15 @@ export type CreateAssetFromUrlInput = {
   url: string;
 };
 
+export type ExportProjectSnapshotInput = {
+  destinationPath: string;
+  projectId: string;
+};
+
+export type ImportProjectSnapshotInput = {
+  filePath: string;
+};
+
 export type CreateAssetResult = {
   asset_id: string;
   content_hash: string;
@@ -173,6 +188,7 @@ export class ProjectRuntime {
   private measurementSurfaceAvailable = false;
   private mcpStatusProvider: McpStatusProvider | null = null;
   private readonly assetUrlDownloader: AssetUrlDownloader;
+  private readonly snapshotService: ProjectSnapshotService;
 
   constructor(
     private readonly store: ProjectStore,
@@ -180,6 +196,7 @@ export class ProjectRuntime {
   ) {
     this.assetUrlDownloader =
       options.assetUrlDownloader ?? downloadRasterAssetFromUrl;
+    this.snapshotService = new ProjectSnapshotService(store);
   }
 
   attachMcpStatusProvider(provider: McpStatusProvider): void {
@@ -256,6 +273,52 @@ export class ProjectRuntime {
         'internal_error',
         error instanceof Error ? error.message : 'Failed to open the project',
       );
+    }
+  }
+
+  async exportProjectSnapshot(
+    input: ExportProjectSnapshotInput,
+  ): Promise<AppResult<ExportProjectSnapshotResult>> {
+    try {
+      const exported = await this.snapshotService.exportProjectSnapshot({
+        destinationPath: input.destinationPath,
+        projectId: input.projectId,
+      });
+
+      return ok({
+        canceled: false,
+        filePath: exported.filePath,
+        project: exported.project,
+        warnings: exported.warnings,
+      });
+    } catch (error) {
+      return toSnapshotAppError(error, 'Failed to export the project snapshot');
+    }
+  }
+
+  async importProjectSnapshot(
+    input: ImportProjectSnapshotInput,
+  ): Promise<AppResult<ImportProjectSnapshotResult>> {
+    try {
+      const imported = await this.snapshotService.importProjectSnapshot(input);
+
+      this.activeSession = imported.activeProject;
+      this.activeHistory = this.store.getProjectHistory(
+        imported.activeProject.project.id,
+      );
+
+      this.emitProjectsChanged();
+      this.emitActiveProjectChanged();
+      this.emitHistoryStateChanged();
+      this.emitRuntimeCapabilitiesChanged();
+
+      return ok({
+        activeProject: imported.activeProject,
+        canceled: false,
+        warnings: imported.warnings,
+      });
+    } catch (error) {
+      return toSnapshotAppError(error, 'Failed to import the project snapshot');
     }
   }
 
@@ -1063,6 +1126,9 @@ function resolveRuntimeErrorCode(error: unknown): AppErrorCode {
       case 'not_found':
       case 'not_implemented':
       case 'revision_conflict':
+      case 'snapshot_invalid':
+      case 'snapshot_io_error':
+      case 'snapshot_unsupported_version':
       case 'target_not_found':
       case 'unknown_command':
       case 'unrecoverable_command':
@@ -1072,6 +1138,20 @@ function resolveRuntimeErrorCode(error: unknown): AppErrorCode {
   }
 
   return 'internal_error';
+}
+
+function toSnapshotAppError<T>(
+  error: unknown,
+  fallbackMessage: string,
+): AppResult<T> {
+  if (error instanceof ProjectSnapshotError) {
+    return err(error.code, error.message);
+  }
+
+  return err(
+    'internal_error',
+    error instanceof Error ? error.message : fallbackMessage,
+  );
 }
 
 function resolveRuntimeErrorMessage(error: unknown): string {

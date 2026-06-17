@@ -190,6 +190,19 @@ function createDesktopApiMock(overrides: Partial<DesktopApi> = {}) {
           updatedAt: '2026-03-31T00:00:00.000Z',
         }),
       ),
+    exportProjectSnapshot:
+      overrides.exportProjectSnapshot ??
+      vi.fn(async () =>
+        ok({
+          canceled: false,
+          filePath: '/tmp/project.aicp',
+          project: createActiveProject({
+            name: 'Exported Project',
+            projectId: 'project_exported',
+          }).project,
+          warnings: [],
+        }),
+      ),
     getActiveProject:
       overrides.getActiveProject ??
       vi.fn(async () => ok<ActiveProject | null>(null)),
@@ -200,6 +213,18 @@ function createDesktopApiMock(overrides: Partial<DesktopApi> = {}) {
       overrides.getRuntimeCapabilities ??
       vi.fn(async () => ok(runtimeCapabilities)),
     listProjects: overrides.listProjects ?? vi.fn(async () => ok([])),
+    importProjectSnapshot:
+      overrides.importProjectSnapshot ??
+      vi.fn(async () =>
+        ok({
+          activeProject: createActiveProject({
+            name: 'Imported Project',
+            projectId: 'project_imported',
+          }),
+          canceled: false,
+          warnings: [],
+        }),
+      ),
     openExternalUrl: overrides.openExternalUrl ?? vi.fn(async () => ok({})),
     openProject:
       overrides.openProject ??
@@ -279,6 +304,21 @@ function getButtonByText(
 
   if (!(button instanceof HTMLButtonElement)) {
     throw new Error(`Button "${text}" was not found`);
+  }
+
+  return button;
+}
+
+function getButtonByLabel(
+  container: HTMLElement,
+  label: string,
+): HTMLButtonElement {
+  const button = [...container.querySelectorAll('button')].find(
+    (candidate) => candidate.getAttribute('aria-label') === label,
+  );
+
+  if (!(button instanceof HTMLButtonElement)) {
+    throw new Error(`Button with aria-label "${label}" was not found`);
   }
 
   return button;
@@ -397,6 +437,151 @@ describe('App', () => {
       expect(getActiveProject).toHaveBeenCalledTimes(2);
       expect(harness.container.textContent).toContain('Project 1');
       expect(harness.container.textContent).toContain('No scene yet.');
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('imports a project snapshot from the library and opens the imported project with warnings', async () => {
+    const activeProject = createActiveProject({
+      name: 'Imported Snapshot',
+      projectId: 'project_imported_snapshot',
+    });
+    const getActiveProject = vi
+      .fn<DesktopApi['getActiveProject']>()
+      .mockResolvedValueOnce(ok<ActiveProject | null>(null))
+      .mockResolvedValueOnce(ok(activeProject));
+    const listProjects = vi
+      .fn<DesktopApi['listProjects']>()
+      .mockResolvedValueOnce(ok([]))
+      .mockResolvedValueOnce(ok([activeProject.project]));
+    const importProjectSnapshot = vi.fn<DesktopApi['importProjectSnapshot']>(
+      async () =>
+        ok({
+          activeProject,
+          canceled: false,
+          warnings: [
+            {
+              code: 'asset_file_missing',
+              message: 'Asset payload was missing and was skipped.',
+              path: 'assets/sha256/missing',
+            },
+          ],
+        }),
+    );
+    const desktopApi = createDesktopApiMock({
+      getActiveProject,
+      importProjectSnapshot,
+      listProjects,
+    });
+    const harness = renderApp(desktopApi.api);
+
+    try {
+      await flushAsyncWork();
+
+      const importButton = getButtonByLabel(
+        harness.container,
+        'Import project snapshot',
+      );
+
+      await act(async () => {
+        importButton.click();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(importProjectSnapshot).toHaveBeenCalledTimes(1);
+      expect(harness.container.textContent).toContain('Imported Snapshot');
+      expect(harness.container.textContent).toContain('Snapshot warnings');
+      expect(harness.container.textContent).toContain(
+        'Asset payload was missing and was skipped.',
+      );
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('exports a project snapshot from the project library without opening that project', async () => {
+    const project = createActiveProject({
+      name: 'Library Export',
+      projectId: 'project_library_export',
+    }).project;
+    const exportProjectSnapshot = vi.fn<DesktopApi['exportProjectSnapshot']>(
+      async () =>
+        ok({
+          canceled: false,
+          filePath: '/tmp/library-export.aicp',
+          project,
+          warnings: [],
+        }),
+    );
+    const openProject = vi.fn<DesktopApi['openProject']>();
+    const desktopApi = createDesktopApiMock({
+      exportProjectSnapshot,
+      listProjects: vi.fn(async () => ok([project])),
+      openProject,
+    });
+    const harness = renderApp(desktopApi.api);
+
+    try {
+      await flushAsyncWork();
+
+      const exportButton = getButtonByLabel(
+        harness.container,
+        'Export project snapshot',
+      );
+
+      await act(async () => {
+        exportButton.click();
+        await Promise.resolve();
+      });
+
+      expect(exportProjectSnapshot).toHaveBeenCalledWith({
+        projectId: project.id,
+      });
+      expect(openProject).not.toHaveBeenCalled();
+      expect(harness.container.textContent).toContain('My Projects');
+    } finally {
+      harness.cleanup();
+    }
+  });
+
+  it('exports the active workspace project from the workspace header', async () => {
+    const activeProject = createActiveProject({
+      name: 'Workspace Export',
+      projectId: 'project_workspace_export',
+    });
+    const exportProjectSnapshot = vi.fn<DesktopApi['exportProjectSnapshot']>(
+      async () =>
+        ok({
+          canceled: false,
+          filePath: '/tmp/workspace-export.aicp',
+          project: activeProject.project,
+          warnings: [],
+        }),
+    );
+    const desktopApi = createDesktopApiMock({
+      exportProjectSnapshot,
+      getActiveProject: vi.fn(async () => ok(activeProject)),
+    });
+    const harness = renderApp(desktopApi.api);
+
+    try {
+      await flushAsyncWork();
+
+      const exportButton = getButtonByLabel(
+        harness.container,
+        'Export project snapshot',
+      );
+
+      await act(async () => {
+        exportButton.click();
+        await Promise.resolve();
+      });
+
+      expect(exportProjectSnapshot).toHaveBeenCalledWith({
+        projectId: activeProject.project.id,
+      });
     } finally {
       harness.cleanup();
     }

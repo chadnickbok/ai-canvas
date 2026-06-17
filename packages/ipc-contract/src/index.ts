@@ -114,6 +114,30 @@ export const openProjectInputSchema = z.object({
   projectId: z.string().min(1),
 });
 
+export const exportProjectSnapshotInputSchema = z.object({
+  projectId: z.string().min(1),
+});
+
+export const snapshotWarningSchema = z.object({
+  assetId: z.string().optional(),
+  code: z.string(),
+  message: z.string(),
+  path: z.string().optional(),
+});
+
+export const exportProjectSnapshotResultSchema = z.object({
+  canceled: z.boolean(),
+  filePath: z.string().optional(),
+  project: projectSummarySchema.optional(),
+  warnings: z.array(snapshotWarningSchema),
+});
+
+export const importProjectSnapshotResultSchema = z.object({
+  activeProject: activeProjectSchema.optional(),
+  canceled: z.boolean(),
+  warnings: z.array(snapshotWarningSchema),
+});
+
 export const openExternalUrlInputSchema = z.object({
   url: z
     .string()
@@ -160,6 +184,9 @@ export const appErrorCodeSchema = z.enum([
   'not_found',
   'not_implemented',
   'revision_conflict',
+  'snapshot_invalid',
+  'snapshot_io_error',
+  'snapshot_unsupported_version',
   'target_not_found',
   'unknown_command',
   'unrecoverable_command',
@@ -221,11 +248,13 @@ export const commandResultSchema = z.object({
 export const appChannelNames = {
   applyCommands: 'app:applyCommands',
   createProject: 'app:createProject',
+  exportProjectSnapshot: 'app:exportProjectSnapshot',
   getActiveProject: 'app:getActiveProject',
   getHistoryState: 'app:getHistoryState',
   getMcpStatus: 'app:getMcpStatus',
   getRuntimeCapabilities: 'app:getRuntimeCapabilities',
   layoutMeasurementRequest: 'app:layoutMeasurementRequest',
+  importProjectSnapshot: 'app:importProjectSnapshot',
   listProjects: 'app:listProjects',
   openExternalUrl: 'app:openExternalUrl',
   openProject: 'app:openProject',
@@ -259,6 +288,16 @@ export type DocumentChangedEvent = z.infer<typeof documentChangedEventSchema>;
 export type RuntimeEvent = z.infer<typeof runtimeEventSchema>;
 export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
 export type OpenProjectInput = z.infer<typeof openProjectInputSchema>;
+export type ExportProjectSnapshotInput = z.infer<
+  typeof exportProjectSnapshotInputSchema
+>;
+export type SnapshotWarning = z.infer<typeof snapshotWarningSchema>;
+export type ExportProjectSnapshotResult = z.infer<
+  typeof exportProjectSnapshotResultSchema
+>;
+export type ImportProjectSnapshotResult = z.infer<
+  typeof importProjectSnapshotResultSchema
+>;
 export type OpenExternalUrlInput = z.infer<typeof openExternalUrlInputSchema>;
 export type ApplyCommandsInput = z.infer<typeof applyCommandsInputSchema>;
 export type AppErrorCode = z.infer<typeof appErrorCodeSchema>;
@@ -285,11 +324,15 @@ export type AppResult<T> =
 export interface DesktopApi {
   applyCommands(input: ApplyCommandsInput): Promise<AppResult<CommandResult>>;
   createProject(input: CreateProjectInput): Promise<AppResult<ProjectSummary>>;
+  exportProjectSnapshot(
+    input: ExportProjectSnapshotInput,
+  ): Promise<AppResult<ExportProjectSnapshotResult>>;
   getActiveProject(): Promise<AppResult<ActiveProject | null>>;
   getHistoryState(): Promise<AppResult<HistoryState>>;
   getMcpStatus(): Promise<AppResult<McpStatus>>;
   getRuntimeCapabilities(): Promise<AppResult<RuntimeCapabilities>>;
   listProjects(): Promise<AppResult<ProjectSummary[]>>;
+  importProjectSnapshot(): Promise<AppResult<ImportProjectSnapshotResult>>;
   openExternalUrl(
     input: OpenExternalUrlInput,
   ): Promise<AppResult<EmptyPayload>>;

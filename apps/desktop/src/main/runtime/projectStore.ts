@@ -74,6 +74,12 @@ export type PersistProjectDocumentResult =
       revision: number;
     };
 
+export type CreateImportedProjectInput = {
+  document: RendererDocument;
+  name: string;
+  sourceMetadata?: Record<string, OpaqueValue>;
+};
+
 const INITIAL_PROJECT_REVISION = 1;
 const EMPTY_PROJECT_HISTORY: ProjectHistory = {
   redo: [],
@@ -213,6 +219,99 @@ export class ProjectStore {
     if (!row) {
       throw new Error(
         `Project ${projectId} was created but could not be reloaded`,
+      );
+    }
+
+    return {
+      document,
+      project: this.toSummary(row),
+      resolved_assets: this.assetStorage.resolveDocumentAssets(
+        projectId,
+        document.assets,
+      ),
+      revision: row.revision,
+    };
+  }
+
+  createImportedProjectFromDocument(
+    input: CreateImportedProjectInput,
+  ): StoredProject {
+    const now = new Date().toISOString();
+    const projectId = createProjectId();
+    const document = normalizeDocument(input.document, {
+      fallbackDocumentId: input.document.document_id,
+      fallbackName: input.name,
+    });
+    const catalogAssets = Object.values(document.assets).filter((asset) =>
+      isAssetStoreSource(asset.source),
+    );
+    const serializedDocument = JSON.stringify(
+      this.serializeCurrentDocument(document),
+    );
+
+    this.database.exec('BEGIN IMMEDIATE;');
+
+    try {
+      this.database
+        .prepare(
+          `
+            INSERT INTO projects (
+              id,
+              name,
+              document_id,
+              schema_version,
+              current_document_json,
+              revision,
+              created_at,
+              updated_at,
+              last_opened_at,
+              archived_at,
+              source_kind,
+              source_metadata_json
+            )
+            VALUES (
+              @id,
+              @name,
+              @document_id,
+              1,
+              @current_document_json,
+              @revision,
+              @created_at,
+              @updated_at,
+              @last_opened_at,
+              NULL,
+              'imported_snapshot',
+              @source_metadata_json
+            )
+          `,
+        )
+        .run({
+          created_at: now,
+          current_document_json: serializedDocument,
+          document_id: document.document_id,
+          id: projectId,
+          last_opened_at: now,
+          name: input.name,
+          revision: INITIAL_PROJECT_REVISION,
+          source_metadata_json: input.sourceMetadata
+            ? JSON.stringify(input.sourceMetadata)
+            : null,
+          updated_at: now,
+        });
+
+      this.replacePersistedAssetRows(projectId, catalogAssets, now);
+      this.saveHistoryRow(projectId, EMPTY_PROJECT_HISTORY, now);
+      this.database.exec('COMMIT;');
+    } catch (error) {
+      this.database.exec('ROLLBACK;');
+      throw error;
+    }
+
+    const row = this.getRow(projectId);
+
+    if (!row) {
+      throw new Error(
+        `Imported project ${projectId} was created but could not be reloaded`,
       );
     }
 

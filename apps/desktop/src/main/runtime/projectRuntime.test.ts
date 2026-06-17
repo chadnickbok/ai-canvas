@@ -785,6 +785,136 @@ describe('ProjectRuntime', () => {
     store.close();
   });
 
+  it('exports a non-active project snapshot without switching the active session', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-snapshot-export-'),
+    );
+    cleanupPaths.push(tempDir);
+
+    const store = new ProjectStore(path.join(tempDir, 'app.db'));
+    const runtime = createProjectRuntime(store);
+    const firstProject = runtime.createProject('First Snapshot Project');
+
+    if (!firstProject.ok) {
+      throw new Error(firstProject.error.message);
+    }
+
+    const secondProject = runtime.createProject('Second Snapshot Project');
+
+    if (!secondProject.ok) {
+      throw new Error(secondProject.error.message);
+    }
+
+    const exported = await runtime.exportProjectSnapshot({
+      destinationPath: path.join(tempDir, 'first.aicp'),
+      projectId: firstProject.data.id,
+    });
+
+    expect(exported.ok).toBe(true);
+
+    if (!exported.ok) {
+      throw new Error(exported.error.message);
+    }
+
+    expect(exported.data).toMatchObject({
+      canceled: false,
+      project: {
+        id: firstProject.data.id,
+        name: 'First Snapshot Project',
+      },
+      warnings: [],
+    });
+
+    const activeProject = runtime.getActiveProject();
+
+    expect(activeProject.ok && activeProject.data?.project.id).toBe(
+      secondProject.data.id,
+    );
+
+    store.close();
+  });
+
+  it('imports a project snapshot, opens it, and emits library/session/history/capability events', async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-snapshot-import-'),
+    );
+    cleanupPaths.push(tempDir);
+
+    const exportStore = new ProjectStore(path.join(tempDir, 'export.db'));
+    const exportRuntime = createProjectRuntime(exportStore);
+    const created = exportRuntime.createProject('Imported Runtime Snapshot');
+
+    if (!created.ok) {
+      throw new Error(created.error.message);
+    }
+
+    const snapshotPath = path.join(tempDir, 'runtime-import.aicp');
+    const exported = await exportRuntime.exportProjectSnapshot({
+      destinationPath: snapshotPath,
+      projectId: created.data.id,
+    });
+
+    expect(exported.ok).toBe(true);
+
+    const importStore = new ProjectStore(path.join(tempDir, 'import.db'));
+    const importRuntime = createProjectRuntime(importStore);
+    const events: RuntimeEvent[] = [];
+
+    importRuntime.subscribeToEvents((event) => {
+      events.push(event);
+    });
+
+    const imported = await importRuntime.importProjectSnapshot({
+      filePath: snapshotPath,
+    });
+
+    expect(imported.ok).toBe(true);
+
+    if (!imported.ok) {
+      throw new Error(imported.error.message);
+    }
+
+    expect(imported.data).toMatchObject({
+      activeProject: {
+        project: {
+          name: 'Imported Runtime Snapshot',
+        },
+        revision: 1,
+      },
+      canceled: false,
+      warnings: [],
+    });
+    expect(importRuntime.getActiveProject()).toEqual(
+      ok(imported.data.activeProject),
+    );
+    expect(events.map((event) => event.type)).toEqual([
+      'projects_changed',
+      'active_project_changed',
+      'history_state_changed',
+      'runtime_capabilities_changed',
+    ]);
+    expect(events[1]).toMatchObject({
+      activeProject: {
+        project: {
+          id: imported.data.activeProject?.project.id,
+        },
+      },
+      type: 'active_project_changed',
+    });
+    expect(events[2]).toEqual({
+      historyState: {
+        canRedo: false,
+        canUndo: false,
+        redoDepth: 0,
+        undoDepth: 0,
+      },
+      type: 'history_state_changed',
+    });
+
+    exportStore.close();
+    importStore.close();
+  });
+
   it('applies commands through the real local MCP bridge and updates the active runtime session', async () => {
     const tempDir = await mkdtemp(
       path.join(os.tmpdir(), 'ai-canvas-runtime-mcp-'),

@@ -1,6 +1,6 @@
 # AI Canvas Project Snapshot Format
 
-Status: Normative contract.
+Status: Normative contract. Implemented for v1 `.aicp` archive import/export.
 
 This document defines the portable snapshot format for AI Canvas Desktop.
 
@@ -66,10 +66,14 @@ A project snapshot is a bundle with:
 - zero or more asset files
 - optional preview/thumbnail files
 
-The canonical snapshot format should support two equivalent representations:
+The canonical snapshot format describes two equivalent representations:
 
 1. **directory form** for debugging and development
 2. **archive form** for user-facing export/import
+
+Current AI Canvas Desktop v1 exposes only the `.aicp` archive form in the UI.
+Directory form remains a useful development and test representation, but it is
+not currently a public import/export option.
 
 ## 4. File Extension
 
@@ -98,7 +102,7 @@ Reasons:
 - preserves directory structure
 - works well for mixed JSON and binary content
 
-The archive must contain one top-level bundle root.
+The implemented archive contains the bundle entries at the archive root.
 
 Example:
 
@@ -327,24 +331,18 @@ assets/sha256/ab/ab4f2d5d9e0d1f...
 
 Inside the document JSON, assets should still use the canonical document asset model.
 
-However, for snapshot portability, the preferred snapshot write policy is:
+For snapshot portability, the implemented v1 snapshot write policy is:
 
 - the document includes asset metadata records
 - binary content is stored as separate files in the snapshot bundle
-- document asset records should use snapshot-import-friendly source metadata rather than large embedded payloads when possible
-
-Recommended exported document asset source shape for snapshot portability:
-
-```ts
-type SnapshotDocumentAssetSource = {
-  kind: 'snapshot_asset';
-  asset_id: string;
-};
-```
+- exported document asset records keep the current canonical `asset_store`
+  source shape with content hashes
+- the snapshot manifest maps asset ids and content hashes to portable asset
+  payload files
 
 The importer/exporter layer maps between:
 
-- canonical in-app asset representation
+- canonical in-app `asset_store` asset representation
 - snapshot bundle asset references
 
 ### Recommendation
@@ -378,6 +376,7 @@ previews/
 - previews may be missing
 - import must not fail just because previews are missing or corrupt
 - previews should never be treated as source-of-truth render data
+- previews are not emitted by the current v1 writer
 
 ## 14. Canonical Export Rules
 
@@ -409,17 +408,18 @@ The snapshot must not include:
 
 When reading a snapshot:
 
-1. open archive or directory
+1. open archive
 2. read `manifest.json`
 3. validate `snapshot_format` and `snapshot_version`
 4. validate the bundle declares exactly one project and one document
-5. validate referenced paths exist where required
+5. validate required entry paths are safe relative archive paths
 6. validate checksums when available
 7. read `project.json`
 8. read `document.json`
-9. read asset files
-10. re-normalize the imported document
-11. repair or dismiss broken references according to document normalization rules
+9. read asset files when available
+10. skip missing or checksum-mismatched asset payloads with warnings
+11. re-normalize the imported document
+12. repair or dismiss broken references according to document normalization rules
 
 ### Import must remap bundle ids to fresh local ids
 
@@ -448,7 +448,8 @@ If part of a supported v1 snapshot is damaged:
 - drop broken references when necessary
 - surface warnings to the user
 
-The app should prefer partial import over full refusal whenever safe.
+The app uses partial import by default for missing or checksum-mismatched asset
+payloads when the required JSON files remain readable and coherent.
 
 ## 16. Validation Policy
 
@@ -457,8 +458,7 @@ A snapshot is valid when:
 - `manifest.json` exists and parses
 - `project.json` exists and parses
 - `document.json` exists and parses
-- every listed asset path exists for referenced assets
-- checksums match when validation is enabled
+- every required JSON entry path is a safe relative archive path
 - project/document id relationships are coherent
 - the bundle does not attempt to encode multiple projects or multiple documents
 
@@ -471,16 +471,21 @@ These should produce warnings, not necessarily hard failure:
 - extra unreferenced files in `previews/`
 - extra unreferenced files in `assets/`
 - missing optional metadata fields
+- project or document checksum mismatch when the JSON is still readable
+- missing asset payload files
+- asset checksum mismatch
 
 ### Hard failure issues
 
-These should fail snapshot import unless the user explicitly chooses partial import:
+These fail snapshot import:
 
 - missing `manifest.json`
 - missing `project.json`
 - missing `document.json`
 - unreadable or invalid `document.json`
 - invalid archive structure that prevents traversal
+- unsafe or duplicate archive paths
+- unsupported `snapshot_version`
 - any declared multi-project bundle shape
 - any declared multi-document bundle shape
 
