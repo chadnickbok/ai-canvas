@@ -12,7 +12,10 @@ import {
   type OpaqueValue,
   type RendererDocument,
 } from '@ai-canvas/document-core';
-import type { ProjectSummary, ResolvedAssetsById } from '@ai-canvas/ipc-contract';
+import type {
+  ProjectSummary,
+  ResolvedAssetsById,
+} from '@ai-canvas/ipc-contract';
 
 import { AssetStorage, hashAssetBytes } from './assetStorage.js';
 import { createDocumentId, createProjectId } from './ids.js';
@@ -216,7 +219,10 @@ export class ProjectStore {
     return {
       document,
       project: this.toSummary(row),
-      resolved_assets: this.assetStorage.resolveDocumentAssets(projectId, document.assets),
+      resolved_assets: this.assetStorage.resolveDocumentAssets(
+        projectId,
+        document.assets,
+      ),
       revision: row.revision,
     };
   }
@@ -228,16 +234,24 @@ export class ProjectStore {
       return null;
     }
 
-    const rawDocument = JSON.parse(row.current_document_json) as RendererDocument;
-    const document = normalizeDocument(this.hydratePersistedDocument(projectId, rawDocument), {
-      fallbackDocumentId: row.document_id,
-      fallbackName: row.name,
-    });
+    const rawDocument = JSON.parse(
+      row.current_document_json,
+    ) as RendererDocument;
+    const document = normalizeDocument(
+      this.hydratePersistedDocument(projectId, rawDocument),
+      {
+        fallbackDocumentId: row.document_id,
+        fallbackName: row.name,
+      },
+    );
 
     return {
       document,
       project: this.toSummary(row),
-      resolved_assets: this.assetStorage.resolveDocumentAssets(projectId, document.assets),
+      resolved_assets: this.assetStorage.resolveDocumentAssets(
+        projectId,
+        document.assets,
+      ),
       revision: row.revision,
     };
   }
@@ -249,8 +263,12 @@ export class ProjectStore {
     history?: ProjectHistory,
   ): PersistProjectDocumentResult {
     const now = new Date().toISOString();
-    const catalogAssets = Object.values(document.assets).filter((asset) => isAssetStoreSource(asset.source));
-    const serializedDocument = JSON.stringify(this.serializeCurrentDocument(document));
+    const catalogAssets = Object.values(document.assets).filter((asset) =>
+      isAssetStoreSource(asset.source),
+    );
+    const serializedDocument = JSON.stringify(
+      this.serializeCurrentDocument(document),
+    );
     this.database.exec('BEGIN IMMEDIATE;');
 
     try {
@@ -348,7 +366,7 @@ export class ProjectStore {
                  original_filename, size_bytes, created_at, updated_at
           FROM project_assets
           WHERE project_id = ? AND asset_id = ?
-        `
+        `,
       )
       .get(projectId, assetId) as ProjectAssetRow | undefined;
 
@@ -360,13 +378,18 @@ export class ProjectStore {
         return null;
       }
 
-      return this.assetStorage.findStoredAssetFilePath(asset.source.content_hash);
+      return this.assetStorage.findStoredAssetFilePath(
+        asset.source.content_hash,
+      );
     }
 
     return this.assetStorage.findStoredAssetFilePath(row.content_hash);
   }
 
-  resolveDocumentAssets(projectId: string, document: RendererDocument): ResolvedAssetsById {
+  resolveDocumentAssets(
+    projectId: string,
+    document: RendererDocument,
+  ): ResolvedAssetsById {
     return this.assetStorage.resolveDocumentAssets(projectId, document.assets);
   }
 
@@ -381,7 +404,7 @@ export class ProjectStore {
     return {
       contentHash,
       path: stored.path,
-      sizeBytes: stored.sizeBytes
+      sizeBytes: stored.sizeBytes,
     };
   }
 
@@ -393,7 +416,7 @@ export class ProjectStore {
           FROM projects
           WHERE archived_at IS NULL
           ORDER BY created_at ASC
-        `
+        `,
       )
       .all() as ProjectRow[];
     const projects: EmbeddedAssetMigrationProjectReport[] = [];
@@ -407,11 +430,21 @@ export class ProjectStore {
         continue;
       }
 
-      const nextCurrentDocument = this.rewriteEmbeddedAssets(storedProject.document);
-      const nextHistory = this.rewriteEmbeddedAssetHistory(this.getProjectHistory(row.id));
-      const migratedAssetIds = new Set<string>(nextCurrentDocument.migrated_asset_ids);
-      const reusedContentHashes = new Set<string>(nextCurrentDocument.reused_content_hashes);
-      const unresolvedAssetIds = new Set<string>(nextCurrentDocument.unresolved_asset_ids);
+      const nextCurrentDocument = this.rewriteEmbeddedAssets(
+        storedProject.document,
+      );
+      const nextHistory = this.rewriteEmbeddedAssetHistory(
+        this.getProjectHistory(row.id),
+      );
+      const migratedAssetIds = new Set<string>(
+        nextCurrentDocument.migrated_asset_ids,
+      );
+      const reusedContentHashes = new Set<string>(
+        nextCurrentDocument.reused_content_hashes,
+      );
+      const unresolvedAssetIds = new Set<string>(
+        nextCurrentDocument.unresolved_asset_ids,
+      );
 
       for (const entry of nextHistory.entries) {
         for (const assetId of entry.migrated_asset_ids) {
@@ -435,11 +468,13 @@ export class ProjectStore {
         row.id,
         nextCurrentDocument.document,
         row.revision,
-        nextHistory.history
+        nextHistory.history,
       );
 
       if (!saved.ok) {
-        throw new Error(`Failed to persist embedded-asset migration for project ${row.id}`);
+        throw new Error(
+          `Failed to persist embedded-asset migration for project ${row.id}`,
+        );
       }
 
       migratedAssetCount += migratedAssetIds.size;
@@ -448,14 +483,14 @@ export class ProjectStore {
         migrated_asset_ids: [...migratedAssetIds].sort(),
         project_id: row.id,
         reused_content_hashes: [...reusedContentHashes].sort(),
-        unresolved_asset_ids: [...unresolvedAssetIds].sort()
+        unresolved_asset_ids: [...unresolvedAssetIds].sort(),
       });
     }
 
     return {
       migrated_asset_count: migratedAssetCount,
       projects,
-      unresolved_asset_count: unresolvedAssetCount
+      unresolved_asset_count: unresolvedAssetCount,
     };
   }
 
@@ -556,24 +591,31 @@ export class ProjectStore {
 
   private hydratePersistedDocument(
     projectId: string,
-    rawDocument: RendererDocument
+    rawDocument: RendererDocument,
   ): RendererDocument {
     const rawAssets =
-      rawDocument.assets && typeof rawDocument.assets === "object" ? rawDocument.assets : {};
+      rawDocument.assets && typeof rawDocument.assets === 'object'
+        ? rawDocument.assets
+        : {};
     const mergedAssets = {
       ...rawAssets,
-      ...this.getPersistedAssetRecordMap(projectId)
+      ...this.getPersistedAssetRecordMap(projectId),
     };
 
     return {
       ...rawDocument,
-      assets: mergedAssets
+      assets: mergedAssets,
     };
   }
 
-  private getPersistedAssetRecordMap(projectId: string): Record<string, AssetRecord> {
+  private getPersistedAssetRecordMap(
+    projectId: string,
+  ): Record<string, AssetRecord> {
     return Object.fromEntries(
-      this.listPersistedAssetRows(projectId).map((row) => [row.asset_id, this.rowToAssetRecord(row)])
+      this.listPersistedAssetRows(projectId).map((row) => [
+        row.asset_id,
+        this.rowToAssetRecord(row),
+      ]),
     );
   }
 
@@ -586,7 +628,7 @@ export class ProjectStore {
           FROM project_assets
           WHERE project_id = ?
           ORDER BY asset_id ASC
-        `
+        `,
       )
       .all(projectId) as ProjectAssetRow[];
   }
@@ -598,28 +640,40 @@ export class ProjectStore {
       mime_type: row.mime_type,
       ...(row.width === null ? {} : { width: row.width }),
       ...(row.height === null ? {} : { height: row.height }),
-      ...(row.metadata_json === null ? {} : { metadata: this.parseMetadataJson(row.metadata_json) }),
+      ...(row.metadata_json === null
+        ? {}
+        : { metadata: this.parseMetadataJson(row.metadata_json) }),
       source: {
-        kind: "asset_store",
+        kind: 'asset_store',
         content_hash: row.content_hash,
-        ...(row.original_filename === null ? {} : { original_filename: row.original_filename })
-      }
+        ...(row.original_filename === null
+          ? {}
+          : { original_filename: row.original_filename }),
+      },
     };
   }
 
-  private parseMetadataJson(serializedMetadata: string): Record<string, OpaqueValue> {
+  private parseMetadataJson(
+    serializedMetadata: string,
+  ): Record<string, OpaqueValue> {
     try {
       const parsed = JSON.parse(serializedMetadata);
-      return parsed && typeof parsed === "object" ? (parsed as Record<string, OpaqueValue>) : {};
+      return parsed && typeof parsed === 'object'
+        ? (parsed as Record<string, OpaqueValue>)
+        : {};
     } catch {
       return {};
     }
   }
 
-  private serializeCurrentDocument(document: RendererDocument): RendererDocument {
+  private serializeCurrentDocument(
+    document: RendererDocument,
+  ): RendererDocument {
     const serializedDocument = structuredClone(document);
     serializedDocument.assets = Object.fromEntries(
-      Object.entries(serializedDocument.assets).filter(([, asset]) => !isAssetStoreSource(asset.source))
+      Object.entries(serializedDocument.assets).filter(
+        ([, asset]) => !isAssetStoreSource(asset.source),
+      ),
     );
     return serializedDocument;
   }
@@ -627,16 +681,20 @@ export class ProjectStore {
   private replacePersistedAssetRows(
     projectId: string,
     assets: AssetRecord[],
-    updatedAt: string
+    updatedAt: string,
   ): void {
-    this.database.prepare("DELETE FROM project_assets WHERE project_id = ?").run(projectId);
+    this.database
+      .prepare('DELETE FROM project_assets WHERE project_id = ?')
+      .run(projectId);
 
     for (const asset of assets) {
       if (!isAssetStoreSource(asset.source)) {
         continue;
       }
 
-      const assetFilePath = this.assetStorage.findStoredAssetFilePath(asset.source.content_hash);
+      const assetFilePath = this.assetStorage.findStoredAssetFilePath(
+        asset.source.content_hash,
+      );
 
       this.database
         .prepare(
@@ -671,7 +729,7 @@ export class ProjectStore {
               @updated_at,
               @updated_at
             )
-          `
+          `,
         )
         .run({
           asset_id: asset.id,
@@ -684,7 +742,7 @@ export class ProjectStore {
           project_id: projectId,
           size_bytes: assetFilePath ? statSync(assetFilePath).size : null,
           updated_at: updatedAt,
-          width: asset.width ?? null
+          width: asset.width ?? null,
         });
     }
   }
@@ -695,7 +753,7 @@ export class ProjectStore {
     reused_content_hashes: string[];
     unresolved_asset_ids: string[];
   } {
-    const replacements: Record<string, AssetRecord["source"] | undefined> = {};
+    const replacements: Record<string, AssetRecord['source'] | undefined> = {};
     const migratedAssetIds: string[] = [];
     const reusedContentHashes = new Set<string>();
     const unresolvedAssetIds: string[] = [];
@@ -714,8 +772,8 @@ export class ProjectStore {
 
       this.assetStorage.ensureStoredBytes(decoded.contentHash, decoded.bytes);
       replacements[asset.id] = {
-        kind: "asset_store",
-        content_hash: decoded.contentHash
+        kind: 'asset_store',
+        content_hash: decoded.contentHash,
       };
       migratedAssetIds.push(asset.id);
     }
@@ -724,7 +782,7 @@ export class ProjectStore {
       document: replaceAssetSources(document, replacements),
       migrated_asset_ids: migratedAssetIds,
       reused_content_hashes: [...reusedContentHashes],
-      unresolved_asset_ids: unresolvedAssetIds
+      unresolved_asset_ids: unresolvedAssetIds,
     };
   }
 
@@ -747,11 +805,11 @@ export class ProjectStore {
         entries.push({
           migrated_asset_ids: rewritten.migrated_asset_ids,
           reused_content_hashes: rewritten.reused_content_hashes,
-          unresolved_asset_ids: rewritten.unresolved_asset_ids
+          unresolved_asset_ids: rewritten.unresolved_asset_ids,
         });
         return {
           ...entry,
-          document: rewritten.document
+          document: rewritten.document,
         };
       });
 
@@ -759,8 +817,8 @@ export class ProjectStore {
       entries,
       history: {
         redo: rewriteStack(history.redo),
-        undo: rewriteStack(history.undo)
-      }
+        undo: rewriteStack(history.undo),
+      },
     };
   }
 

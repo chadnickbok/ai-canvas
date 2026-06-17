@@ -1,5 +1,7 @@
-import { dialog, type App, type BrowserWindow } from 'electron';
-import electronUpdater, { type AppUpdater } from 'electron-updater';
+import { createRequire } from 'node:module';
+
+import type { App, BrowserWindow, dialog as electronDialog } from 'electron';
+import type { AppUpdater } from 'electron-updater';
 
 import { desktopBranding } from '../branding.js';
 
@@ -16,7 +18,7 @@ type UpdaterLike = {
   quitAndInstall(): void;
 };
 
-type DialogLike = Pick<typeof dialog, 'showMessageBox'>;
+type DialogLike = Pick<typeof electronDialog, 'showMessageBox'>;
 
 type SupportedApp = Pick<App, 'isPackaged'>;
 
@@ -35,9 +37,35 @@ const updaterLogger: Logger = {
   warn: (...args) => console.warn('[auto-update]', ...args),
 };
 
+const require = createRequire(import.meta.url);
+
 export function getAutoUpdater(): AppUpdater {
-  const { autoUpdater } = electronUpdater;
+  const electronUpdater = require('electron-updater') as {
+    autoUpdater?: AppUpdater;
+    default?: {
+      autoUpdater?: AppUpdater;
+    };
+  };
+  const autoUpdater =
+    electronUpdater.autoUpdater ?? electronUpdater.default?.autoUpdater;
+
+  if (!autoUpdater) {
+    throw new Error('electron-updater did not expose autoUpdater.');
+  }
+
   return autoUpdater;
+}
+
+export function getElectronDialog(): DialogLike {
+  const electron = require('electron') as {
+    dialog?: DialogLike;
+  };
+
+  if (!electron.dialog) {
+    throw new Error('Electron did not expose dialog.');
+  }
+
+  return electron.dialog;
 }
 
 export function supportsAutoUpdates(
@@ -52,9 +80,10 @@ export function supportsAutoUpdates(
 
 export function createRestartPrompt(
   getParentWindow: () => BrowserWindow | null,
-  dialogModule: DialogLike = dialog,
+  dialogModule?: DialogLike,
 ): RestartPrompt {
   return async (version) => {
+    const effectiveDialog = dialogModule ?? getElectronDialog();
     const options = {
       buttons: ['Restart and Install', 'Later'],
       cancelId: 1,
@@ -66,8 +95,8 @@ export function createRestartPrompt(
     };
     const parentWindow = getParentWindow();
     const result = parentWindow
-      ? await dialogModule.showMessageBox(parentWindow, options)
-      : await dialogModule.showMessageBox(options);
+      ? await effectiveDialog.showMessageBox(parentWindow, options)
+      : await effectiveDialog.showMessageBox(options);
 
     return result.response === 0;
   };

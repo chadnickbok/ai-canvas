@@ -19,7 +19,8 @@ Those live in the contract docs and in [testing-and-release.md](testing-and-rele
 
 The current release model is intentionally simple:
 
-- releases ship for macOS and Linux, and the repository is wired to ship Windows when the Azure Artifact Signing configuration is present
+- releases ship for macOS, Linux, and Windows
+- signed Windows publication is mandatory for the current release stream and depends on Azure Artifact Signing configuration
 - merges to `main` become releasable candidates, but a release is only cut when an operator manually runs `Release Desktop` from GitHub Actions against `main`
 - the `Release Desktop` workflow publishes the release after manual dispatch and release-environment approval if its gates pass
 - published binaries and update metadata live on normal GitHub Releases
@@ -72,15 +73,16 @@ It depends on the Linux quality and test jobs first, then performs the release-s
 
 - computes the main-release version and release tag
 - builds Linux release artifacts for `x64` and `arm64`
-- builds signed Windows NSIS release artifacts for `x64` when the required Azure signing configuration is present
+- validates the Azure Artifact Signing configuration required for Windows publication
+- builds signed Windows NSIS release artifacts for `x64`
 - installs the Apple signing certificate into a temporary keychain
 - writes the App Store Connect API key used for notarization
 - builds signed and notarized macOS app artifacts
 - signs, notarizes, and staples the final DMG artifacts
 - verifies code signing, Gatekeeper acceptance, and stapling for both app bundles and DMGs
-- verifies that Linux `.deb`, AppImage, Windows NSIS, and updater metadata were produced for the enabled platforms
+- verifies that Linux `.deb`, AppImage, signed Windows NSIS, and updater metadata were produced
 - uploads all platform artifacts to the workflow run
-- creates or updates the corresponding GitHub Release after the macOS and Linux jobs complete
+- creates or updates the corresponding GitHub Release after the macOS, Linux, and signed Windows jobs complete
 
 This workflow is the operational source of truth for shipping the current desktop build.
 
@@ -118,10 +120,10 @@ The shipped release artifacts currently include:
 - signed `.zip` files containing notarized and stapled `.app` bundles
 - Linux `.deb` packages for `x64` and `arm64`
 - Linux AppImage bundles for `x64` and `arm64`
-- signed Windows NSIS `.exe` installers for `x64` when Azure Artifact Signing is configured
+- signed Windows NSIS `.exe` installers for `x64`
 - `latest-mac*.yml` update metadata
 - `latest-linux*.yml` update metadata
-- `latest.yml` Windows update metadata when Windows signing is configured
+- `latest.yml` Windows update metadata
 - `.blockmap` files used by Electron Updater
 
 Artifact names follow the configured pattern:
@@ -140,7 +142,7 @@ Electron Builder is configured with:
 - Windows NSIS targets for `x64`
 - hardened runtime and notarization enabled for macOS
 - `forceCodeSigning: true` for normal macOS release builds
-- Azure Artifact Signing support for signed Windows releases, activated only when the required GitHub Actions secrets and variables are present
+- Azure Artifact Signing support for signed Windows releases
 
 The repository intentionally does **not** let Electron Builder publish releases directly from the build step.
 
@@ -152,7 +154,7 @@ That means the release flow is split on purpose:
 
 1. Electron Builder creates the platform artifacts and update metadata for macOS, Linux, and Windows.
 2. The GitHub Actions macOS job signs, notarizes, and staples the final DMGs used for direct-download distribution.
-3. The GitHub Actions Windows job signs the NSIS installer through Azure Artifact Signing when the signing configuration is available.
+3. The GitHub Actions Windows job validates the required Azure signing configuration and signs the NSIS installer through Azure Artifact Signing.
 4. The GitHub Actions platform jobs verify their expected artifact sets.
 5. A final publish job creates or updates the GitHub Release with the merged platform assets.
 
@@ -181,15 +183,15 @@ For the current single-stream release model, the release operator flow is:
 1. Merge or push the releasable commit to `main`.
 2. In GitHub Actions, open `Release Desktop`, select the `main` branch, and click `Run workflow`.
 3. Approve the protected `release` environment when GitHub prompts for it so the signing jobs can start.
-4. Let `Release Desktop` compute the version and build the macOS and Linux artifacts, plus Windows artifacts if Azure Artifact Signing is configured.
-5. Verify that the workflow produced signed macOS app bundles, DMGs, ZIPs, Linux `.deb` and AppImage artifacts, and Windows NSIS artifacts for every enabled platform.
-6. Verify that signing checks and packaging checks all passed for the enabled platforms.
-7. Verify that the GitHub Release exists with the expected tag, title, commit target, and uploaded assets for every enabled platform.
+4. Let `Release Desktop` compute the version and build the macOS, Linux, and signed Windows artifacts.
+5. Verify that the workflow produced signed macOS app bundles, DMGs, ZIPs, Linux `.deb` and AppImage artifacts, and signed Windows NSIS artifacts.
+6. Verify that signing checks and packaging checks all passed.
+7. Verify that the GitHub Release exists with the expected tag, title, commit target, and uploaded assets for every release platform.
 8. Run the manual smoke verification bar from [testing-and-release.md](testing-and-release.md) against a recent published `main` build.
 
 ## 6.1 Windows signing prerequisites
 
-Signed Windows releases require GitHub Actions configuration that is intentionally external to the repo:
+Signed Windows releases are mandatory for publication and require GitHub Actions configuration that is intentionally external to the repo:
 
 - `AZURE_TENANT_ID`
 - `AZURE_CLIENT_ID`
@@ -199,7 +201,7 @@ Signed Windows releases require GitHub Actions configuration that is intentional
 - `WINDOWS_AZURE_TRUSTED_SIGNING_PROFILE_NAME`
 - `WINDOWS_SIGN_PUBLISHER_NAME`
 
-Until those values are configured, the Windows signed release job stays skipped and the rest of the release pipeline continues with macOS and Linux only.
+If those values are missing, `Release Desktop` fails during the Windows signing-configuration validation step and the GitHub Release is not published. This is intentional: Windows signing is part of the current publication bar, not an optional platform skip.
 
 The default recovery path for a bad release is currently fix-forward:
 

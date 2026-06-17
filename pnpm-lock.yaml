@@ -101,6 +101,9 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      playwright-core:
+        specifier: ^1.61.0
+        version: 1.61.0
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -4697,6 +4700,14 @@ packages:
       }
     engines: { node: '>=16.20.0' }
 
+  playwright-core@1.61.0:
+    resolution:
+      {
+        integrity: sha512-caX7TrY3Ml6egyDX0WUcTHDxodl/b51y5wJOdCEA36QviK/s2g081hvmGs8eaE3DWb6NYZQ6BjO/QkNRPenoPA==,
+      }
+    engines: { node: '>=18' }
+    hasBin: true
+
   plist@3.1.0:
     resolution:
       {
@@ -8959,6 +8970,8 @@ snapshots:
   picomatch@4.0.4: {}
 
   pkce-challenge@5.0.1: {}
+
+  playwright-core@1.61.0: {}
 
   plist@3.1.0:
     dependencies:

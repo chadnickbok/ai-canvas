@@ -247,7 +247,7 @@ Authoritative input may include:
 
 The renderer should not treat `computed_layout` as the normal source of layout input.
 
-`computed_layout` is the last measured layout snapshot. It may be used for inspection, overlays, recovery, and MCP queries, but it does not replace browser layout computation during render.
+`computed_layout` is the last measured layout snapshot. It may be used for inspection, overlays, and MCP queries, but it does not replace browser layout computation during render.
 
 A fresh `computed_layout` is not required for first render.
 
@@ -370,7 +370,7 @@ The renderer should consume text styles from `render_style`, including:
 
 Text still renders from `text.content` plus `render_style` under normal browser layout behavior.
 
-Saved `computed_layout` may be used as the most recent measured text box for inspection or recovery, but it does not replace browser text flow during render.
+Saved `computed_layout` may be used as the most recent measured text box for inspection, but it does not replace browser text flow during render.
 
 ## 13. SVG Rendering
 
@@ -522,7 +522,6 @@ The saved snapshot is useful for:
 
 - inspection
 - overlays
-- recovery
 - MCP queries
 
 ## 16. Ordering and Paint Rules
@@ -596,7 +595,7 @@ The renderer assumes normalization has already done the following:
 
 The renderer may receive a document whose persisted `computed_layout` is stale or missing.
 
-That is acceptable outside explicit commit or autosave preparation.
+That is acceptable outside explicit commit-on-command preparation.
 
 The renderer should still render from normalized structure plus `render_style`.
 
@@ -644,5 +643,5 @@ This document does not define:
 - selection, hover, or editor chrome behavior
 - hit-testing implementation
 - resize handles or editor affordances
-- autosave behavior
+- automatic persistence behavior
 - export formats other than the live desktop renderer behavior

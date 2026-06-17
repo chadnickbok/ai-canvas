@@ -130,7 +130,7 @@ export type CreateAssetResult = {
   size_bytes: number;
   source: {
     content_hash: string;
-    kind: "asset_store";
+    kind: 'asset_store';
     original_filename?: string;
   };
 };
@@ -139,7 +139,7 @@ export type CreateAssetFromBytesResult = CreateAssetResult;
 export type CreateAssetFromUrlResult = CreateAssetResult;
 
 export type AssetUrlDownloader = (
-  input: DownloadRasterAssetFromUrlInput
+  input: DownloadRasterAssetFromUrlInput,
 ) => Promise<AppResult<DownloadedRasterAsset>>;
 
 export type ProjectRuntimeOptions = {
@@ -178,7 +178,8 @@ export class ProjectRuntime {
     private readonly store: ProjectStore,
     options: ProjectRuntimeOptions = {},
   ) {
-    this.assetUrlDownloader = options.assetUrlDownloader ?? downloadRasterAssetFromUrl;
+    this.assetUrlDownloader =
+      options.assetUrlDownloader ?? downloadRasterAssetFromUrl;
   }
 
   attachMcpStatusProvider(provider: McpStatusProvider): void {
@@ -434,7 +435,10 @@ export class ProjectRuntime {
     const bytes = decodeBase64AssetBytes(input.bytesBase64);
 
     if (!bytes) {
-      return err('validation_failed', 'bytes_base64 must be a valid base64 string');
+      return err(
+        'validation_failed',
+        'bytes_base64 must be a valid base64 string',
+      );
     }
 
     if (bytes.byteLength > MAX_CREATE_ASSET_BYTES) {
@@ -444,7 +448,10 @@ export class ProjectRuntime {
       );
     }
 
-    const assetId = this.resolveCreateAssetId(writableSession.data.document, input.assetId);
+    const assetId = this.resolveCreateAssetId(
+      writableSession.data.document,
+      input.assetId,
+    );
 
     if (!assetId.ok) {
       return assetId;
@@ -472,7 +479,10 @@ export class ProjectRuntime {
       return writableSession;
     }
 
-    const assetId = this.resolveCreateAssetId(writableSession.data.document, input.assetId);
+    const assetId = this.resolveCreateAssetId(
+      writableSession.data.document,
+      input.assetId,
+    );
 
     if (!assetId.ok) {
       return assetId;
@@ -930,7 +940,9 @@ export class ProjectRuntime {
     return ok(this.activeSession);
   }
 
-  private resolveWritableAssetMutation(projectId?: string): AppResult<ActiveProject> {
+  private resolveWritableAssetMutation(
+    projectId?: string,
+  ): AppResult<ActiveProject> {
     const writableSession = this.resolveWritableProject(projectId);
 
     if (!writableSession.ok) {
@@ -939,8 +951,8 @@ export class ProjectRuntime {
 
     if (!this.hasMeasurementSurface()) {
       return err(
-        "measurement_surface_unavailable",
-        "Write-capable command execution requires an available renderer measurement surface"
+        'measurement_surface_unavailable',
+        'Write-capable command execution requires an available renderer measurement surface',
       );
     }
 
@@ -948,12 +960,15 @@ export class ProjectRuntime {
   }
 
   private resolveCreateAssetId(
-    document: ActiveProject["document"],
-    requestedAssetId?: string
+    document: ActiveProject['document'],
+    requestedAssetId?: string,
   ): AppResult<string> {
     if (requestedAssetId !== undefined) {
       if (document.assets[requestedAssetId]) {
-        return err("validation_failed", `Asset ${requestedAssetId} already exists`);
+        return err(
+          'validation_failed',
+          `Asset ${requestedAssetId} already exists`,
+        );
       }
 
       return ok(requestedAssetId);
@@ -972,7 +987,7 @@ export class ProjectRuntime {
     assetId: string;
     bytes: Uint8Array;
     height?: number;
-    kind: AssetRecord["kind"];
+    kind: AssetRecord['kind'];
     metadata?: Record<string, OpaqueValue>;
     mimeType: string;
     originalFilename?: string;
@@ -980,12 +995,12 @@ export class ProjectRuntime {
     writableSession: ActiveProject;
   }): Promise<AppResult<CreateAssetResult>> {
     const storedAsset = this.store.storeAssetBytes(input.bytes);
-    const source: CreateAssetResult["source"] = {
+    const source: CreateAssetResult['source'] = {
       content_hash: storedAsset.contentHash,
-      kind: "asset_store",
+      kind: 'asset_store',
       ...(input.originalFilename === undefined
         ? {}
-        : { original_filename: input.originalFilename })
+        : { original_filename: input.originalFilename }),
     };
     const commandResult = await this.enqueueCommand(() =>
       this.applyCommandsInternal(
@@ -996,18 +1011,20 @@ export class ProjectRuntime {
                 ...(input.height === undefined ? {} : { height: input.height }),
                 id: input.assetId,
                 kind: input.kind,
-                ...(input.metadata === undefined ? {} : { metadata: input.metadata }),
+                ...(input.metadata === undefined
+                  ? {}
+                  : { metadata: input.metadata }),
                 mime_type: input.mimeType,
                 source,
-                ...(input.width === undefined ? {} : { width: input.width })
+                ...(input.width === undefined ? {} : { width: input.width }),
               },
-              type: "create_asset"
-            }
+              type: 'create_asset',
+            },
           ],
-          document_id: input.writableSession.document.document_id
+          document_id: input.writableSession.document.document_id,
         },
-        "mcp"
-      )
+        'mcp',
+      ),
     );
 
     if (!commandResult.ok) {
@@ -1021,14 +1038,14 @@ export class ProjectRuntime {
       mime_type: input.mimeType,
       revision: commandResult.data.revision,
       size_bytes: storedAsset.sizeBytes,
-      source
+      source,
     });
   }
 }
 
 export function createProjectRuntime(
   store: ProjectStore,
-  options: ProjectRuntimeOptions = {}
+  options: ProjectRuntimeOptions = {},
 ): ProjectRuntime {
   return new ProjectRuntime(store, options);
 }

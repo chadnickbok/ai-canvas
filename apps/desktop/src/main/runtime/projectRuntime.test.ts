@@ -22,10 +22,10 @@ import { ProjectStore } from './projectStore';
 const cleanupPaths: string[] = [];
 const activeBridges: LocalMcpBridge[] = [];
 const TINY_PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4ZcAAAAASUVORK5CYII=";
-const TINY_PNG_BYTES = Buffer.from(TINY_PNG_BASE64, "base64");
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4ZcAAAAASUVORK5CYII=';
+const TINY_PNG_BYTES = Buffer.from(TINY_PNG_BASE64, 'base64');
 const TINY_PNG_HASH =
-  "e9cd408c8c8d0c2b28cff985d699b60d1dd970785342f19eeaac21a1060cc1d0";
+  'e9cd408c8c8d0c2b28cff985d699b60d1dd970785342f19eeaac21a1060cc1d0';
 
 afterEach(async () => {
   await Promise.all(activeBridges.splice(0).map((bridge) => bridge.stop()));
@@ -429,7 +429,9 @@ describe('ProjectRuntime', () => {
   });
 
   it('creates project-local assets from bytes, persists them on disk, and resolves them for rendering', async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-assets-'));
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-assets-'),
+    );
     cleanupPaths.push(tempDir);
 
     const store = new ProjectStore(path.join(tempDir, 'app.db'));
@@ -478,7 +480,9 @@ describe('ProjectRuntime', () => {
     expect(activeProject.ok).toBe(true);
 
     if (!activeProject.ok || !activeProject.data) {
-      throw new Error('Expected the active project session to remain available');
+      throw new Error(
+        'Expected the active project session to remain available',
+      );
     }
 
     expect(activeProject.data.document.assets.asset_logo).toEqual({
@@ -516,7 +520,9 @@ describe('ProjectRuntime', () => {
   });
 
   it('creates project-local assets from a public image URL and resolves them for rendering', async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-assets-url-'));
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-assets-url-'),
+    );
     cleanupPaths.push(tempDir);
 
     const store = new ProjectStore(path.join(tempDir, 'app.db'));
@@ -559,7 +565,9 @@ describe('ProjectRuntime', () => {
 
     const activeProject = runtime.getActiveProject();
 
-    expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
+    expect(
+      activeProject.ok && activeProject.data?.document.assets.asset_logo,
+    ).toEqual({
       height: 1,
       id: 'asset_logo',
       kind: 'image',
@@ -576,7 +584,9 @@ describe('ProjectRuntime', () => {
   });
 
   it('rejects asset creation while the runtime is read-only', async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-assets-readonly-'));
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-assets-readonly-'),
+    );
     cleanupPaths.push(tempDir);
 
     const store = new ProjectStore(path.join(tempDir, 'app.db'));
@@ -595,7 +605,7 @@ describe('ProjectRuntime', () => {
       runtime.createAssetFromBytes({
         bytesBase64: TINY_PNG_BASE64,
         mimeType: 'image/png',
-      })
+      }),
     ).resolves.toEqual(
       err(
         'measurement_surface_unavailable',
@@ -606,7 +616,7 @@ describe('ProjectRuntime', () => {
     await expect(
       runtime.createAssetFromUrl({
         url: 'https://cdn.example.test/logo.png',
-      })
+      }),
     ).resolves.toEqual(
       err(
         'measurement_surface_unavailable',
@@ -953,7 +963,9 @@ describe('ProjectRuntime', () => {
   });
 
   it('creates project-local assets through the real local MCP bridge', async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-mcp-assets-'));
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-mcp-assets-'),
+    );
     cleanupPaths.push(tempDir);
 
     const store = new ProjectStore(path.join(tempDir, 'app.db'));
@@ -1037,7 +1049,9 @@ describe('ProjectRuntime', () => {
 
       const activeProject = runtime.getActiveProject();
 
-      expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
+      expect(
+        activeProject.ok && activeProject.data?.document.assets.asset_logo,
+      ).toEqual({
         height: 1,
         id: 'asset_logo',
         kind: 'image',
@@ -1057,7 +1071,9 @@ describe('ProjectRuntime', () => {
   });
 
   it('creates project-local assets from a URL through the real local MCP bridge', async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'ai-canvas-runtime-mcp-assets-url-'));
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'ai-canvas-runtime-mcp-assets-url-'),
+    );
     cleanupPaths.push(tempDir);
 
     const store = new ProjectStore(path.join(tempDir, 'app.db'));
@@ -1138,7 +1154,9 @@ describe('ProjectRuntime', () => {
 
       const activeProject = runtime.getActiveProject();
 
-      expect(activeProject.ok && activeProject.data?.document.assets.asset_logo).toEqual({
+      expect(
+        activeProject.ok && activeProject.data?.document.assets.asset_logo,
+      ).toEqual({
         height: 1,
         id: 'asset_logo',
         kind: 'image',

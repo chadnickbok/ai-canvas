@@ -54,10 +54,10 @@ It should use the same serialized command-application path and the same live pro
 
 The local MCP bridge exposes two runtime capability modes.
 
-These map directly onto the runtime states defined in `docs/product-stance.md`:
+These map directly onto the current runtime capability contract in `docs/product-stance.md`:
 
-- `read_write`, in all editor-open states and both close-blocked final-save states
-- `read_only`, in `editor_closed_inspection_only`
+- `read_write`, when an active project session exists and the renderer-backed measurement surface is available
+- `read_only`, when no project is active or the renderer-backed measurement surface is unavailable
 
 In `read_only` mode:
 
@@ -66,7 +66,7 @@ In `read_only` mode:
 - browser-capture workflows such as screenshots must fail fast with `measurement_surface_unavailable`
 - the bridge must not queue writes for deferred replay
 
-Normal autosave failure while the editor window remains open does not change MCP out of `read_write`.
+Successful mutations commit immediately through the shared runtime command path. Failed mutations return errors and must not leave queued in-memory writes behind.
 
 ## Project targeting
 

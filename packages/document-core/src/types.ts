@@ -590,9 +590,15 @@ export type EmptyNodeAuthoring = z.infer<typeof emptyNodeAuthoringSchema>;
 export type RendererNodeAuthoring = z.infer<typeof rendererNodeAuthoringSchema>;
 export type RendererNodeKind = z.infer<typeof rendererNodeKindSchema>;
 export type AssetSource = z.infer<typeof assetSourceSchema>;
-export type EmbeddedDataUriAssetSource = z.infer<typeof embeddedDataUriAssetSourceSchema>;
-export type EmbeddedBase64AssetSource = z.infer<typeof embeddedBase64AssetSourceSchema>;
-export type EmbeddedAssetSource = EmbeddedDataUriAssetSource | EmbeddedBase64AssetSource;
+export type EmbeddedDataUriAssetSource = z.infer<
+  typeof embeddedDataUriAssetSourceSchema
+>;
+export type EmbeddedBase64AssetSource = z.infer<
+  typeof embeddedBase64AssetSourceSchema
+>;
+export type EmbeddedAssetSource =
+  | EmbeddedDataUriAssetSource
+  | EmbeddedBase64AssetSource;
 export type LocalAssetStoreSource = z.infer<typeof localAssetStoreSourceSchema>;
 export type AssetRecord = z.infer<typeof assetRecordSchema>;
 export type RendererDocumentSource = z.infer<

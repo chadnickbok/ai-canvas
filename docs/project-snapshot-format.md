@@ -10,7 +10,6 @@ A project snapshot is a self-contained bundle used for:
 - import
 - backup
 - restore
-- crash recovery artifacts
 
 The snapshot format is **not** the same thing as the live local storage model.
 
@@ -41,7 +40,7 @@ It should support:
 - embedded metadata
 - content-addressed assets
 - optional thumbnails/previews
-- safe partial recovery when some files are damaged
+- safe partial import when some files are damaged
 
 ## 2. Non-Goals
 
@@ -449,7 +448,7 @@ If part of a supported v1 snapshot is damaged:
 - drop broken references when necessary
 - surface warnings to the user
 
-The app should prefer partial recovery over full refusal whenever safe.
+The app should prefer partial import over full refusal whenever safe.
 
 ## 16. Validation Policy
 
@@ -463,7 +462,7 @@ A snapshot is valid when:
 - project/document id relationships are coherent
 - the bundle does not attempt to encode multiple projects or multiple documents
 
-### Recoverable issues
+### Warning-level issues
 
 These should produce warnings, not necessarily hard failure:
 
@@ -475,7 +474,7 @@ These should produce warnings, not necessarily hard failure:
 
 ### Hard failure issues
 
-These should fail snapshot import unless the user explicitly chooses partial recovery:
+These should fail snapshot import unless the user explicitly chooses partial import:
 
 - missing `manifest.json`
 - missing `project.json`
@@ -499,7 +498,7 @@ All checksums use:
 If checksum validation fails:
 
 - import should warn
-- partial recovery may still proceed if the content is otherwise readable
+- partial import may still proceed if the content is otherwise readable
 
 ## 18. Version Compatibility
 
@@ -574,7 +573,7 @@ A reader should:
 - reject multi-document or multi-project v1 bundle shapes
 - import defensively
 - normalize the document after load
-- preserve recoverable content
+- preserve readable content
 - surface warnings for missing previews, missing assets, and checksum mismatches
 
 ## 22. Non-Goals of This Document

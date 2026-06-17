@@ -46,13 +46,13 @@ export function createProjectService(runtime: ProjectRuntime): ProjectService {
           ? {}
           : { originalFilename: input.original_filename }),
         projectId: input.project_id,
-        ...(input.width === undefined ? {} : { width: input.width })
+        ...(input.width === undefined ? {} : { width: input.width }),
       }),
     createAssetFromUrl: async (input) =>
       runtime.createAssetFromUrl({
         assetId: input.asset_id,
         projectId: input.project_id,
-        url: input.url
+        url: input.url,
       }),
     createProject: async (name) => runtime.createProject(name),
     inspectDesignSystem: async (projectId) =>

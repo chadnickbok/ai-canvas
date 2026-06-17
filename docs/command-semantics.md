@@ -147,9 +147,9 @@ In v1, if the editor window is closed and the renderer has been torn down, write
 
 The system must not queue writes for deferred replay, and it must not apply in-memory mutations that cannot proceed to a valid commit path.
 
-Normal autosave failure while the editor window remains open is not `measurement_surface_unavailable`; the measurement surface still exists in that failure state.
+The current save model commits successful command batches immediately. If measurement refresh or durable persistence fails, the command fails and the document must remain at the last committed state.
 
-The broader runtime-state transitions for project open, snapshot import/export, and window close are defined in `docs/product-stance.md`. This document defines only the command-owned portion of that lifecycle once a caller has selected a project session.
+The broader runtime capability behavior for project open, command persistence, and window close is defined in `docs/product-stance.md`. This document defines only the command-owned portion of that lifecycle once a caller has selected a project session.
 
 ## 4. Command Batch Contract
 
@@ -871,10 +871,10 @@ The asset id must be unique.
 
 For the live desktop runtime, asset bytes belong in the first-class asset store on disk. Higher-level runtime services, such as the local MCP `create_asset_from_bytes` and `create_asset_from_url` tools, are responsible for:
 
-* storing the bytes
-* computing the content hash
-* creating or returning the resulting `asset_store` source
-* creating the usable project-local asset record
+- storing the bytes
+- computing the content hash
+- creating or returning the resulting `asset_store` source
+- creating the usable project-local asset record
 
 The command layer remains responsible for the asset record and its document-visible references.
 
@@ -966,6 +966,6 @@ This document does not define:
 - renderer implementation details
 - UI interaction design
 - selection behavior
-- autosave timing
+- automatic persistence timing
 - batching heuristics in the editor
 - import compatibility behavior
