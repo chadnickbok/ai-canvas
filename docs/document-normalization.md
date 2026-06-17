@@ -8,7 +8,7 @@ This document defines how AI Canvas Desktop converts a persisted document into t
 - the renderer
 - command application
 - local MCP
-- save and autosave flows
+- commit-on-command persistence flows
 
 Normalization is the process that makes documents safe, complete, and deterministic before they are used.
 
@@ -61,7 +61,7 @@ Normalization must not:
 
 A normalized document is the only document shape that command application, rendering, and read/query logic are allowed to operate on.
 
-Commit and autosave flows must start from a normalized document, then run the separate computed-layout refresh pass defined in `docs/computed-layout-refresh.md`.
+Commit-on-command persistence must start from a normalized document, then run the separate computed-layout refresh pass defined in `docs/computed-layout-refresh.md`.
 
 Persisted documents may be incomplete or slightly damaged.
 
@@ -102,7 +102,7 @@ A fresh `computed_layout` snapshot is not required for first render. The rendere
 
 Before a document is committed to persistence, it must first be normalized.
 
-Commit and autosave then separately require computed-layout refresh for affected nodes as defined in `docs/computed-layout-refresh.md`.
+Commit-on-command persistence then separately requires computed-layout refresh for affected nodes as defined in `docs/computed-layout-refresh.md`.
 
 ## 5. Normalization Phases
 
@@ -473,7 +473,7 @@ If these conditions are not met and cannot be repaired safely, normalization mus
 
 ## 19. Serializer Expectations
 
-When a normalized document is serialized for persistence as part of a commit or autosave path:
+When a normalized document is serialized for persistence as part of a commit-on-command path:
 
 - the commit path must already have run computed-layout refresh as defined in `docs/computed-layout-refresh.md`
 
@@ -495,6 +495,6 @@ This document does not define:
 - command grammar
 - UI interaction behavior
 - undo/redo storage format
-- autosave timing
+- automatic persistence timing
 - renderer implementation details beyond normalized input expectations
 - import compatibility from old or foreign document formats

@@ -44,7 +44,6 @@ The filesystem stores:
 - exported project snapshots
 - exported images/PDFs
 - preview renders
-- crash-recovery artifacts
 - logs
 
 ## Recommended app-data layout
@@ -59,7 +58,6 @@ The filesystem stores:
   exports/
   imports/
   logs/
-  recovery/
 ```
 
 ## Project model
@@ -78,7 +76,7 @@ Recommended project record fields:
 - current_document_json
 - last_opened_at
 - archived_at nullable
-- source_kind such as new, imported_snapshot, recovered
+- source_kind such as new or imported_snapshot
 - source_metadata_json nullable
 
 In v1:
@@ -88,15 +86,15 @@ In v1:
 - local history metadata is bounded and stays local to the project library
 - deterministic derived state is treated as cacheable and rebuildable, not canonical
 
-## Recommended autosave stance
+## Recommended automatic persistence stance
 
-Autosave is the primary persistence model.
+Automatic command persistence is the primary persistence model.
 
 That means:
 
-- user edits persist automatically to SQLite
+- each successful command batch, undo, or redo persists immediately to SQLite before the runtime emits the changed document
 - there is no primary user-facing manual save action
-- recovery behavior is defined relative to durable SQLite commits and recovery checkpoints, not explicit save clicks
+- crash durability is defined relative to durable SQLite commits, not explicit save clicks
 
 ## History model
 
@@ -151,15 +149,17 @@ Recommended behavior:
 - exported snapshots exclude local history
 - exported snapshots should avoid leaking app-internal database structure
 
-## Recommended recovery model
+## Crash durability model
 
 Crash safety matters more in desktop than it does in a backend-driven world.
 
-Recommended recovery behavior:
+Recommended crash-durability behavior:
 
-- autosave current project changes to SQLite
-- keep recent recovery checkpoints in `recovery/`
-- on crash restart, offer recovery when a recovery artifact is newer than the last durable committed project state
+- successful project changes persist to SQLite during command application
+- command persistence is transactional: a command is either fully committed or absent after restart
+- on restart, the app loads the last durable committed project revision
+- the launch product does not maintain a separate checkpoint artifact system
+- the launch product does not show alternate-state prompts on restart
 
 ## Non-goals for launch
 

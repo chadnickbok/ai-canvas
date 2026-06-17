@@ -29,65 +29,54 @@ The desktop app is:
 - single-user for v1
 - single-window for v1
 - one document per project for v1
-- autosave-first rather than manual-save-first
+- automatic commit-on-command rather than manual-save-first
 - library-backed rather than raw-file-backed for v1
 
 The active project is the most recently opened project.
 
 When the editor window is open, opening the active project opens its sole document workspace. V1 does not include document switching within a project.
 
-Closing the editor window does not quit the app. The v1 dirty-state, autosave, measurement-surface, close-to-tray, and MCP-capability behavior is defined by the runtime lifecycle contract below.
+Closing the editor window does not quit the app. The v1 project-session, automatic persistence, measurement-surface, and MCP-capability behavior is defined by the runtime lifecycle contract below.
 
 ### Runtime lifecycle contract
 
-The runtime exposes these outer states:
+The current runtime exposes these `runtimeState` values:
 
 - `no_project_open`
-- `app_exiting`
+- `editor_open_clean`
 
-When an active project session exists, the runtime must be in exactly one of these editor-session states:
+`editor_open_clean` means an active project session exists and there is no queued unsaved command state. The name is retained as the current API value; renderer/window availability is reported separately through `measurementSurfaceAvailable` and `mode`.
 
-| State                                | Dirty state                                             | Save state                                                     | Measurement surface | MCP mode     | Close behavior                                                    | Required user-visible state                                                  |
-| ------------------------------------ | ------------------------------------------------------- | -------------------------------------------------------------- | ------------------- | ------------ | ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `editor_open_clean`                  | no unsaved in-memory changes                            | no autosave scheduled or in flight                             | available           | `read_write` | may close immediately                                             | normal editable window with no save error                                    |
-| `editor_open_dirty_autosave_pending` | dirty                                                   | autosave scheduled but not yet in flight                       | available           | `read_write` | close cannot complete; close request escalates to final-save flow | non-blocking dirty or autosave-pending UI                                    |
-| `editor_open_autosave_in_flight`     | dirty until the save resolves and no newer edits remain | autosave in flight                                             | available           | `read_write` | close cannot complete; close request joins the final-save flow    | non-blocking saving UI                                                       |
-| `editor_open_autosave_error`         | dirty                                                   | no save in flight; last autosave failed                        | available           | `read_write` | close cannot complete; close request starts final-save flow       | non-blocking save-error UI while editing may continue                        |
-| `close_blocked_final_save_in_flight` | dirty until final save succeeds or discard happens      | final save in flight or currently awaited                      | available           | `read_write` | close remains blocked                                             | blocking save-in-progress UI                                                 |
-| `close_blocked_final_save_error`     | dirty                                                   | no save in flight; last final-save attempt failed or timed out | available           | `read_write` | close remains blocked until retry, keep-editing, or discard       | blocking error UI with `Retry Save`, `Keep Editing`, and `Discard and Close` |
-| `editor_closed_inspection_only`      | no unsaved in-memory changes remain authoritative       | no save in flight                                              | unavailable         | `read_only`  | window is already closed                                          | no editor window; tray-resident inspection-only runtime                      |
+| Runtime state       | Active project session | Unsaved command state | Measurement surface             | Capability mode                                                  | Write behavior                                                          | User-visible state                      |
+| ------------------- | ---------------------- | --------------------- | ------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------- |
+| `no_project_open`   | no                     | none                  | may be available or unavailable | `read_only`                                                      | no mutation target exists                                               | project library, if a window is visible |
+| `editor_open_clean` | yes                    | none                  | available or unavailable        | `read_write` only when measurement exists; otherwise `read_only` | successful commands commit immediately; writes fail without measurement | workspace, if a window is visible       |
 
-V1 does not keep a hidden or headless measurement surface outside these states.
+V1 does not keep a hidden or headless measurement surface after the editor window closes.
 
 The required transitions are:
 
-- `edit_makes_document_dirty` moves `editor_open_clean` to `editor_open_dirty_autosave_pending`
-- further edits in `editor_open_dirty_autosave_pending` stay pending and coalesce behind one autosave attempt
-- `autosave_timer_fires` moves `editor_open_dirty_autosave_pending` to `editor_open_autosave_in_flight`
-- `autosave_succeeds` moves `editor_open_autosave_in_flight` to `editor_open_clean` only if no newer unsaved edits remain; otherwise it returns to `editor_open_dirty_autosave_pending`
-- `autosave_fails` moves `editor_open_autosave_in_flight` to `editor_open_autosave_error`
-- `close_requested` from any dirty open-editor state moves into `close_blocked_final_save_in_flight`
-- if close arrives while autosave is already in flight, the runtime first awaits that attempt; if newer unsaved edits still remain after it succeeds, the runtime must immediately start another final save attempt and stay in `close_blocked_final_save_in_flight`
-- `final_save_succeeds` moves `close_blocked_final_save_in_flight` to `editor_closed_inspection_only`
-- `final_save_fails` or close-save timeout moves `close_blocked_final_save_in_flight` to `close_blocked_final_save_error`
-- `retry_save` moves `close_blocked_final_save_error` to `close_blocked_final_save_in_flight`
-- `keep_editing` moves `close_blocked_final_save_error` to `editor_open_autosave_error`
-- `discard_and_close` moves `close_blocked_final_save_error` to `editor_closed_inspection_only` using the last durable persisted state
-- `close_requested` from `editor_open_clean` moves directly to `editor_closed_inspection_only`
-- `reopen_window` moves `editor_closed_inspection_only` to `editor_open_clean`
-- `explicit_quit` from `editor_closed_inspection_only` moves to `app_exiting`
-
-The runtime must not transition into `editor_closed_inspection_only` before a successful close or an explicit discard.
+- app startup begins in `no_project_open` unless a project is opened or created
+- successful `createProject` opens the created project and moves to `editor_open_clean`
+- successful `openProject` moves to `editor_open_clean`
+- failed `openProject` leaves the previous active session and visible workspace unchanged
+- successful command application, undo, and redo persist immediately to SQLite, emit runtime events, increment the durable project revision, and remain in `editor_open_clean`
+- failed command application, undo, and redo leave the active document and durable project state unchanged
+- renderer load makes the measurement surface available; with an active project session this makes the runtime `read_write`
+- renderer/window close makes the measurement surface unavailable; with an active project session this makes the runtime `read_only`
+- reopening the editor window restores `read_write` once the renderer-backed measurement surface is available again
+- explicit app quit closes the runtime and MCP bridge; no separate `app_exiting` runtime state is exposed
 
 ### Runtime operation guarantees
 
 The v1 runtime must also guarantee:
 
 - opening a project does not switch the active project session or visible workspace until load and normalization succeed
-- importing a snapshot does not expose a partial imported project for editing and does not switch the active project session before import persistence succeeds
-- exporting a snapshot does not change the active project session or MCP capability mode, and export failure leaves session state unchanged
-- normal autosave failure while the editor window remains open is not `measurement_surface_unavailable`
-- `read_only` begins only after the window actually closes and the browser-backed measurement surface is gone
+- successful document edits are durably persisted before `document_changed` is emitted
+- failed document edits leave the active document and durable project state unchanged
+- write-capable command execution requires an active project session and an available renderer-backed measurement surface
+- `read_only` applies whenever there is no active project session or the measurement surface is unavailable
+- the runtime does not queue writes for deferred replay while `read_only`
 
 ## Current excluded scope
 
@@ -116,7 +105,7 @@ The following should work locally:
 - edit scenes
 - edit variables and styles
 - apply explicit semantic styling edits locally
-- autosave
+- automatic persistence
 - undo and redo
 - import and export project snapshots
 
@@ -153,11 +142,11 @@ The current product story does not include:
 
 The desktop rewrite is ready when all of the following are true:
 
-- the desktop app can create, open, edit, and autosave local projects
+- the desktop app can create, open, edit, and automatically persist local projects
 - scene-first authoring feels stable
 - document-level variables and styles propagate correctly
 - explicit semantic styling workflows behave predictably
 - import/export work for the supported project snapshot format
 - the optional local MCP bridge can inspect the same live project session even after the window closes
 - the optional local MCP bridge can mutate the same live project through the shared command/query core while the editor window is open
-- MCP inspection remains available after the window closes until the user explicitly quits the tray app
+- MCP inspection remains available after the window closes until the user explicitly quits the app

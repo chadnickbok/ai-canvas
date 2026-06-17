@@ -98,17 +98,17 @@ After normalization, the semantic-mapped subset of `render_style` is semantic-ow
 
 Editor overlays and inspector panels may also show live DOM measurement from the current renderer session. That live measurement is transient runtime state, separate from the persisted `computed_layout` snapshot.
 
-The two are refreshed through separate contracts: structural normalization repairs canonical document shape for use, while commit/autosave may run a browser-backed computed-layout refresh pass before persistence.
+The two are refreshed through separate contracts: structural normalization repairs canonical document shape for use, while commit-on-command may run a browser-backed computed-layout refresh pass before persistence.
 
 ### MCP bridge
 
 AI Canvas Desktop includes a first-class local MCP bridge.
 
-The MCP bridge is built on the same document schema, command system, and semantic query logic as the UI. It is not a separate model or adapter-only layer. MCP is enabled by default, runs only on localhost on a configurable port, and stays available when the editor window closes because the app remains resident in the tray.
+The MCP bridge is built on the same document schema, command system, and semantic query logic as the UI. It is not a separate model or adapter-only layer. MCP is enabled by default, runs only on localhost on a configurable port, and stays available when the editor window closes because the app process remains resident.
 
 At the product surface, MCP targets projects. In v1, each project contains exactly one document, so the active project also implies the active document.
 
-In v1, a window-close request is intercepted before renderer teardown. If the project is dirty or an autosave is already in flight, the window stays open until a final autosave attempt succeeds or fails. A failed or timed-out final save keeps the window open and shows blocking error UI; only a successful save or an explicit discard may continue close into tray. Once the window actually closes, the renderer and its browser-backed measurement surface are torn down. MCP inspection remains available against the active project session, but mutation or browser-capture workflows require the editor window to be reopened.
+In v1, successful edit commands, undo, and redo commit immediately to SQLite before the runtime emits the changed document. Once the window closes, the renderer and its browser-backed measurement surface are torn down. MCP inspection remains available against the active project session, but mutation or browser-capture workflows require the editor window to be reopened.
 
 ## Tech stack
 
@@ -130,7 +130,7 @@ AI Canvas Desktop is:
 - project-library-driven
 - scene-first
 - design-system-aware
-- autosaved by default
+- automatically persisted on each successful command
 - MCP-capable through an optional localhost bridge
 
 The active project is the most recently opened project and the default MCP target when a request does not explicitly identify a project.
@@ -339,22 +339,20 @@ Typical structure:
   exports/
   imports/
   logs/
-  recovery/
 ```
 
 - `app.db` stores project records, each project's sole `current_document_json` in v1, asset catalog metadata, preferences, recent projects, and local history metadata
 - `assets/` stores content-addressed binary asset payloads
 - `exports/` stores exported project snapshots
 - `imports/` optionally stages imported project snapshots or other source bundles
-- `recovery/` stores recovery artifacts for crash or autosave flows
 
 ## Development priorities
 
 Current implementation priorities are:
 
-1. stable Electron shell and tray lifecycle
+1. stable Electron shell and app-resident lifecycle
 2. shared document core
-3. local project create/open/autosave flows
+3. local project create/open/automatic persistence flows
 4. editor UI
 5. design-system workflows
 6. project snapshot import/export
@@ -366,7 +364,7 @@ Current implementation priorities are:
 - `CI` runs fast Linux validation on pull requests.
 - `CI` also runs a Windows desktop build-and-test lane.
 - `Packaging Smoke` runs unsigned packaging verification on pull requests for macOS, Linux, and Windows.
-- `Release Desktop` publishes the signed macOS release stream, the Linux `.deb` and AppImage release artifacts, and a signed Windows NSIS installer when the Windows Azure signing configuration is present in GitHub Actions.
+- `Release Desktop` publishes the signed macOS release stream, the Linux `.deb` and AppImage release artifacts, and a signed Windows NSIS installer. The Windows Azure signing configuration is required for publication.
 - Release versioning, artifacts, signing prerequisites, publication flow, and updater behavior are documented in [docs/release-strategy.md](docs/release-strategy.md).
 
 ## Documentation
@@ -416,7 +414,7 @@ Near-term goals:
 Longer-term areas of interest:
 
 - richer import/export
-- stronger recovery/versioning
+- stronger backup/versioning
 - broader platform support
 - better AI-assisted design workflows
 

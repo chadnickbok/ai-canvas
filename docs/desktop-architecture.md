@@ -20,7 +20,7 @@ The app should be:
 - testable
 - TypeScript end-to-end
 - safe across Electron process boundaries
-- tray-capable for MCP without requiring a hidden renderer in v1
+- app-resident for MCP without requiring a hidden renderer in v1
 - keeps the renderer lean rather than Node-heavy
 
 ## Major runtime pieces
@@ -31,7 +31,7 @@ The main process owns:
 
 - app lifecycle
 - window lifecycle
-- tray or menu-bar lifecycle
+- app-resident window lifecycle
 - native menus
 - file dialogs for import/export
 - OS integrations
@@ -41,7 +41,7 @@ The main process owns:
 
 The main process should not contain editor business logic directly.
 
-For v1, the app supports one editor window. After a successful close-to-tray transition, or an explicit discard of unsaved changes, the window closes, the renderer is torn down, the app remains resident in the tray, and the process does not exit. V1 does not keep a hidden `BrowserWindow`, offscreen renderer, or separate headless browser measurement service alive after the editor window closes.
+For v1, the app supports one editor window. Closing the window tears down the renderer measurement surface, the app process remains resident, and write-capable flows become unavailable until the editor window is reopened. V1 does not keep a hidden `BrowserWindow`, offscreen renderer, or separate headless browser measurement service alive after the editor window closes.
 
 ### 2. Preload bridge
 
@@ -73,7 +73,7 @@ It should contain:
 - inspector
 - design-system panels
 - command dispatch and optimistic UI state where appropriate
-- autosave and recovery status presentation
+- automatic-persistence and persistence-error status presentation
 - DOM-backed rendering and post-render layout measurement used to refresh `computed_layout`
 
 In v1, this renderer is also the only browser measurement surface used for write-capable command commit and browser-capture workflows.
@@ -127,10 +127,9 @@ A storage service layer should sit in the Node-capable side of the app and own:
 - SQLite access
 - asset-store access
 - project load and persistence
-- autosave
+- automatic project persistence
 - project session bootstrapping
 - project snapshot import/export
-- recovery artifacts
 
 The storage layer should return domain objects, not raw SQL rows.
 
@@ -145,19 +144,19 @@ Recommended runtime assumptions:
 - each active project contains exactly one document in v1
 - the active project is the most recently opened project
 - command batches for a given project are serialized through one command-application path
-- the tray-resident process can keep the active project session available even when no editor window is visible
+- the app-resident process can keep the active project session available even when no editor window is visible
 - when no editor window is visible, the active project session remains inspectable but write-capable flows are unavailable
 
 Because v1 has one document per project, project selection and document selection are the same routing choice at the product level.
 
 SQLite is the persistence authority for structured project state. The live project session is the authoritative in-memory representation while the app is running.
 
-The browser renderer is the only browser-backed measurement surface in v1. The save, autosave, and close-to-tray lifecycle should be implemented through the runtime contract in `docs/product-stance.md`, not redefined here.
+The browser renderer is the only browser-backed measurement surface in v1. The current runtime contract persists successful command batches immediately and exposes `read_only` when the measurement surface is unavailable.
 
 Recommended operation behavior:
 
 - `openProject(projectId)` should not switch the active project session or visible workspace until load and normalization succeed
-- `applyCommands(projectId, commands)` should update the live project session through the canonical command path, with durable persistence following the runtime's autosave or final-save path
+- `applyCommands(projectId, commands)` should update the live project session through the canonical command path, with durable persistence completed before the runtime emits the changed document
 - `importProjectSnapshot(path)` should persist the imported project before exposing it for editing
 - `exportProjectSnapshot(projectId, destination)` should write from durable project state and leave the live session unchanged on failure
 
@@ -170,7 +169,7 @@ Owns:
 - Electron entrypoints
 - menus
 - windows
-- tray lifecycle
+- app-resident lifecycle
 - preload
 - OS integrations
 - app startup wiring
@@ -262,7 +261,7 @@ The first working desktop version should prefer simplicity over purity.
 Allowed early compromises:
 
 - one main window
-- tray-resident lifecycle instead of a separate background daemon
+- app-resident lifecycle instead of a separate background daemon
 - no multi-window support
 - no hidden/offscreen measurement surface while the window is closed
 - startup-time auto-update against the latest published `main` GitHub release only

@@ -68,6 +68,8 @@ if (diff.status === 1) {
   process.exit(1);
 }
 
-console.error(diff.stderr || 'git diff failed while checking marketing changes.');
+console.error(
+  diff.stderr || 'git diff failed while checking marketing changes.',
+);
 console.error('Continuing build to avoid an incorrect skipped deployment.');
 process.exit(1);

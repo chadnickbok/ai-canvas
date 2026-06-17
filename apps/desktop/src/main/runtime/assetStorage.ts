@@ -1,16 +1,16 @@
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 
 import {
   isAssetStoreSource,
   isEmbeddedAssetSource,
   type AssetRecord,
-  type LocalAssetStoreSource
-} from "@ai-canvas/document-core";
-import type { ResolvedAssetsById } from "@ai-canvas/ipc-contract";
+  type LocalAssetStoreSource,
+} from '@ai-canvas/document-core';
+import type { ResolvedAssetsById } from '@ai-canvas/ipc-contract';
 
-export const DESKTOP_ASSET_PROTOCOL = "ai-canvas-asset";
+export const DESKTOP_ASSET_PROTOCOL = 'ai-canvas-asset';
 
 type DecodedEmbeddedAsset = {
   bytes: Uint8Array;
@@ -19,7 +19,7 @@ type DecodedEmbeddedAsset = {
 
 export type RasterImageMetadata = {
   height: number;
-  mimeType: "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+  mimeType: 'image/gif' | 'image/jpeg' | 'image/png' | 'image/webp';
   width: number;
 };
 
@@ -33,7 +33,10 @@ export class AssetStorage {
   }
 
   resolveAssetFilePath(contentHash: string): string {
-    return path.join(this.assetsDirectoryPath, resolveContentAddressedAssetRelativePath(contentHash));
+    return path.join(
+      this.assetsDirectoryPath,
+      resolveContentAddressedAssetRelativePath(contentHash),
+    );
   }
 
   findStoredAssetFilePath(contentHash: string): string | null {
@@ -41,7 +44,10 @@ export class AssetStorage {
     return existsSync(assetPath) ? assetPath : null;
   }
 
-  ensureStoredBytes(contentHash: string, bytes: Uint8Array): { path: string; sizeBytes: number } {
+  ensureStoredBytes(
+    contentHash: string,
+    bytes: Uint8Array,
+  ): { path: string; sizeBytes: number } {
     const assetPath = this.resolveAssetFilePath(contentHash);
     mkdirSync(path.dirname(assetPath), { recursive: true });
 
@@ -51,7 +57,7 @@ export class AssetStorage {
 
     return {
       path: assetPath,
-      sizeBytes: bytes.byteLength
+      sizeBytes: bytes.byteLength,
     };
   }
 
@@ -61,8 +67,8 @@ export class AssetStorage {
     }
 
     const bytes =
-      asset.source.kind === "base64"
-        ? Buffer.from(asset.source.base64, "base64")
+      asset.source.kind === 'base64'
+        ? Buffer.from(asset.source.base64, 'base64')
         : decodeDataUri(asset.source.data_uri);
 
     if (!bytes) {
@@ -71,11 +77,14 @@ export class AssetStorage {
 
     return {
       bytes,
-      contentHash: hashAssetBytes(bytes)
+      contentHash: hashAssetBytes(bytes),
     };
   }
 
-  resolveDocumentAssets(projectId: string, assets: Record<string, AssetRecord>): ResolvedAssetsById {
+  resolveDocumentAssets(
+    projectId: string,
+    assets: Record<string, AssetRecord>,
+  ): ResolvedAssetsById {
     const resolvedAssets: ResolvedAssetsById = {};
 
     for (const asset of Object.values(assets)) {
@@ -89,13 +98,16 @@ export class AssetStorage {
     return resolvedAssets;
   }
 
-  private resolveAsset(projectId: string, asset: AssetRecord): { url: string } | undefined {
+  private resolveAsset(
+    projectId: string,
+    asset: AssetRecord,
+  ): { url: string } | undefined {
     if (isEmbeddedAssetSource(asset.source)) {
       return {
         url:
-          asset.source.kind === "data_uri"
+          asset.source.kind === 'data_uri'
             ? asset.source.data_uri
-            : `data:${asset.mime_type};base64,${asset.source.base64}`
+            : `data:${asset.mime_type};base64,${asset.source.base64}`,
       };
     }
 
@@ -108,7 +120,7 @@ export class AssetStorage {
     }
 
     return {
-      url: createResolvedAssetUrl(projectId, asset.id, asset.source)
+      url: createResolvedAssetUrl(projectId, asset.id, asset.source),
     };
   }
 }
@@ -116,19 +128,21 @@ export class AssetStorage {
 export function createResolvedAssetUrl(
   projectId: string,
   assetId: string,
-  source: LocalAssetStoreSource
+  source: LocalAssetStoreSource,
 ): string {
   return `${DESKTOP_ASSET_PROTOCOL}://project/${encodeURIComponent(projectId)}/${encodeURIComponent(assetId)}?content_hash=${encodeURIComponent(source.content_hash)}`;
 }
 
-export function resolveContentAddressedAssetRelativePath(contentHash: string): string {
+export function resolveContentAddressedAssetRelativePath(
+  contentHash: string,
+): string {
   const normalizedHash = contentHash.trim().toLowerCase();
-  const bucket = normalizedHash.slice(0, 2) || "__";
-  return path.join("sha256", bucket, normalizedHash);
+  const bucket = normalizedHash.slice(0, 2) || '__';
+  return path.join('sha256', bucket, normalizedHash);
 }
 
 export function hashAssetBytes(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
 export function decodeBase64AssetBytes(base64: string): Uint8Array | null {
@@ -143,9 +157,12 @@ export function decodeBase64AssetBytes(base64: string): Uint8Array | null {
   }
 
   try {
-    const decoded = Buffer.from(normalizedBase64, "base64");
+    const decoded = Buffer.from(normalizedBase64, 'base64');
 
-    if (decoded.length === 0 || decoded.toString("base64") !== normalizedBase64) {
+    if (
+      decoded.length === 0 ||
+      decoded.toString('base64') !== normalizedBase64
+    ) {
       return null;
     }
 
@@ -155,7 +172,9 @@ export function decodeBase64AssetBytes(base64: string): Uint8Array | null {
   }
 }
 
-export function inspectRasterImageBytes(bytes: Uint8Array): RasterImageMetadata | null {
+export function inspectRasterImageBytes(
+  bytes: Uint8Array,
+): RasterImageMetadata | null {
   return (
     inspectPng(bytes) ??
     inspectGif(bytes) ??
@@ -177,8 +196,8 @@ function decodeDataUri(dataUri: string): Uint8Array | null {
 
   try {
     return isBase64
-      ? Buffer.from(rawData, "base64")
-      : Buffer.from(decodeURIComponent(rawData), "utf8");
+      ? Buffer.from(rawData, 'base64')
+      : Buffer.from(decodeURIComponent(rawData), 'utf8');
   } catch {
     return null;
   }
@@ -208,8 +227,8 @@ function inspectPng(bytes: Uint8Array): RasterImageMetadata | null {
 
   return {
     height,
-    mimeType: "image/png",
-    width
+    mimeType: 'image/png',
+    width,
   };
 }
 
@@ -218,9 +237,9 @@ function inspectGif(bytes: Uint8Array): RasterImageMetadata | null {
     return null;
   }
 
-  const signature = Buffer.from(bytes.slice(0, 6)).toString("ascii");
+  const signature = Buffer.from(bytes.slice(0, 6)).toString('ascii');
 
-  if (signature !== "GIF87a" && signature !== "GIF89a") {
+  if (signature !== 'GIF87a' && signature !== 'GIF89a') {
     return null;
   }
 
@@ -233,23 +252,23 @@ function inspectGif(bytes: Uint8Array): RasterImageMetadata | null {
 
   return {
     height,
-    mimeType: "image/gif",
-    width
+    mimeType: 'image/gif',
+    width,
   };
 }
 
 function inspectWebp(bytes: Uint8Array): RasterImageMetadata | null {
   if (
     bytes.byteLength < 30 ||
-    Buffer.from(bytes.slice(0, 4)).toString("ascii") !== "RIFF" ||
-    Buffer.from(bytes.slice(8, 12)).toString("ascii") !== "WEBP"
+    Buffer.from(bytes.slice(0, 4)).toString('ascii') !== 'RIFF' ||
+    Buffer.from(bytes.slice(8, 12)).toString('ascii') !== 'WEBP'
   ) {
     return null;
   }
 
-  const chunkType = Buffer.from(bytes.slice(12, 16)).toString("ascii");
+  const chunkType = Buffer.from(bytes.slice(12, 16)).toString('ascii');
 
-  if (chunkType === "VP8X") {
+  if (chunkType === 'VP8X') {
     const widthMinusOne = readUint24LittleEndian(bytes, 24);
     const heightMinusOne = readUint24LittleEndian(bytes, 27);
 
@@ -259,21 +278,18 @@ function inspectWebp(bytes: Uint8Array): RasterImageMetadata | null {
 
     return {
       height: heightMinusOne + 1,
-      mimeType: "image/webp",
-      width: widthMinusOne + 1
+      mimeType: 'image/webp',
+      width: widthMinusOne + 1,
     };
   }
 
-  if (chunkType === "VP8L") {
+  if (chunkType === 'VP8L') {
     if (bytes.byteLength < 25 || bytes[20] !== 0x2f) {
       return null;
     }
 
     const packed =
-      bytes[21] |
-      (bytes[22] << 8) |
-      (bytes[23] << 16) |
-      (bytes[24] << 24);
+      bytes[21] | (bytes[22] << 8) | (bytes[23] << 16) | (bytes[24] << 24);
     const width = (packed & 0x3fff) + 1;
     const height = ((packed >> 14) & 0x3fff) + 1;
 
@@ -283,12 +299,12 @@ function inspectWebp(bytes: Uint8Array): RasterImageMetadata | null {
 
     return {
       height,
-      mimeType: "image/webp",
-      width
+      mimeType: 'image/webp',
+      width,
     };
   }
 
-  if (chunkType === "VP8 ") {
+  if (chunkType === 'VP8 ') {
     if (
       bytes.byteLength < 30 ||
       bytes[23] !== 0x9d ||
@@ -307,8 +323,8 @@ function inspectWebp(bytes: Uint8Array): RasterImageMetadata | null {
 
     return {
       height: height & 0x3fff,
-      mimeType: "image/webp",
-      width: width & 0x3fff
+      mimeType: 'image/webp',
+      width: width & 0x3fff,
     };
   }
 
@@ -368,8 +384,8 @@ function inspectJpeg(bytes: Uint8Array): RasterImageMetadata | null {
 
       return {
         height,
-        mimeType: "image/jpeg",
-        width
+        mimeType: 'image/jpeg',
+        width,
       };
     }
 
@@ -396,7 +412,10 @@ function readUint16BigEndian(bytes: Uint8Array, offset: number): number | null {
   return (bytes[offset] << 8) | bytes[offset + 1];
 }
 
-function readUint16LittleEndian(bytes: Uint8Array, offset: number): number | null {
+function readUint16LittleEndian(
+  bytes: Uint8Array,
+  offset: number,
+): number | null {
   if (offset + 1 >= bytes.byteLength) {
     return null;
   }
@@ -404,7 +423,10 @@ function readUint16LittleEndian(bytes: Uint8Array, offset: number): number | nul
   return bytes[offset] | (bytes[offset + 1] << 8);
 }
 
-function readUint24LittleEndian(bytes: Uint8Array, offset: number): number | null {
+function readUint24LittleEndian(
+  bytes: Uint8Array,
+  offset: number,
+): number | null {
   if (offset + 2 >= bytes.byteLength) {
     return null;
   }

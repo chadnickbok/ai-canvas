@@ -10,7 +10,7 @@ It answers:
 - what inputs it requires
 - which nodes must be refreshed
 - what invariants it preserves
-- how commit and autosave depend on it
+- how commit and automatic persistence depend on it
 
 This document is normative.
 
@@ -47,7 +47,7 @@ Computed-layout refresh must not:
 - repair schema or semantic state ad hoc
 - invent missing structure
 - rewrite relative or flexible width/height into pixels just to mirror computed output
-- silently skip affected nodes during commit or autosave
+- silently skip affected nodes during commit or automatic persistence
 
 ## 3. Prerequisite
 
@@ -74,13 +74,13 @@ Every command or edit path that persists an updated document must refresh `compu
 
 If no browser-backed measurement surface is available, the write must fail with `measurement_surface_unavailable` before persistence.
 
-### 4.2 Before autosave
+### 4.2 Before automatic persistence
 
-Autosave follows the same requirement as commit.
+Automatic persistence follows the same requirement as commit.
 
-Window close is one explicit autosave boundary in v1. The broader transition between the open-editor autosave states, the close-blocked final-save states, and `editor_closed_inspection_only` is defined in `docs/product-stance.md`.
+The current runtime persists successful command batches immediately. There is no separate close-triggered final-save boundary.
 
-In v1, if the editor window has been closed and no measurement surface remains, autosave must not persist the document as though a fresh layout snapshot exists.
+In v1, if the editor window has been closed and no measurement surface remains, writes must fail with `measurement_surface_unavailable` rather than persisting the document as though a fresh layout snapshot exists.
 
 ### 4.3 Optional explicit refresh
 
@@ -142,7 +142,7 @@ Because `computed_layout` is derived and cacheable, persisted documents may arri
 
 That is allowed during normalization and first render.
 
-Before commit or autosave, refresh must repair that by re-running the browser-backed measurement path and writing fresh `computed_layout`.
+Before commit or automatic persistence, refresh must repair that by re-running the browser-backed measurement path and writing fresh `computed_layout`.
 
 Broken or stale outputs must never override surviving valid inputs.
 
@@ -150,15 +150,11 @@ The last persisted `computed_layout` may still be used for inspection while the 
 
 ## 9. Failure Behavior
 
-If commit or autosave requires computed-layout refresh and the browser-backed measurement path cannot run successfully, the document must not be persisted as though it has a current layout snapshot.
+If commit or automatic persistence requires computed-layout refresh and the browser-backed measurement path cannot run successfully, the document must not be persisted as though it has a current layout snapshot.
 
-The caller may keep the document in memory, retry refresh, or surface a save failure, but it must not silently write a falsely current `computed_layout`.
+The caller may retry the command or surface a command/save failure, but it must not silently write a falsely current `computed_layout`.
 
-If this failure happens during a normal autosave while the editor remains open, the runtime transitions to `editor_open_autosave_error` with the measurement surface still available.
-
-If this failure happens during a close-triggered final autosave, the runtime transitions to `close_blocked_final_save_error`. The window and renderer stay alive, renderer teardown remains blocked, and the user must be shown retry, keep-editing, and explicit-discard options. The v1 10 second close-save timeout is treated as this same failure class.
-
-In v1, a closed editor window is one concrete case where refresh is unavailable because no measurement surface remains. The runtime should therefore expose a clear `measurement_surface_unavailable` failure rather than implying that a hidden or headless renderer exists.
+In v1, a closed editor window is one concrete case where refresh is unavailable because no measurement surface remains. The runtime therefore exposes a clear `measurement_surface_unavailable` failure rather than implying that a hidden or headless renderer exists.
 
 ## 10. Non-Goals of This Document
 

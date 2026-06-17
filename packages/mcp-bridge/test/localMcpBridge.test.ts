@@ -467,9 +467,7 @@ describe('LocalMcpBridge', () => {
     expect(quickstartDoc.contents[0]?.text).toContain(
       `"name": "apply_commands"`,
     );
-    expect(quickstartDoc.contents[0]?.text).toContain(
-      DOCS_TROUBLESHOOTING_URI,
-    );
+    expect(quickstartDoc.contents[0]?.text).toContain(DOCS_TROUBLESHOOTING_URI);
 
     const troubleshootingDoc = await client.readResource({
       uri: DOCS_TROUBLESHOOTING_URI,

@@ -14,6 +14,7 @@ import { LocalMcpBridge } from '@ai-canvas/mcp-bridge';
 import appIconIcoPath from '../../build/icons/strapping-app-icon.ico?asset';
 import appIconPngPath from '../../build/icons/strapping-app-icon.png?asset';
 import { desktopBranding } from '../branding.js';
+import { resolveMainProcessRuntimeConfig } from './appRuntimeConfig.js';
 import { createProjectService } from './createProjectService.js';
 import { registerAssetProtocol } from './registerAssetProtocol.js';
 import {
@@ -42,8 +43,7 @@ const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const rendererDist = path.join(moduleDir, '../renderer');
 const rendererIndexPath = path.join(rendererDist, 'index.html');
 const preloadPath = path.join(moduleDir, '../preload/index.cjs');
-const mcpHost = '127.0.0.1';
-const mcpPort = 9311;
+const runtimeConfig = resolveMainProcessRuntimeConfig();
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -109,6 +109,11 @@ async function createMainWindow(
 async function bootstrap() {
   app.setName(desktopBranding.appName);
   app.setAppUserModelId(desktopBranding.appId);
+
+  if (runtimeConfig.userDataDir) {
+    app.setPath('userData', runtimeConfig.userDataDir);
+  }
+
   await app.whenReady();
 
   if (process.platform === 'darwin') {
@@ -124,8 +129,8 @@ async function bootstrap() {
   const runtime = createProjectRuntime(store);
   const layoutMeasurementBridge = new RendererLayoutMeasurementBridge();
   const mcpBridge = new LocalMcpBridge({
-    host: mcpHost,
-    port: mcpPort,
+    host: runtimeConfig.mcpHost,
+    port: runtimeConfig.mcpPort,
     projectService: createProjectService(runtime),
   });
 
@@ -238,7 +243,7 @@ async function bootstrap() {
 
 function formatMcpStartError(error: unknown): string {
   if (isPortInUseError(error)) {
-    return `The local MCP bridge requires ${mcpHost}:${mcpPort}, but that port is already in use. Close the conflicting process and relaunch ${desktopBranding.appName}.`;
+    return `The local MCP bridge requires ${runtimeConfig.mcpHost}:${runtimeConfig.mcpPort}, but that port is already in use. Close the conflicting process and relaunch ${desktopBranding.appName}.`;
   }
 
   return error instanceof Error

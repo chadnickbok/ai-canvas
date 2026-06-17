@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
 function printUsage() {
   console.error(
-    "Usage: node ./scripts/migrate-embedded-assets.mjs --db /path/to/app.db [--assets-dir /path/to/assets]"
+    'Usage: node ./scripts/migrate-embedded-assets.mjs --db /path/to/app.db [--assets-dir /path/to/assets]',
   );
 }
 
@@ -18,13 +18,13 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
 
-    if (arg === "--db") {
+    if (arg === '--db') {
       dbPath = argv[index + 1];
       index += 1;
       continue;
     }
 
-    if (arg === "--assets-dir") {
+    if (arg === '--assets-dir') {
       assetsDir = argv[index + 1];
       index += 1;
       continue;
@@ -38,19 +38,19 @@ function parseArgs(argv) {
   }
 
   return {
-    assetsDir: assetsDir ?? path.join(path.dirname(dbPath), "assets"),
-    dbPath
+    assetsDir: assetsDir ?? path.join(path.dirname(dbPath), 'assets'),
+    dbPath,
   };
 }
 
 function resolveContentAddressedAssetRelativePath(contentHash) {
   const normalizedHash = contentHash.trim().toLowerCase();
-  const bucket = normalizedHash.slice(0, 2) || "__";
-  return path.join("sha256", bucket, normalizedHash);
+  const bucket = normalizedHash.slice(0, 2) || '__';
+  return path.join('sha256', bucket, normalizedHash);
 }
 
 function hashAssetBytes(bytes) {
-  return createHash("sha256").update(bytes).digest("hex");
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
 function decodeDataUri(dataUri) {
@@ -66,23 +66,29 @@ function decodeDataUri(dataUri) {
 
   try {
     return isBase64
-      ? Buffer.from(rawData, "base64")
-      : Buffer.from(decodeURIComponent(rawData), "utf8");
+      ? Buffer.from(rawData, 'base64')
+      : Buffer.from(decodeURIComponent(rawData), 'utf8');
   } catch {
     return null;
   }
 }
 
 function decodeEmbeddedAssetBytes(asset) {
-  if (!asset?.source || typeof asset.source !== "object") {
+  if (!asset?.source || typeof asset.source !== 'object') {
     return null;
   }
 
-  if (asset.source.kind === "base64" && typeof asset.source.base64 === "string") {
-    return Buffer.from(asset.source.base64, "base64");
+  if (
+    asset.source.kind === 'base64' &&
+    typeof asset.source.base64 === 'string'
+  ) {
+    return Buffer.from(asset.source.base64, 'base64');
   }
 
-  if (asset.source.kind === "data_uri" && typeof asset.source.data_uri === "string") {
+  if (
+    asset.source.kind === 'data_uri' &&
+    typeof asset.source.data_uri === 'string'
+  ) {
     return decodeDataUri(asset.source.data_uri);
   }
 
@@ -122,7 +128,7 @@ function listProjectAssetRows(database, projectId) {
                original_filename, size_bytes, created_at, updated_at
         FROM project_assets
         WHERE project_id = ?
-      `
+      `,
     )
     .all(projectId);
 }
@@ -134,12 +140,16 @@ function rowToAsset(row) {
     mime_type: row.mime_type,
     ...(row.width == null ? {} : { width: row.width }),
     ...(row.height == null ? {} : { height: row.height }),
-    ...(row.metadata_json == null ? {} : { metadata: JSON.parse(row.metadata_json) }),
+    ...(row.metadata_json == null
+      ? {}
+      : { metadata: JSON.parse(row.metadata_json) }),
     source: {
-      kind: "asset_store",
+      kind: 'asset_store',
       content_hash: row.content_hash,
-      ...(row.original_filename == null ? {} : { original_filename: row.original_filename })
-    }
+      ...(row.original_filename == null
+        ? {}
+        : { original_filename: row.original_filename }),
+    },
   };
 }
 
@@ -147,9 +157,11 @@ function mergeDocumentAssets(document, catalogAssets) {
   return {
     ...document,
     assets: {
-      ...(document.assets && typeof document.assets === "object" ? document.assets : {}),
-      ...catalogAssets
-    }
+      ...(document.assets && typeof document.assets === 'object'
+        ? document.assets
+        : {}),
+      ...catalogAssets,
+    },
   };
 }
 
@@ -160,7 +172,10 @@ function rewriteEmbeddedAssets(document, assetsDir) {
   const unresolvedAssetIds = [];
 
   for (const [assetId, asset] of Object.entries(nextDocument.assets ?? {})) {
-    if (asset?.source?.kind !== "data_uri" && asset?.source?.kind !== "base64") {
+    if (
+      asset?.source?.kind !== 'data_uri' &&
+      asset?.source?.kind !== 'base64'
+    ) {
       continue;
     }
 
@@ -172,7 +187,10 @@ function rewriteEmbeddedAssets(document, assetsDir) {
     }
 
     const contentHash = hashAssetBytes(bytes);
-    const assetPath = path.join(assetsDir, resolveContentAddressedAssetRelativePath(contentHash));
+    const assetPath = path.join(
+      assetsDir,
+      resolveContentAddressedAssetRelativePath(contentHash),
+    );
 
     if (existsSync(assetPath)) {
       reusedContentHashes.add(contentHash);
@@ -184,9 +202,9 @@ function rewriteEmbeddedAssets(document, assetsDir) {
     nextDocument.assets[assetId] = {
       ...asset,
       source: {
-        kind: "asset_store",
-        content_hash: contentHash
-      }
+        kind: 'asset_store',
+        content_hash: contentHash,
+      },
     };
     migratedAssetIds.push(assetId);
   }
@@ -195,29 +213,39 @@ function rewriteEmbeddedAssets(document, assetsDir) {
     document: nextDocument,
     migrated_asset_ids: migratedAssetIds,
     reused_content_hashes: [...reusedContentHashes],
-    unresolved_asset_ids: unresolvedAssetIds
+    unresolved_asset_ids: unresolvedAssetIds,
   };
 }
 
 function stripAssetStoreAssets(document) {
   const nextDocument = clone(document);
   nextDocument.assets = Object.fromEntries(
-    Object.entries(nextDocument.assets ?? {}).filter(([, asset]) => asset?.source?.kind !== "asset_store")
+    Object.entries(nextDocument.assets ?? {}).filter(
+      ([, asset]) => asset?.source?.kind !== 'asset_store',
+    ),
   );
   return nextDocument;
 }
 
-function replaceProjectAssetRows(database, projectId, document, assetsDir, updatedAt) {
-  database.prepare("DELETE FROM project_assets WHERE project_id = ?").run(projectId);
+function replaceProjectAssetRows(
+  database,
+  projectId,
+  document,
+  assetsDir,
+  updatedAt,
+) {
+  database
+    .prepare('DELETE FROM project_assets WHERE project_id = ?')
+    .run(projectId);
 
   for (const asset of Object.values(document.assets ?? {})) {
-    if (asset?.source?.kind !== "asset_store") {
+    if (asset?.source?.kind !== 'asset_store') {
       continue;
     }
 
     const assetPath = path.join(
       assetsDir,
-      resolveContentAddressedAssetRelativePath(asset.source.content_hash)
+      resolveContentAddressedAssetRelativePath(asset.source.content_hash),
     );
 
     database
@@ -253,7 +281,7 @@ function replaceProjectAssetRows(database, projectId, document, assetsDir, updat
             @updated_at,
             @updated_at
           )
-        `
+        `,
       )
       .run({
         asset_id: asset.id,
@@ -266,7 +294,7 @@ function replaceProjectAssetRows(database, projectId, document, assetsDir, updat
         project_id: projectId,
         size_bytes: existsSync(assetPath) ? statSync(assetPath).size : null,
         updated_at: updatedAt,
-        width: asset.width ?? null
+        width: asset.width ?? null,
       });
   }
 }
@@ -282,7 +310,7 @@ function parseHistoryEntries(serializedEntries) {
 
 function migrateDatabase({ assetsDir, dbPath }) {
   const database = new DatabaseSync(dbPath);
-  database.exec("PRAGMA foreign_keys = ON;");
+  database.exec('PRAGMA foreign_keys = ON;');
   ensureAssetTables(database);
 
   const projects = database
@@ -292,19 +320,24 @@ function migrateDatabase({ assetsDir, dbPath }) {
         FROM projects
         WHERE archived_at IS NULL
         ORDER BY created_at ASC
-      `
+      `,
     )
     .all();
   const report = {
     migrated_asset_count: 0,
     projects: [],
-    unresolved_asset_count: 0
+    unresolved_asset_count: 0,
   };
 
   for (const row of projects) {
     const currentDocument = mergeDocumentAssets(
       JSON.parse(row.current_document_json),
-      Object.fromEntries(listProjectAssetRows(database, row.id).map((assetRow) => [assetRow.asset_id, rowToAsset(assetRow)]))
+      Object.fromEntries(
+        listProjectAssetRows(database, row.id).map((assetRow) => [
+          assetRow.asset_id,
+          rowToAsset(assetRow),
+        ]),
+      ),
     );
     const rewrittenCurrent = rewriteEmbeddedAssets(currentDocument, assetsDir);
     const historyRow = database
@@ -313,18 +346,27 @@ function migrateDatabase({ assetsDir, dbPath }) {
           SELECT undo_json, redo_json
           FROM project_history
           WHERE project_id = ?
-        `
+        `,
       )
       .get(row.id);
-    const undoEntries = historyRow ? parseHistoryEntries(historyRow.undo_json) : [];
-    const redoEntries = historyRow ? parseHistoryEntries(historyRow.redo_json) : [];
+    const undoEntries = historyRow
+      ? parseHistoryEntries(historyRow.undo_json)
+      : [];
+    const redoEntries = historyRow
+      ? parseHistoryEntries(historyRow.redo_json)
+      : [];
     const migratedAssetIds = new Set(rewrittenCurrent.migrated_asset_ids);
     const reusedContentHashes = new Set(rewrittenCurrent.reused_content_hashes);
     const unresolvedAssetIds = new Set(rewrittenCurrent.unresolved_asset_ids);
 
     const rewriteHistoryStack = (stack) =>
       stack.map((entry) => {
-        if (!entry || typeof entry !== "object" || !entry.document || typeof entry.document !== "object") {
+        if (
+          !entry ||
+          typeof entry !== 'object' ||
+          !entry.document ||
+          typeof entry.document !== 'object'
+        ) {
           return entry;
         }
 
@@ -344,7 +386,7 @@ function migrateDatabase({ assetsDir, dbPath }) {
 
         return {
           ...entry,
-          document: rewritten.document
+          document: rewritten.document,
         };
       });
 
@@ -356,7 +398,7 @@ function migrateDatabase({ assetsDir, dbPath }) {
     }
 
     const updatedAt = new Date().toISOString();
-    database.exec("BEGIN IMMEDIATE;");
+    database.exec('BEGIN IMMEDIATE;');
 
     try {
       database
@@ -367,16 +409,24 @@ function migrateDatabase({ assetsDir, dbPath }) {
                 revision = revision + 1,
                 updated_at = @updated_at
             WHERE id = @project_id AND revision = @expected_revision
-          `
+          `,
         )
         .run({
-          current_document_json: JSON.stringify(stripAssetStoreAssets(rewrittenCurrent.document)),
+          current_document_json: JSON.stringify(
+            stripAssetStoreAssets(rewrittenCurrent.document),
+          ),
           expected_revision: row.revision,
           project_id: row.id,
-          updated_at: updatedAt
+          updated_at: updatedAt,
         });
 
-      replaceProjectAssetRows(database, row.id, rewrittenCurrent.document, assetsDir, updatedAt);
+      replaceProjectAssetRows(
+        database,
+        row.id,
+        rewrittenCurrent.document,
+        assetsDir,
+        updatedAt,
+      );
 
       if (historyRow) {
         database
@@ -387,19 +437,19 @@ function migrateDatabase({ assetsDir, dbPath }) {
                   redo_json = @redo_json,
                   updated_at = @updated_at
               WHERE project_id = @project_id
-            `
+            `,
           )
           .run({
             project_id: row.id,
             redo_json: JSON.stringify(rewrittenRedo),
             undo_json: JSON.stringify(rewrittenUndo),
-            updated_at: updatedAt
+            updated_at: updatedAt,
           });
       }
 
-      database.exec("COMMIT;");
+      database.exec('COMMIT;');
     } catch (error) {
-      database.exec("ROLLBACK;");
+      database.exec('ROLLBACK;');
       throw error;
     }
 
@@ -409,7 +459,7 @@ function migrateDatabase({ assetsDir, dbPath }) {
       migrated_asset_ids: [...migratedAssetIds].sort(),
       project_id: row.id,
       reused_content_hashes: [...reusedContentHashes].sort(),
-      unresolved_asset_ids: [...unresolvedAssetIds].sort()
+      unresolved_asset_ids: [...unresolvedAssetIds].sort(),
     });
   }
 

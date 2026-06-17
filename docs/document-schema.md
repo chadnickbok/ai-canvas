@@ -116,7 +116,7 @@ This means:
 - a document remains schema-valid even when some or all nodes omit `computed_layout`
 - normalization does not require a fresh `computed_layout`
 - first render does not require a fresh `computed_layout`
-- autosave and commit SHOULD run the separate computed-layout refresh pass when the browser-backed measurement surface is available, without collapsing authored layout inputs into pixels
+- command persistence SHOULD run the separate computed-layout refresh pass when the browser-backed measurement surface is available, without collapsing authored layout inputs into pixels
 
 ### 3.8 No legacy semantic backfill
 
@@ -965,7 +965,7 @@ This schema document does not define:
 - semantic materialization rules
 - command semantics
 - undo/redo behavior
-- autosave timing
+- automatic persistence timing
 - renderer implementation details
 - import compatibility rules
 

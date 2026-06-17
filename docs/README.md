@@ -36,6 +36,9 @@ For MCP operators, the best entrypoint is the bridge's live `docs://...` resourc
 
 ## Guidance docs
 
+- [gaps.md](gaps.md)
+  Audits the current runtime, automatic persistence, snapshot, recovery, and open/load/edit/save implementation gaps against the contract docs.
+
 - [desktop-architecture.md](desktop-architecture.md)
   Describes the recommended Electron, renderer, preload, storage, and package-boundary shape.
 

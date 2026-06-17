@@ -39,7 +39,7 @@ The validation and release strategy must:
 - protect the canonical document contract
 - catch renderer regressions before release
 - prove UI and MCP use the same command/query/document core
-- verify autosave and recovery behavior
+- verify automatic persistence and crash durability behavior
 - verify import/export correctness for the project snapshot format
 - keep Electron process-boundary behavior safe and predictable
 - keep releases practical for a small local-first desktop product
@@ -58,11 +58,11 @@ AI Canvas Desktop is ready to release only when the same project can be:
 1. created locally
 2. edited through the UI
 3. edited through the local MCP bridge
-4. autosaved and re-opened safely
+4. automatically persisted and re-opened safely
 5. exported as a project snapshot
 6. imported again as a new project
 7. rendered with stable visible behavior
-8. recovered safely after crash-like interruption
+8. re-opened to the last committed state after crash-like interruption
 
 A release is not considered healthy if only one mutation path works.
 
@@ -76,7 +76,7 @@ Validation is organized into the following layers:
 2. command semantics tests
 3. semantic resolution and design-system tests
 4. renderer and measurement tests
-5. persistence and recovery tests
+5. persistence and crash durability tests
 6. IPC and Electron boundary tests
 7. MCP parity tests
 8. import/export snapshot tests
@@ -284,7 +284,7 @@ At minimum, measurement tests must prove:
 - relative or flexible `render_style` inputs are preserved as inputs
 - `computed_layout` stores resolved geometry without collapsing authored inputs into pixel style declarations
 
-## 5.5 Persistence and recovery tests
+## 5.5 Persistence and crash durability tests
 
 These tests validate the local-first persistence model.
 
@@ -292,36 +292,22 @@ They must verify:
 
 - project creation
 - project reopen
-- autosave durability
-- recovery artifact creation
-- crash-recovery artifact detection
-- recovery flow correctness
+- automatic command persistence
+- persisted undo/redo history
+- read-only write failure when the measurement surface is unavailable
+- project library durability across restart
 
 ### Required coverage
 
 At minimum, persistence tests must cover:
 
 - save and reopen of a valid project
-- autosaved document survives app restart
-- first edit from clean enters the autosave-pending state
-- autosave timer moves the runtime from autosave-pending to autosave-in-flight
-- autosave success with no newer edits returns the runtime to clean
-- autosave success with newer edits returns the runtime to autosave-pending rather than falsely clean
-- autosave failure while the editor remains open keeps the renderer alive, keeps the document dirty, and shows the non-blocking autosave-error state
-- clean close with no dirty state and no autosave in flight transitions directly to tray
-- dirty close with no autosave in flight starts a final autosave before teardown
-- dirty close with autosave already in flight waits for that save to resolve before teardown
-- close requested while autosave is already in flight and newer unsaved edits remain starts another final-save attempt before close may complete
-- successful close-triggered final save allows close-to-tray
-- failed close-triggered final save enters the blocking final-save-error state
-- failed close-triggered final save keeps the window open and leaves the last durable state unchanged
-- timed-out close-triggered final save keeps the window open and surfaces the same failure path
-- `Retry Save` from blocking final-save error re-enters the blocking final-save-in-flight state
-- `Keep Editing` from blocking final-save error returns to the open-editor autosave-error state
-- discard-and-close after final save failure drops unsaved in-memory state and reopens from the last durable state
-- recovery offered when recovery artifact is newer than durable state
-- recovery decline leaves last durable state intact
-- recovery accept restores newer recoverable state
+- successful command application persists the document and increments the revision before `document_changed`
+- failed command application leaves the document and durable project state unchanged
+- automatically persisted document survives app restart
+- undo/redo stacks persist across reopen
+- write-capable commands fail with `measurement_surface_unavailable` when the renderer measurement surface is unavailable
+- closing and reopening the editor window preserves the last durable project state
 - structured data remains in SQLite
 - binary assets remain disk-backed
 - broken asset files degrade safely rather than crashing project load
@@ -376,11 +362,9 @@ At minimum, MCP tests must cover:
 - update project state through MCP and verify UI-visible result
 - disable MCP and verify listener is unavailable
 - verify MCP binds only to localhost
-- verify MCP stays `read_write` during a normal autosave error while the editor window remains open
-- verify MCP remains available when editor window is closed but app remains resident in tray
-- verify MCP remains `read_write` while a close-triggered final save is still blocking window close
-- verify MCP remains `read_write` in the blocking final-save-error state
-- verify MCP becomes `read_only` only after the window actually closes
+- verify MCP inspection remains available when the editor window is closed but the app process remains resident
+- verify MCP mutation fails with `measurement_surface_unavailable` when the renderer measurement surface is unavailable
+- verify MCP returns to write-capable behavior after the editor window is reopened and measurement is available
 - verify MCP shuts down on explicit app quit
 
 ## 5.8 Snapshot import/export tests
@@ -394,7 +378,7 @@ They must verify:
 - checksum validation
 - asset bundle correctness
 - import repair behavior
-- partial recovery behavior
+- partial import behavior
 
 ### Required coverage
 
@@ -411,7 +395,7 @@ At minimum, snapshot tests must cover:
 - import of snapshot with missing optional metadata
 - import with corrupt or missing asset file
 - import with checksum mismatch
-- import of damaged but partially recoverable snapshot
+- import of damaged but partially readable snapshot
 - import creates a new local project rather than mutating the source project in place
 - import does not expose the imported project for editing before validation, id remapping, normalization, and persistence finish
 - failed import exposes no partial imported project and leaves the current active project unchanged
@@ -434,7 +418,7 @@ At minimum, end-to-end coverage must include:
 5. apply semantic local value
 6. create and bind variable
 7. create and bind style
-8. autosave
+8. automatic persistence
 9. close and reopen project
 10. export snapshot
 11. import snapshot as new project
@@ -442,12 +426,35 @@ At minimum, end-to-end coverage must include:
 13. enable MCP
 14. mutate active project through MCP
 15. verify UI reflects MCP mutation
-16. close window to tray
+16. close the editor window while leaving the app process resident
 17. verify MCP still works
 18. explicitly quit app
 19. verify MCP stops
 
 These do not all need to be covered by one giant scenario, but the release bar must prove all of them.
+
+### Current automated local smoke lane
+
+Run the current product-level desktop smoke lane with:
+
+```bash
+pnpm smoke:desktop
+```
+
+This is a local-only launch smoke test for the current desktop runtime. It builds
+the packages and desktop app, launches Electron with an isolated temporary
+profile, creates a project through the visible UI, creates and edits a rectangle
+node through the canvas toolbar and inspector, relaunches the app with the same
+profile, reopens the project from the library, mutates the same project through
+the local MCP bridge, and verifies the renderer reflects the MCP mutation.
+
+This lane does **not** cover project snapshot export/import yet. Snapshot
+coverage remains a separate required release gap until the `.aicp`
+import/export runtime surface exists.
+
+Do not add `pnpm smoke:desktop` to CI by default until the target runner has an
+explicit desktop display strategy. Linux/headless CI should run it under xvfb or
+another display server before treating it as a reliable gate.
 
 ## 6. Fixture Strategy
 
@@ -460,7 +467,7 @@ Fixtures should be used for:
 - renderer snapshots
 - measurement expectations
 - import/export bundles
-- recovery scenarios
+- crash-durability scenarios
 
 ## 6.1 Fixture principles
 
@@ -484,7 +491,7 @@ fixtures/
   rendering/
   measurement/
   snapshots/
-  recovery/
+  durability/
   mcp/
 ```
 
@@ -521,7 +528,7 @@ A release must not ship if any of the following fail:
 - required end-to-end workflows
 - packaging/build success for the target release platform
 - macOS update metadata generation for the published release
-- Windows update metadata generation for the published release when Windows shipping is enabled
+- Windows update metadata generation for the published release
 
 ## 7.2 Warning-level gates
 
@@ -539,7 +546,7 @@ A warning-level issue may ship only if the release decision explicitly accepts i
 The following always block release:
 
 - data-loss bug in normal edit flow
-- corrupted project reopen after normal autosave
+- corrupted project reopen after normal automatic persistence
 - UI and MCP producing divergent project state from equivalent operations
 - project snapshot export that cannot be re-imported by the same release
 - Electron security posture regression such as context isolation disabled or renderer Node integration enabled
@@ -586,12 +593,12 @@ A releasable `main` commit should execute the full validation and packaging work
 - install or launch smoke test
 - end-to-end workflow run
 - snapshot export/import run
-- tray-close and explicit-quit behavior validation
+- window-close and explicit-quit behavior validation
 - MCP localhost validation
 
 The current operational release workflow, publication model, and updater expectations are documented in [release-strategy.md](release-strategy.md).
 
-When Windows shipping is enabled, the release lane should also validate:
+The release lane must also validate Windows publication:
 
 - signed Windows NSIS packaging
 - Windows update metadata generation
@@ -614,18 +621,18 @@ At minimum, manual release verification should cover:
 - create and edit a text node
 - apply a style and a variable
 - verify visible rendering is reasonable
-- verify autosave indicator behavior if present
+- verify automatic-persistence indicator behavior if present
 - close and reopen the project
-- edit a project, close the window, and verify close waits for final save before tray transition
+- edit a project, close and reopen the window, and verify the last committed edit persists
 - export a snapshot
 - import the snapshot as a new project
-- close the editor window and verify tray-resident behavior
+- close the editor window and verify write-capable commands are unavailable until the window is reopened
 - verify MCP status UI
 - apply one safe read call and one mutation through MCP
 - explicitly quit app and verify MCP stops
 - relaunch app and confirm project library remains intact
 
-When shipping Windows builds, recent published releases should also be checked manually for:
+Recent published releases should also be checked manually on Windows for:
 
 - clean install from the signed NSIS installer
 - app launch from the Start menu and desktop shortcut if created
@@ -636,9 +643,8 @@ When shipping Windows builds, recent published releases should also be checked m
 At minimum, recent published `main` releases should be checked manually against:
 
 - missing asset behavior
-- damaged snapshot partial recovery behavior
+- damaged snapshot partial import behavior
 - detached SVG primitive fallback behavior
-- recovery prompt behavior after simulated interruption
 
 ## 10. Performance and Stability Bar
 
@@ -649,7 +655,7 @@ AI Canvas Desktop does not need hyperscale backend-style SLOs, but it does need 
 The app is not releasable if:
 
 - it crashes in normal project create/open/edit flow
-- it hangs indefinitely during normal autosave or during close-triggered final save
+- it hangs indefinitely during normal project create/open/edit automatic persistence
 - it cannot reopen a project saved by the same version
 - MCP commonly wedges the active project session
 - snapshot import/export commonly fails on valid fixtures
@@ -706,8 +712,8 @@ The desktop release is ready when all of the following are true:
 
 - schema, normalization, command, and semantic tests pass
 - renderer behavior is validated for required node kinds and layout cases
-- autosave and reopen work reliably
-- recovery behavior works for supported failure cases
+- automatic persistence and reopen work reliably
+- crash durability works for supported failure cases
 - snapshot export/import work for the supported format
 - MCP reads and mutates the same live project session as the UI
 - MCP remains available after the window closes and stops on explicit quit

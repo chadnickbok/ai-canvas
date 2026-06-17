@@ -3,24 +3,32 @@ import type {
   AssetSource,
   EmbeddedAssetSource,
   LocalAssetStoreSource,
-  RendererDocument
-} from "./types.js";
+  RendererDocument,
+} from './types.js';
 
-export function isEmbeddedAssetSource(source: AssetSource): source is EmbeddedAssetSource {
-  return source.kind === "data_uri" || source.kind === "base64";
+export function isEmbeddedAssetSource(
+  source: AssetSource,
+): source is EmbeddedAssetSource {
+  return source.kind === 'data_uri' || source.kind === 'base64';
 }
 
-export function isAssetStoreSource(source: AssetSource): source is LocalAssetStoreSource {
-  return source.kind === "asset_store";
+export function isAssetStoreSource(
+  source: AssetSource,
+): source is LocalAssetStoreSource {
+  return source.kind === 'asset_store';
 }
 
-export function collectEmbeddedAssets(document: RendererDocument): AssetRecord[] {
-  return Object.values(document.assets).filter((asset) => isEmbeddedAssetSource(asset.source));
+export function collectEmbeddedAssets(
+  document: RendererDocument,
+): AssetRecord[] {
+  return Object.values(document.assets).filter((asset) =>
+    isEmbeddedAssetSource(asset.source),
+  );
 }
 
 export function replaceAssetSources(
   document: RendererDocument,
-  replacements: Record<string, AssetSource | undefined>
+  replacements: Record<string, AssetSource | undefined>,
 ): RendererDocument {
   const nextDocument = structuredClone(document);
 
@@ -31,7 +39,7 @@ export function replaceAssetSources(
 
     nextDocument.assets[assetId] = {
       ...nextDocument.assets[assetId],
-      source: structuredClone(nextSource)
+      source: structuredClone(nextSource),
     };
   }
 
